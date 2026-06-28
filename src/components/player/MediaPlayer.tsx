@@ -7,12 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { YouTubePlayer } from './YouTubePlayer';
 import { Html5Player } from './Html5Player';
-// Lazy-load the PdfReader (and its pdfjs-dist dependency) ONLY when a PDF
+// Lazy-load the PdfViewer (and its pdfjs-dist dependency) ONLY when a PDF
 // is actually opened. This keeps the initial bundle small and avoids
 // loading the ~1MB pdfjs-dist chunk until needed. Also disables SSR
 // because pdfjs-dist uses browser-only APIs (DOMMatrix, canvas, etc.).
-const PdfReader = dynamic(
-  () => import('./PdfReader').then((m) => m.PdfReader),
+const PdfViewer = dynamic(
+  () => import('@/components/pdf-viewer').then((m) => m.PdfViewer),
   {
     ssr: false,
     loading: () => (
@@ -245,7 +245,7 @@ export function MediaPlayer({ item, onClose }: MediaPlayerProps) {
             </div>
           ) : kind === 'pdf' ? (
             <div className="p-2 sm:p-4 bg-background">
-              <PdfReader url={item.pdfUrl!} title={item.title} />
+              <PdfViewer url={item.pdfUrl!} title={item.title} bookSlug={item.id} />
             </div>
           ) : kind === 'fatwa' ? (
             <div className="p-4 sm:p-6 bg-background overflow-auto max-h-[70vh]">

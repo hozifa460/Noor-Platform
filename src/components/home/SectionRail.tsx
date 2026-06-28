@@ -5,6 +5,7 @@ import { MediaCard } from '@/components/media/MediaCard';
 import { MediaRailSkeleton } from '@/components/media/MediaCardSkeleton';
 import { useLibraryStore } from '@/stores/library.store';
 import { useNavStore } from '@/stores/nav.store';
+import { useYouTubeDates } from '@/hooks/use-youtube-dates';
 import type { MediaItem, SectionKind } from '@/lib/types';
 import { useMemo } from 'react';
 
@@ -72,29 +73,67 @@ function isYouTubeSourced(item: MediaItem): boolean {
 }
 
 /**
- * Sort + diversify strategy:
- *   1. Split items into YouTube-sourced (auto-synced from channels) and others.
- *   2. Within each group: sort by publishedAt desc (newest first).
- *   3. Within each group: interleave by sheikh for diversity (round-robin).
- *   4. Concatenate: YouTube group first, then other group.
- *
- * This puts the freshest channel content at the top while ensuring no single
- * sheikh dominates the visible window — the user sees variety across sheikhs.
+ * Returns true if an item was sourced from a YouTube-channel sync file
+ * (.videos.json, .shorts.json, .live.json). These contain the LATEST content.
  */
-function sortAndDiversify(items: MediaItem[]): MediaItem[] {
-  const youTube = items.filter(isYouTubeSourced);
-  const others = items.filter((i) => !isYouTubeSourced(i));
+function isYouTubeSynced(item: MediaItem): boolean {
+  if (!item.sourceFile) return false;
+  return /\.(videos|shorts|live)\.json$/i.test(item.sourceFile);
+}
 
-  const sortNewest = (a: MediaItem, b: MediaItem) => {
-    const ta = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
-    const tb = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
-    return tb - ta;
-  };
+/**
+ * Interleave by sheikh (round-robin): the newest video from each sheikh
+ * appears first, then the second-newest from each sheikh, etc.
+ */
+function sortByNewestWithDiversity(items: MediaItem[]): MediaItem[] {
+  const groups = new Map<string, MediaItem[]>();
+  const order: string[] = [];
+  for (const item of items) {
+    const key = item.sheikhId || 'unknown';
+    if (!groups.has(key)) {
+      groups.set(key, []);
+      order.push(key);
+    }
+    groups.get(key)!.push(item);
+  }
 
-  youTube.sort(sortNewest);
-  others.sort(sortNewest);
+  const result: MediaItem[] = [];
+  let remaining = items.length;
+  while (remaining > 0) {
+    for (const key of order) {
+      const group = groups.get(key);
+      if (group && group.length > 0) {
+        result.push(group.shift()!);
+        remaining--;
+        if (remaining === 0) break;
+      }
+    }
+  }
+  return result;
+}
 
-  return [...interleaveBySheikh(youTube), ...interleaveBySheikh(others)];
+/**
+ * Sort items by ACTUAL YouTube publish date (newest first).
+ */
+function sortByActualDate(
+  items: MediaItem[],
+  getDate: (url: string) => string | undefined,
+): MediaItem[] {
+  const withDates = items.map((item) => {
+    const url = item.youtubeUrl || item.videoUrl || item.audioUrl || '';
+    const dateStr = getDate(url);
+    const timestamp = dateStr ? new Date(dateStr).getTime() : 0;
+    return { item, timestamp };
+  });
+
+  withDates.sort((a, b) => {
+    if (a.timestamp === 0 && b.timestamp === 0) return 0;
+    if (a.timestamp === 0) return 1;
+    if (b.timestamp === 0) return -1;
+    return b.timestamp - a.timestamp;
+  });
+
+  return withDates.map((x) => x.item);
 }
 
 export function SectionRail({
@@ -107,12 +146,23 @@ export function SectionRail({
 }: SectionRailProps) {
   const items = useLibraryStore((s) => s.items);
   const setView = useNavStore((s) => s.setView);
+  const { getDate, loaded: datesLoaded } = useYouTubeDates();
+
   const filtered = useMemo(() => {
-    const sectionItems = items.filter((i) => i.section === section);
-    // Sort YouTube-sourced first, then by newest, then interleave by sheikh.
-    const ordered = shuffle ? sortAndDiversify(sectionItems) : sectionItems;
+    let sectionItems = items.filter((i) => i.section === section);
+
+    // For videos/shorts/live: ONLY show YouTube-synced items (latest content).
+    if (section === 'videos' || section === 'shorts' || section === 'live') {
+      sectionItems = sectionItems.filter(isYouTubeSynced);
+      // Sort by ACTUAL publish date from YouTube RSS.
+      const sorted = sortByActualDate(sectionItems, getDate);
+      return sorted.slice(0, limit);
+    }
+
+    // For other sections: interleave by sheikh.
+    const ordered = shuffle ? sortByNewestWithDiversity(sectionItems) : sectionItems;
     return ordered.slice(0, limit);
-  }, [items, section, limit, shuffle]);
+  }, [items, section, limit, shuffle, getDate, datesLoaded]);
 
   // Show skeleton while loading.
   if (loading) {

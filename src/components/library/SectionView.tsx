@@ -5,6 +5,7 @@ import { FatwaCard } from '@/components/media/FatwaCard';
 import { MediaCardSkeleton } from '@/components/media/MediaCardSkeleton';
 import { useLibraryStore } from '@/stores/library.store';
 import { useFatwaStore } from '@/stores/fatwa-store';
+import { useYouTubeDates } from '@/hooks/use-youtube-dates';
 import type { MediaItem, SectionKind } from '@/lib/types';
 import { PlayCircle, Zap, Radio, FileQuestion, BookOpen, FileText, Loader2, Search, History } from 'lucide-react';
 import { useMemo, useEffect, useRef, useState } from 'react';
@@ -77,29 +78,88 @@ function interleaveBySheikh(items: MediaItem[]): MediaItem[] {
 }
 
 /**
- * Sort + diversify strategy:
- *   1. Split items into YouTube-sourced (auto-synced from channels) and others.
- *   2. Within each group: sort by publishedAt desc (newest first).
- *   3. Within each group: interleave by sheikh for diversity (round-robin).
- *   4. Concatenate: YouTube group first, then other group.
+ * Returns true if an item was sourced from a YouTube-channel sync file
+ * (.videos.json, .shorts.json, .live.json). These files are auto-updated
+ * by the Dart sync script from YouTube RSS feeds, so their items are in
+ * newest-first order.
  *
- * This puts the freshest channel content at the top while ensuring diversity
- * across sheikhs — no single sheikh dominates the visible window.
+ * Old main-collection files (1_*.json, 2_*.json, *_1.json) contain
+ * historical content WITHOUT dates and should be EXCLUDED from the
+ * "latest videos/shorts/live" views.
  */
-function sortAndDiversify(items: MediaItem[]): MediaItem[] {
-  const youTube = items.filter(isYouTubeSourced);
-  const others = items.filter((i) => !isYouTubeSourced(i));
-  youTube.sort((a, b) => {
-    const ta = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
-    const tb = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
-    return tb - ta;
+function isYouTubeSynced(item: MediaItem): boolean {
+  if (!item.sourceFile) return false;
+  return /\.(videos|shorts|live)\.json$/i.test(item.sourceFile);
+}
+
+/**
+ * Sort items: interleave by sheikh (round-robin) so the newest video from
+ * each sheikh appears first, then the second-newest from each sheikh, etc.
+ *
+ * Within each sheikh's group, items are kept in their original insertion order
+ * (which is the RSS feed order = newest first, since the Dart sync script
+ * fetches from YouTube RSS and stores in that order).
+ *
+ * This produces a diverse "recent uploads" view where no single sheikh
+ * dominates the top of the list.
+ */
+function sortByNewestWithDiversity(items: MediaItem[]): MediaItem[] {
+  // Group by sheikh, preserving insertion order within each group.
+  const groups = new Map<string, MediaItem[]>();
+  const order: string[] = [];
+  for (const item of items) {
+    const key = item.sheikhId || 'unknown';
+    if (!groups.has(key)) {
+      groups.set(key, []);
+      order.push(key);
+    }
+    groups.get(key)!.push(item);
+  }
+
+  // Round-robin: take one from each group in turn.
+  const result: MediaItem[] = [];
+  let remaining = items.length;
+  while (remaining > 0) {
+    for (const key of order) {
+      const group = groups.get(key);
+      if (group && group.length > 0) {
+        result.push(group.shift()!);
+        remaining--;
+        if (remaining === 0) break;
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * Sort items by ACTUAL YouTube publish date (newest first).
+ * Uses the dates fetched from YouTube RSS feeds via useYouTubeDates hook.
+ *
+ * Items WITHOUT a known date are placed at the END (after all dated items).
+ * Within the same date, items keep their original insertion order (stable sort).
+ */
+function sortByActualDate(
+  items: MediaItem[],
+  getDate: (url: string) => string | undefined,
+): MediaItem[] {
+  // Build a list with dates attached.
+  const withDates = items.map((item) => {
+    const url = item.youtubeUrl || item.videoUrl || item.audioUrl || '';
+    const dateStr = getDate(url);
+    const timestamp = dateStr ? new Date(dateStr).getTime() : 0;
+    return { item, timestamp };
   });
-  others.sort((a, b) => {
-    const ta = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
-    const tb = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
-    return tb - ta;
+
+  // Sort by timestamp desc. Items without dates go to the end.
+  withDates.sort((a, b) => {
+    if (a.timestamp === 0 && b.timestamp === 0) return 0;
+    if (a.timestamp === 0) return 1;
+    if (b.timestamp === 0) return -1;
+    return b.timestamp - a.timestamp;
   });
-  return [...interleaveBySheikh(youTube), ...interleaveBySheikh(others)];
+
+  return withDates.map((x) => x.item);
 }
 
 interface SectionViewProps {
@@ -110,13 +170,27 @@ export function SectionView({ section }: SectionViewProps) {
   const items = useLibraryStore((s) => s.items);
   const syncing = useLibraryStore((s) => s.syncing);
   const lastSync = useLibraryStore((s) => s.lastSync);
+  const { getDate, loaded: datesLoaded } = useYouTubeDates();
 
   const filtered = useMemo(() => {
-    const sectionItems = items.filter((i) => i.section === section);
-    // YouTube-sourced videos first (newest), then others, with interleave
-    // across sheikhs for diversity in each group.
-    return sortAndDiversify(sectionItems);
-  }, [items, section]);
+    let sectionItems = items.filter((i) => i.section === section);
+
+    // For videos/shorts/live sections: ONLY show items from YouTube-synced files
+    // (.videos.json, .shorts.json, .live.json). These are auto-updated from
+    // YouTube RSS and contain the LATEST content.
+    if (section === 'videos' || section === 'shorts' || section === 'live') {
+      sectionItems = sectionItems.filter(isYouTubeSynced);
+    }
+
+    // For videos/shorts/live: sort by ACTUAL publish date from YouTube.
+    // This gives a true chronological order (newest first) across all sheikhs.
+    if (section === 'videos' || section === 'shorts' || section === 'live') {
+      return sortByActualDate(sectionItems, getDate);
+    }
+
+    // For other sections: use interleave by sheikh.
+    return sortByNewestWithDiversity(sectionItems);
+  }, [items, section, getDate, datesLoaded]);
 
   const meta = TITLES[section];
   const Icon = meta.icon;
@@ -316,9 +390,13 @@ function LiveSectionView() {
   const items = useLibraryStore((s) => s.items);
   const syncing = useLibraryStore((s) => s.syncing);
   const lastSync = useLibraryStore((s) => s.lastSync);
+  const { getDate, loaded: datesLoaded } = useYouTubeDates();
 
   const { liveNow, ended } = useMemo(() => {
-    const liveItems = items.filter((i) => i.section === 'live');
+    // Only show YouTube-synced live items (.live.json files).
+    const liveItems = items.filter(
+      (i) => i.section === 'live' && isYouTubeSynced(i),
+    );
     // Split based on computed liveStatus (kept up-to-date by useLiveMonitor).
     const now: MediaItem[] = [];
     const past: MediaItem[] = [];
@@ -327,10 +405,11 @@ function LiveSectionView() {
       else now.push(item); // 'now' or undefined (optimistic)
     }
     return {
-      liveNow: sortByNewest(now),
-      ended: sortByNewest(past),
+      // Sort by ACTUAL YouTube publish date (newest first).
+      liveNow: sortByActualDate(now, getDate),
+      ended: sortByActualDate(past, getDate),
     };
-  }, [items]);
+  }, [items, getDate, datesLoaded]);
 
   const isLoading = liveNow.length === 0 && ended.length === 0 && (syncing || !lastSync);
 
