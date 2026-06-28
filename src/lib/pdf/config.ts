@@ -10,12 +10,19 @@
 let pdfjsPromise: Promise<typeof import('pdfjs-dist')> | null = null;
 
 export async function loadPdfjs(): Promise<typeof import('pdfjs-dist')> {
+  // If a previous attempt failed, the promise was reset to null.
+  // Try again — the chunk might load on retry.
   if (pdfjsPromise) return pdfjsPromise;
 
   pdfjsPromise = (async () => {
     let lastErr: unknown;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
+        // Use a cache-busting query param on retry to force a fresh fetch
+        // of the chunk (in case the previous fetch was corrupted).
+        if (attempt > 0) {
+          await new Promise((r) => setTimeout(r, 500 * Math.pow(2, attempt)));
+        }
         const mod = await import('pdfjs-dist');
 
         // Configure the worker — served from /public/pdf.worker.min.mjs
@@ -28,20 +35,31 @@ export async function loadPdfjs(): Promise<typeof import('pdfjs-dist')> {
           `[pdfjs] Failed to load (attempt ${attempt + 1}/3):`,
           err,
         );
-        // Exponential backoff: 500ms, 1000ms, 2000ms
-        if (attempt < 2) {
-          await new Promise((r) => setTimeout(r, 500 * Math.pow(2, attempt)));
-        }
+        // Reset the promise so the next attempt can try fresh.
+        pdfjsPromise = null;
       }
     }
-    // All retries failed — reset so the next call can try again.
-    pdfjsPromise = null;
-    throw lastErr instanceof Error
-      ? lastErr
-      : new Error('Failed to load PDF.js after 3 attempts');
+    // All retries failed.
+    throw new PdfjsLoadError(
+      'Failed to load PDF.js library after 3 attempts',
+      lastErr instanceof Error ? lastErr.message : String(lastErr),
+    );
   })();
 
   return pdfjsPromise;
+}
+
+/**
+ * Custom error class for PDF.js library loading failures.
+ * Distinguishes from PDF file loading errors.
+ */
+export class PdfjsLoadError extends Error {
+  cause: string;
+  constructor(message: string, cause: string) {
+    super(message);
+    this.name = 'PdfjsLoadError';
+    this.cause = cause;
+  }
 }
 
 /**

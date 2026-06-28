@@ -22,6 +22,8 @@ import {
   Moon,
   Coffee,
   X,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +38,8 @@ interface ToolbarProps {
   onToggleSidebar: () => void;
   onToggleSearch: () => void;
   showSearch: boolean;
+  focusMode?: boolean;
+  onToggleFocusMode?: () => void;
 }
 
 export function Toolbar({
@@ -45,6 +49,8 @@ export function Toolbar({
   onToggleSidebar,
   onToggleSearch,
   showSearch,
+  focusMode,
+  onToggleFocusMode,
 }: ToolbarProps) {
   const {
     currentPage,
@@ -243,6 +249,19 @@ export function Toolbar({
         >
           {isFullscreen ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
         </Button>
+
+        {/* Focus mode (auto-hide controls) */}
+        {onToggleFocusMode && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn('size-9', focusMode && 'text-primary')}
+            onClick={onToggleFocusMode}
+            title={focusMode ? 'إنهاء وضع التركيز' : 'وضع التركيز'}
+          >
+            {focusMode ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+          </Button>
+        )}
       </div>
 
       {/* ─── Second row: view modes + reading modes ─── */}

@@ -53,6 +53,27 @@ export function PdfViewer({
   const [showSearch, setShowSearch] = useState(false);
   const localRef = useRef<HTMLDivElement | null>(null);
 
+  // ─── Focus mode (auto-hide controls) ─────────────────────────────
+  const [focusMode, setFocusMode] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const hideControlsTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const showControlsTemporarily = useCallback(() => {
+    setControlsVisible(true);
+    if (hideControlsTimer.current) clearTimeout(hideControlsTimer.current);
+    if (focusMode) {
+      hideControlsTimer.current = setTimeout(() => setControlsVisible(false), 3000);
+    }
+  }, [focusMode]);
+
+  useEffect(() => {
+    if (!focusMode) {
+      Promise.resolve().then(() => setControlsVisible(true));
+      return;
+    }
+    Promise.resolve().then(() => showControlsTemporarily());
+  }, [focusMode, showControlsTemporarily]);
+
   // Sync local ref with the hook's container ref (for fullscreen).
   const setRef = useCallback((el: HTMLDivElement | null) => {
     localRef.current = el;
@@ -178,28 +199,35 @@ export function PdfViewer({
       <div className="w-full grid place-items-center bg-muted rounded-xl border border-border p-8" style={{ minHeight: 400 }}>
         <div className="text-center max-w-md">
           <AlertCircle className="size-12 text-destructive mx-auto mb-4" />
-          <p className="text-base font-bold mb-2">تعذر تحميل الكتاب</p>
+          <p className="text-base font-bold mb-2">
+            {viewer.libraryError ? 'تعذر تحميل المكتبة' : 'تعذر تحميل الكتاب'}
+          </p>
           <p className="text-sm text-muted-foreground mb-6">{viewer.error}</p>
           <div className="flex gap-2 justify-center">
+            {/* Retry button — uses the hook's retry() which re-triggers the load effect */}
             <Button
-              variant="outline"
+              variant="default"
               size="sm"
-              onClick={() => {
-                // Force reload by changing the URL slightly
-                window.location.reload();
-              }}
+              onClick={() => viewer.retry()}
               className="gap-1.5"
             >
               <RefreshCw className="size-3.5" />
               إعادة المحاولة
             </Button>
-            <Button asChild variant="default" size="sm">
-              <a href={url} target="_blank" rel="noopener noreferrer" className="gap-1.5">
-                <ExternalLink className="size-3.5" />
-                فتح في نافذة جديدة
-              </a>
-            </Button>
+            {!viewer.libraryError && (
+              <Button asChild variant="outline" size="sm">
+                <a href={url} target="_blank" rel="noopener noreferrer" className="gap-1.5">
+                  <ExternalLink className="size-3.5" />
+                  فتح في نافذة جديدة
+                </a>
+              </Button>
+            )}
           </div>
+          {viewer.libraryError && (
+            <p className="text-xs text-muted-foreground/70 mt-4">
+              إذا استمرت المشكلة، تحقق من اتصالك بالإنترنت ثم أعد تحميل الصفحة (F5).
+            </p>
+          )}
         </div>
       </div>
     );
@@ -235,33 +263,55 @@ export function PdfViewer({
     );
   }
 
+  // ─── Reading progress percentage ─────────────────────────────────
+  const readingProgress = viewer.numPages > 0
+    ? Math.round((viewer.currentPage / viewer.numPages) * 100)
+    : 0;
+
   // ─── Main viewer ─────────────────────────────────────────────────
   return (
     <div
       ref={setRef}
-      onWheel={handleWheel}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
+      onWheel={(e) => {
+        handleWheel(e);
+        showControlsTemporarily();
+      }}
+      onTouchStart={(e) => {
+        handleTouchStart(e);
+        showControlsTemporarily();
+      }}
+      onTouchMove={(e) => {
+        handleTouchMove(e);
+        showControlsTemporarily();
+      }}
+      onMouseMove={showControlsTemporarily}
       className={cn(
-        'flex flex-col w-full bg-card rounded-xl border border-border overflow-hidden',
+        'flex flex-col w-full bg-card rounded-xl border border-border overflow-hidden transition-all',
         viewer.isFullscreen && 'fixed inset-0 z-50 rounded-none',
+        focusMode && !controlsVisible && 'cursor-none',
       )}
       style={{ height: viewer.isFullscreen ? '100vh' : '85vh' }}
     >
-      {/* Toolbar */}
-      <Toolbar
-        viewer={viewer}
-        title={title}
-        url={url}
-        onToggleSidebar={() => setShowSidebar((v) => !v)}
-        onToggleSearch={() => setShowSearch((v) => !v)}
-        showSearch={showSearch}
-      />
+      {/* Toolbar — hidden in focus mode when controls are not visible */}
+      {(!focusMode || controlsVisible) && (
+        <Toolbar
+          viewer={viewer}
+          title={title}
+          url={url}
+          onToggleSidebar={() => setShowSidebar((v) => !v)}
+          onToggleSearch={() => setShowSearch((v) => !v)}
+          showSearch={showSearch}
+          focusMode={focusMode}
+          onToggleFocusMode={() => setFocusMode((v) => !v)}
+        />
+      )}
 
       {/* Main content: sidebar + page area */}
       <div className="flex-1 flex min-h-0">
         {/* Sidebar */}
-        {showSidebar && <Sidebar viewer={viewer} onClose={() => setShowSidebar(false)} />}
+        {showSidebar && (!focusMode || controlsVisible) && (
+          <Sidebar viewer={viewer} onClose={() => setShowSidebar(false)} />
+        )}
 
         {/* Page display area */}
         <div className={cn('flex-1 min-w-0', readingModeBg[viewer.readingMode])}>
@@ -276,30 +326,44 @@ export function PdfViewer({
         </div>
       </div>
 
-      {/* Mobile bottom bar */}
-      <div className="sm:hidden flex items-center justify-between px-3 py-2 border-t border-border bg-background shrink-0">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-9"
-          onClick={viewer.prevPage}
-          disabled={viewer.currentPage <= 1}
-        >
-          <ExternalLink className="size-5 rotate-180" />
-        </Button>
-        <span className="text-xs text-muted-foreground tabular-nums">
-          {viewer.currentPage} / {viewer.numPages}
+      {/* Reading progress bar (bottom) */}
+      <div className="h-1 bg-muted shrink-0 relative">
+        <div
+          className="h-full bg-primary transition-all duration-300"
+          style={{ width: `${readingProgress}%` }}
+        />
+        {/* Percentage indicator */}
+        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground tabular-nums bg-background/80 px-1 rounded">
+          {readingProgress}%
         </span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-9"
-          onClick={viewer.nextPage}
-          disabled={viewer.currentPage >= viewer.numPages}
-        >
-          <ExternalLink className="size-5" />
-        </Button>
       </div>
+
+      {/* Mobile bottom bar */}
+      {(!focusMode || controlsVisible) && (
+        <div className="sm:hidden flex items-center justify-between px-3 py-2 border-t border-border bg-background shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-9"
+            onClick={viewer.prevPage}
+            disabled={viewer.currentPage <= 1}
+          >
+            <ExternalLink className="size-5 rotate-180" />
+          </Button>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {viewer.currentPage} / {viewer.numPages}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-9"
+            onClick={viewer.nextPage}
+            disabled={viewer.currentPage >= viewer.numPages}
+          >
+            <ExternalLink className="size-5" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

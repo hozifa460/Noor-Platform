@@ -74,6 +74,10 @@ export interface PdfViewerActions {
   setSearchQuery: (q: string) => void;
   /** Callback ref for the container element (used for fullscreen). */
   setContainerRef: (el: HTMLDivElement | null) => void;
+  /** Retry loading after a library error. */
+  retry: () => void;
+  /** True if the last error was a library loading error (not a PDF file error). */
+  libraryError: boolean;
 }
 
 export interface UsePdfViewerResult extends PdfViewerState, PdfViewerActions {}
@@ -121,6 +125,10 @@ export function usePdfViewer(url: string, bookSlug?: string): UsePdfViewerResult
   // ─── Bookmarks + progress ────────────────────────────────────────
   const [bookmarks, setBookmarks] = useState<number[]>([]);
   const [lastReadPage, setLastReadPage] = useState(1);
+
+  // ─── Error type tracking ─────────────────────────────────────────
+  const [libraryError, setLibraryError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   // ─── Refs ────────────────────────────────────────────────────────
   const renderedPagesRef = useRef<Set<number>>(new Set());
@@ -219,8 +227,19 @@ export function usePdfViewer(url: string, bookSlug?: string): UsePdfViewerResult
         if (cancelled) return;
         console.error('[usePdfViewer] Failed to load PDF:', err);
         let msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes('Failed to load PDF.js')) {
-          msg = 'تعذر تحميل مكتبة عرض الكتب. تحقق من اتصالك بالإنترنت.';
+        let isLibError = false;
+
+        // Check if this is a PDF.js library loading error (not a PDF file error).
+        if (
+          err instanceof Error &&
+          (err.name === 'PdfjsLoadError' ||
+            msg.includes('Failed to load PDF.js') ||
+            msg.includes('Loading chunk') ||
+            msg.includes('network error') ||
+            msg.includes('Loading CSS chunk'))
+        ) {
+          isLibError = true;
+          msg = 'تعذر تحميل مكتبة عرض الكتب. تحقق من اتصالك بالإنترنت ثم اضغط إعادة المحاولة.';
         } else if (msg.includes('Invalid PDF')) {
           msg = 'ملف PDF تالف أو غير صالح.';
         } else if (msg.includes('password')) {
@@ -229,6 +248,7 @@ export function usePdfViewer(url: string, bookSlug?: string): UsePdfViewerResult
           msg = 'خطأ في الشبكة. تحقق من اتصالك بالإنترنت.';
         }
         setError(msg);
+        setLibraryError(isLibError);
         setLoading(false);
       }
     }
@@ -239,7 +259,7 @@ export function usePdfViewer(url: string, bookSlug?: string): UsePdfViewerResult
       cancelled = true;
       if (doc) doc.destroy();
     };
-  }, [url]);
+  }, [url, retryCount]);
 
   // ─── Fullscreen handling ─────────────────────────────────────────
   const toggleFullscreen = useCallback(() => {
@@ -351,7 +371,7 @@ export function usePdfViewer(url: string, bookSlug?: string): UsePdfViewerResult
     [pdfDoc, url],
   );
 
-  // ─── Search ──────────────────────────────────────────────────────
+  // ─── Search (Arabic-aware) ───────────────────────────────────────
   const search = useCallback(
     async (query: string) => {
       if (!pdfDoc || !query.trim()) return;
@@ -361,8 +381,10 @@ export function usePdfViewer(url: string, bookSlug?: string): UsePdfViewerResult
       setCurrentSearchIdx(-1);
 
       const results: SearchResult[] = [];
-      const q = query.trim().toLowerCase();
       const maxPagesToScan = Math.min(numPages, 200);
+
+      // Use Arabic-aware search (ignores diacritics, normalizes alef/ya/ta).
+      const { arabicIncludes, buildSnippet } = await import('@/lib/pdf/arabic-search');
 
       for (let p = 1; p <= maxPagesToScan; p++) {
         try {
@@ -371,13 +393,8 @@ export function usePdfViewer(url: string, bookSlug?: string): UsePdfViewerResult
           const text = content.items
             .map((i) => ('str' in i ? i.str : ''))
             .join(' ');
-          if (text.toLowerCase().includes(q)) {
-            const idx = text.toLowerCase().indexOf(q);
-            const start = Math.max(0, idx - 60);
-            const end = Math.min(text.length, idx + q.length + 60);
-            let snippet = text.slice(start, end).replace(/\s+/g, ' ').trim();
-            if (start > 0) snippet = '… ' + snippet;
-            if (end < text.length) snippet = snippet + ' …';
+          if (arabicIncludes(text, query)) {
+            const snippet = buildSnippet(text, query);
             results.push({ page: p, snippet, query });
           }
         } catch {
@@ -402,6 +419,14 @@ export function usePdfViewer(url: string, bookSlug?: string): UsePdfViewerResult
 
   const setSearchQuery = useCallback((q: string) => {
     setSearchQueryState(q);
+  }, []);
+
+  /** Retry loading after a library error. Increments retryCount to re-trigger the load effect. */
+  const retry = useCallback(() => {
+    setLibraryError(false);
+    setError(null);
+    setLoading(true);
+    setRetryCount((c) => c + 1);
   }, []);
 
   const nextSearchResult = useCallback(() => {
@@ -482,5 +507,7 @@ export function usePdfViewer(url: string, bookSlug?: string): UsePdfViewerResult
     renderPage,
     setSearchQuery,
     setContainerRef,
+    retry,
+    libraryError,
   } as UsePdfViewerResult;
 }
