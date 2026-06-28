@@ -1,0 +1,505 @@
+{
+  "id": "islamic_radios",
+  "title": "الإذاعات الدينية",
+  "emoji": "📻",
+  "description": "بث مباشر للإذاعات والقرآن الكريم على مدار الساعة",
+  "gradientColors": [
+    "#1A3A2A",
+    "#16A34A"
+  ],
+  "imageUrl": "",
+  "items": [
+    {
+      "title": "إذاعات القرآن الكريم العامة",
+      "subtitle": "بث مباشر 24 ساعة",
+      "emoji": "📻",
+      "imageUrl": "",
+      "subItems": [
+        {
+          "title": "إذاعة القرآن الكريم — تلاوات متنوعة",
+          "subtitle": "qurango.net",
+          "emoji": "📻",
+          "audioUrl": "https://qurango.net/radio/mix",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/760299f9b153.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة التراتيل — قرآن وأدعية",
+          "subtitle": "qurango.net",
+          "emoji": "📻",
+          "audioUrl": "https://qurango.net/radio/tarateel",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec716583c961.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة رمضان — تلاوات خاصة",
+          "subtitle": "qurango.net",
+          "emoji": "📻",
+          "audioUrl": "https://qurango.net/radio/ramadan",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/8bcc93091c33.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة القرآن الكريم — السعودية",
+          "subtitle": "Radio Quran Saudi",
+          "emoji": "📻",
+          "audioUrl": "https://stream.radiojar.com/0tpy1h0kxtzuv",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/760299f9b153.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة القرآن الكريم — الكويت",
+          "subtitle": "MP3 Islam Radio",
+          "emoji": "📻",
+          "audioUrl": "https://radio.mp3islam.com/listen/quran_radio/radio.mp3",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/760299f9b153.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة القرآن الكريم — الشارقة",
+          "subtitle": "Sharjah Quran Radio",
+          "emoji": "📻",
+          "audioUrl": "https://l3.itworkscdn.net/smcquranlive/quranradiolive/icecast.audio",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/760299f9b153.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة سورة الملك — 24 ساعة",
+          "subtitle": "qurango.net",
+          "emoji": "📻",
+          "audioUrl": "https://backup.qurango.net/radio/Surah_Al-Mulk",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec716583c961.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة القصص — قصص الأنبياء",
+          "subtitle": "qurango.net",
+          "emoji": "📻",
+          "audioUrl": "https://backup.qurango.net/radio/alanbiya",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/760299f9b153.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        }
+      ]
+    },
+    {
+      "title": "إذاعات المشايخ والقراء",
+      "subtitle": "mp3quran.net",
+      "emoji": "🎙️",
+      "imageUrl": "",
+      "subItems": [
+        {
+          "title": "إذاعة الشيخ عبد الباسط عبد الصمد",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/abdulbasit_abduls",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/203056f3439d.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ مشاري العفاسي",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/mishari_alafasy",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/82de11199bac.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ عبد الرحمن السديس",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/abdulrahman_alsud",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/f5de6e005458.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ محمد صديق المنشاوي",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://radio.mp3islam.com/listen/minshawi/radio.mp3",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/32b3c31a6c8a.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ ماهر المعيقلي",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/maher_almuaiqly",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/e315420dae83.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ سعد الغامدي",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/saad_alghamdi",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/9eb72fdd46c7.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ أحمد العجمي",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/ahmad_alajmy",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/0231be877229.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ أبو بكر الشاطري",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/shaik_abu_bakr_al",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/518f768dc414.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ ياسر الدوسري",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/yasser_aldosari",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/fa27e7fb25eb.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ عبدالله الجهني",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/abdullah_aljohany",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/03952c06f7c1.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ إدريس أبكر",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/idrees_abkr",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/daf3c6c09d02.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ خالد القحطاني",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/khaled_alqahtani",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/4df18a69186a.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ صلاح بوخاطر",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/slaah_bukhatir",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/83004740a4ce.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ علي جابر",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/ali_jaber",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/7d348a269dc9.png",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ إبراهيم الأخضر",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/ibrahim_alakdar",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/6ee0b9b0d614.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ خالد عبدالكافي",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/khalid_abdulkafi",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/d6b53f26aa43.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ عبدالله بصفر",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/abdullah_basfer",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/348d59e5d7b2.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ عبدالله خياط",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/abdullah_khayyat",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/3d8004b3ceec.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ علي حجاج السويسي",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/ali_hajjaj_alsoua",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/f0c70880490a.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ صلاح البدير",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/salah_albudair",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/644b01bd2787.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ عبدالبارئ الثبيتي",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/abdelbari_altouba",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/af5e1fca2278.jpeg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ سعود الشريم",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/saud_alshuraim",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/647d4ba5ade6.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ علي الحذيفي",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/ali_alhuthaifi",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ed216ead6220.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشيخ محمد أيوب",
+          "subtitle": "mp3quran.net",
+          "emoji": "🎙️",
+          "audioUrl": "https://backup.qurango.net/radio/muhammad_ayyub",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/d89fc369ba51.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        }
+      ]
+    },
+    {
+      "title": "إذاعات إسلامية متنوعة",
+      "subtitle": "مصادر مختلفة",
+      "emoji": "📻",
+      "imageUrl": "",
+      "subItems": [
+        {
+          "title": "إذاعة دار السلام",
+          "subtitle": "Darusalam Radio",
+          "emoji": "📻",
+          "audioUrl": "https://streams.radio.co/s0975ec186/listen",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/760299f9b153.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الأنصار",
+          "subtitle": "Al-Ansaar Radio",
+          "emoji": "📻",
+          "audioUrl": "https://al-ansaar.simplestreaming.co.za/listen/al-ansaar_radio/radio.mp3",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/760299f9b153.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة السراج الإسلامية",
+          "subtitle": "Alseraj Radio Islam",
+          "emoji": "📻",
+          "audioUrl": "https://eu4.fastcast4u.com/proxy/aabdul00?mp=/1",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/760299f9b153.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة صحيح البخاري",
+          "subtitle": "qurango.net",
+          "emoji": "📻",
+          "audioUrl": "https://backup.qurango.net/radio/saheh-bokharee",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec716583c961.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة صحيح مسلم",
+          "subtitle": "qurango.net",
+          "emoji": "📻",
+          "audioUrl": "https://backup.qurango.net/radio/saheh-muslim",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec716583c961.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة رياض الصالحين",
+          "subtitle": "qurango.net",
+          "emoji": "📻",
+          "audioUrl": "https://backup.qurango.net/radio/riyad",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec716583c961.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة الشمائل المحمدية",
+          "subtitle": "qurango.net",
+          "emoji": "📻",
+          "audioUrl": "https://backup.qurango.net/radio/shmaeel",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec716583c961.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "إذاعة تفسير غريب القرآن",
+          "subtitle": "qurango.net",
+          "emoji": "📻",
+          "audioUrl": "https://backup.qurango.net/radio/gareeb-quran",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec716583c961.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        }
+      ]
+    },
+    {
+      "title": "ترجمات معاني القرآن الكريم",
+      "subtitle": "بلغات متعددة",
+      "emoji": "🌍",
+      "imageUrl": "",
+      "subItems": [
+        {
+          "title": "ترجمة معاني القرآن — الإنجليزية",
+          "subtitle": "qurango.net",
+          "emoji": "🇬🇧",
+          "audioUrl": "https://backup.qurango.net/radio/translation_quran_engl",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec716583c961.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "ترجمة معاني القرآن — الفرنسية",
+          "subtitle": "qurango.net",
+          "emoji": "🇫🇷",
+          "audioUrl": "https://backup.qurango.net/radio/translation_quran_fren",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec716583c961.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "ترجمة معاني القرآن — التركية",
+          "subtitle": "qurango.net",
+          "emoji": "🇹🇷",
+          "audioUrl": "https://backup.qurango.net/radio/translation_quran_turk",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec716583c961.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "ترجمة معاني القرآن — الأوردية",
+          "subtitle": "qurango.net",
+          "emoji": "🇵🇰",
+          "audioUrl": "https://backup.qurango.net/radio/translation_quran_urdu",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec716583c961.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "ترجمة معاني القرآن — الألمانية",
+          "subtitle": "qurango.net",
+          "emoji": "🇩🇪",
+          "audioUrl": "https://backup.qurango.net/radio/translation_quran_germ",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec716583c961.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        },
+        {
+          "title": "ترجمة معاني القرآن — الروسية",
+          "subtitle": "qurango.net",
+          "emoji": "🇷🇺",
+          "audioUrl": "https://backup.qurango.net/radio/translation_quran_Russ",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec716583c961.jpg",
+          "videoUrl": "",
+          "videoSource": "radio",
+          "mediaType": "audio"
+        }
+      ]
+    }
+  ]
+}

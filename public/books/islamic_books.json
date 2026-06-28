@@ -1,0 +1,240 @@
+{
+  "id": "islamic_books",
+  "title": "المكتبة الإسلامية",
+  "emoji": "📚",
+  "description": "كتب إسلامية مؤصلة من مصادر موثوقة",
+  "gradientColors": [
+    "#1A3A5A",
+    "#2563EB"
+  ],
+  "imageUrl": "",
+  "items": [
+    {
+      "title": "كتب الحديث الشريف",
+      "subtitle": "أهم كتب الحديث",
+      "emoji": "📖",
+      "imageUrl": "",
+      "subItems": [
+        {
+          "title": "صحيح البخاري",
+          "subtitle": "الإمام محمد بن إسماعيل البخاري",
+          "emoji": "📕",
+          "audioUrl": "",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/0a3886d6fbb3.jpg",
+          "videoUrl": "",
+          "pdfUrl": "https://archive.org/download/sahih-bukhari-arabic/99184_text.pdf",
+          "videoSource": "pdf",
+          "mediaType": "pdf"
+        },
+        {
+          "title": "صحيح مسلم",
+          "subtitle": "الإمام مسلم بن الحجاج النيسابوري",
+          "emoji": "📕",
+          "audioUrl": "",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/9be92f243e50.jpg",
+          "videoUrl": "",
+          "pdfUrl": "https://archive.org/download/sahih-muslim-arabic/sahih-muslim-arabic_text.pdf",
+          "videoSource": "pdf",
+          "mediaType": "pdf"
+        },
+        {
+          "title": "بلوغ المرام من أدلة الأحكام",
+          "subtitle": "الإمام ابن حجر العسقلاني",
+          "emoji": "📕",
+          "audioUrl": "",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/130a050f1588.jpg",
+          "videoUrl": "",
+          "pdfUrl": "https://archive.org/download/AAskZad-0188727/Book%20%D8%A8%D9%84%D9%88%D8%BA%20%D8%A7%D9%84%D9%85%D8%B1%D8%A7%D9%85%20%D9%85%D9%86%20%D8%AC%D9%85%D8%B9%20%D8%A3%D8%AF%D9%84%D8%A9%20%D8%A7%D9%84%D8%A3%D8%AD%D9%83%D8%A7%D9%85%20%5B0188727%5D%20---%20%D8%A7%D9%84%D8%AD%D8%A7%D9%81%D8%B8%20%D8%A3%D8%A8%D9%8A%20%D8%A7%D9%84%D9%81%D8%B6%D9%84%20%D8%B4%D9%87%D8%A7%D8%A8%20%D8%A7%D9%84%D8%AF%D9%8A%D9%86%20%D8%A3%D8%AD%D9%85%D8%AF%20%D8%A8%D9%86%20%D8%B9%D9%84%D9%8A%20%D8%A7%D8%A8%D9%86%20%D9%85%D8%AD%D9%85%D8%AF%20%D8%A8%D9%86%20%D8%AD%D8%AC%D8%B1%20%D8%A7%D9%84%D8%B9%D8%B3%D9%82%D9%84%D8%A7%D9%86%D9%8A%20%D8%A7%D9%84%D8%B4%D8%A7%D9%81%D8%B9%D9%8A%20(%D9%85%D8%A4%D9%84%D9%81).pdf",
+          "videoSource": "pdf",
+          "mediaType": "pdf"
+        },
+        {
+          "title": "رياض الصالحين",
+          "subtitle": "الإمام النووي",
+          "emoji": "📕",
+          "audioUrl": "",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/e3f9bca48575.jpg",
+          "videoUrl": "",
+          "pdfUrl": "https://archive.org/download/full-scan/full%20scan%20%D8%B1%D9%8A%D8%A7%D8%B6%20%D8%A7%D9%84%D8%B5%D8%A7%D9%84%D8%AD%D9%8A%D9%86%20-%20%D8%A7%D9%84%D8%A7%D9%85%D8%A7%D9%85%20%D8%A7%D9%84%D9%86%D9%88%D9%88%D9%8A.pdf",
+          "videoSource": "pdf",
+          "mediaType": "pdf"
+        },
+        {
+          "title": "عمدة الأحكام",
+          "subtitle": "الإمام عبد الغني المقدسي",
+          "emoji": "📕",
+          "audioUrl": "",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/d4d87da5bd9a.jpg",
+          "videoUrl": "",
+          "pdfUrl": "https://archive.org/download/sharh-umdah-uthaymeen/sharh-umdah-uthaymeen.pdf",
+          "videoSource": "pdf",
+          "mediaType": "pdf"
+        },
+        {
+          "title": "الأذكار",
+          "subtitle": "الإمام النووي",
+          "emoji": "📕",
+          "audioUrl": "",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/b62c2416786c.jpg",
+          "videoUrl": "",
+          "pdfUrl": "https://archive.org/download/aladhkar-min-kalamsayid_202511/aladhkar-min-kalamsayid.pdf",
+          "videoSource": "pdf",
+          "mediaType": "pdf"
+        }
+      ]
+    },
+    {
+      "title": "كتب التفسير",
+      "subtitle": "أهم كتب تفسير القرآن الكريم",
+      "emoji": "📜",
+      "imageUrl": "",
+      "subItems": [
+        {
+          "title": "تفسير القرآن العظيم",
+          "subtitle": "الإمام ابن كثير",
+          "emoji": "📗",
+          "audioUrl": "",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/271c7b4cadce.jpg",
+          "videoUrl": "",
+          "pdfUrl": "https://archive.org/download/tafsir-ibn-kathir-tayba/tqa1_text.pdf",
+          "videoSource": "pdf",
+          "mediaType": "pdf"
+        },
+        {
+          "title": "تفسير الجلالين",
+          "subtitle": "الإمام جلال الدين المحلي والسيوطي",
+          "emoji": "📗",
+          "audioUrl": "",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/55c2c3e50d7b.jpg",
+          "videoUrl": "",
+          "pdfUrl": "https://archive.org/download/daguestan-tafsir-jalalain/%D8%AA%D9%81%D8%B3%D9%8A%D8%B1%20%D8%A7%D9%84%D8%AC%D9%84%D8%A7%D9%84%D9%8A%D9%86%20%D8%B7%20%D9%85%D9%88%D8%B1%D8%A7%D9%8A%D9%88%D9%81%20%D9%A1.pdf",
+          "videoSource": "pdf",
+          "mediaType": "pdf"
+        }
+      ]
+    },
+    {
+      "title": "كتب العقيدة",
+      "subtitle": "كتب العقيدة الإسلامية",
+      "emoji": "🕋",
+      "imageUrl": "",
+      "subItems": [
+        {
+          "title": "كتاب التوحيد",
+          "subtitle": "الشيخ محمد بن عبدالوهاب",
+          "emoji": "📘",
+          "audioUrl": "",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/d87e1bab9e1a.jpg",
+          "videoUrl": "",
+          "pdfUrl": "https://archive.org/download/sharh-kitab-al-tawhid/sharh%20kitab%20al-tawhid.pdf",
+          "videoSource": "pdf",
+          "mediaType": "pdf"
+        },
+        {
+          "title": "الأصول الثلاثة",
+          "subtitle": "الشيخ محمد بن عبدالوهاب",
+          "emoji": "📘",
+          "audioUrl": "",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/538880835692.jpg",
+          "videoUrl": "",
+          "pdfUrl": "https://archive.org/download/sharh_alosool_althlatha/sharh_thalathat_alosool.pdf",
+          "videoSource": "pdf",
+          "mediaType": "pdf"
+        }
+      ]
+    },
+    {
+      "title": "كتب السيرة النبوية",
+      "subtitle": "سيرة النبي ﷺ",
+      "emoji": "🕌",
+      "imageUrl": "",
+      "subItems": [
+        {
+          "title": "مفكرة السيرة النبوية",
+          "subtitle": "ابن هشام",
+          "emoji": "📙",
+          "audioUrl": "",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/2a24f043aa16.jpg",
+          "videoUrl": "",
+          "pdfUrl": "https://archive.org/download/aabotreka18_yahoo_20190324/%D9%85%D9%81%D9%83%D8%B1%D8%A9%20%D8%A7%D9%84%D8%B3%D9%8A%D8%B1%D8%A9%20%D8%A7%D9%84%D9%86%D8%A8%D9%88%D9%8A%D8%A9.pdf",
+          "videoSource": "pdf",
+          "mediaType": "pdf"
+        },
+        {
+          "title": "ملخص السيرة النبوية",
+          "subtitle": "د. محمد سيد حاج",
+          "emoji": "📙",
+          "audioUrl": "",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/bc1e6c3825f7.jpg",
+          "videoUrl": "",
+          "pdfUrl": "https://archive.org/download/SummaryOfSeerahArabic/Summary%20of%20Seerah%20(Arabic).pdf",
+          "videoSource": "pdf",
+          "mediaType": "pdf"
+        },
+        {
+          "title": "فقه السيرة",
+          "subtitle": "د. محمد الغزالي",
+          "emoji": "📙",
+          "audioUrl": "",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/e30e4eb96817.png",
+          "videoUrl": "",
+          "pdfUrl": "https://archive.org/download/20250902_20250902_0437/%D9%81%D9%82%D9%87%20%D8%A7%D9%84%D8%B3%D9%8A%D8%B1%D8%A9%20%D8%A7%D9%84%D9%86%D8%A8%D9%88%D9%8A%D8%A9%20%EF%B7%BA%20%D9%85%D8%B9%20%D9%85%D9%88%D8%AC%D8%B2%20%D9%84%D8%AA%D8%A7%D8%B1%D9%8A%D8%AE%20%D8%A7%D9%84%D8%AE%D9%84%D8%A7%D9%81%D8%A9%20%D8%A7%D9%84%D8%B1%D8%A7%D8%B4%D8%AF%D8%A9%20%D9%84%D9%85%D8%AD%D9%85%D8%AF%20%D8%B3%D8%B9%D9%8A%D8%AF%20%D8%B1%D9%85%D8%B6%D8%A7%D9%86%20%D8%A7%D9%84%D8%A8%D9%88%D8%B7%D9%8A%20%DB%94%20%D8%B9%D8%B1%D8%A8%DB%8C%20%DB%94%20%D8%AD%D9%82%20.pdf",
+          "videoSource": "pdf",
+          "mediaType": "pdf"
+        }
+      ]
+    },
+    {
+      "title": "كتب ابن القيم الجوزية",
+      "subtitle": "مؤلفات الإمام ابن القيم",
+      "emoji": "📚",
+      "imageUrl": "",
+      "subItems": [
+        {
+          "title": "زاد المعاد في هدي خير العباد",
+          "subtitle": "ابن القيم الجوزية",
+          "emoji": "📕",
+          "audioUrl": "",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/b444b25127d1.jpg",
+          "videoUrl": "",
+          "pdfUrl": "https://archive.org/download/alex0037/smsr0.pdf",
+          "videoSource": "pdf",
+          "mediaType": "pdf"
+        },
+        {
+          "title": "الطب النبوي",
+          "subtitle": "ابن القيم الجوزية",
+          "emoji": "📕",
+          "audioUrl": "",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ccdfbe4eef39.jpeg",
+          "videoUrl": "",
+          "pdfUrl": "https://archive.org/download/Altib_Alnabawy/%D8%A7%D9%84%D8%B7%D8%A8%20%D8%A7%D9%84%D9%86%D8%A8%D9%88%D9%8A%20%D9%84%D8%A7%D8%A8%D9%86%20%D9%82%D9%8A%D9%85%20%D8%A7%D9%84%D8%AC%D9%88%D8%B2%D9%8A%D8%A9.pdf",
+          "videoSource": "pdf",
+          "mediaType": "pdf"
+        },
+        {
+          "title": "إغاثة اللهفان من مصايد الشيطان",
+          "subtitle": "ابن القيم الجوزية",
+          "emoji": "📕",
+          "audioUrl": "",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/7f5a3751a07f.jpg",
+          "videoUrl": "",
+          "pdfUrl": "https://archive.org/download/abuyaala_kotobenkayim_1757/%D8%A5%D8%BA%D8%A7%D8%AB%D8%A9%20%D8%A7%D9%84%D9%84%D9%87%D9%81%D8%A7%D9%86%20%D9%81%D9%8A%20%D9%85%D8%B5%D8%A7%D9%8A%D8%AF%20%D8%A7%D9%84%D8%B4%D9%8A%D8%B7%D8%A7%D9%86%20%D8%B7%20%D8%A7%D9%84%D9%85%D8%AC%D9%85%D8%B9.pdf",
+          "videoSource": "pdf",
+          "mediaType": "pdf"
+        },
+        {
+          "title": "الوابل الصيب ورافع الكلم الطيب",
+          "subtitle": "ابن القيم الجوزية",
+          "emoji": "📕",
+          "audioUrl": "",
+          "imageUrl": "https://sfile.chatglm.cn/images-ppt/e65f6f002f28.jpg",
+          "videoUrl": "",
+          "pdfUrl": "https://archive.org/download/wabil_saib/wabils.pdf",
+          "videoSource": "pdf",
+          "mediaType": "pdf"
+        }
+      ]
+    }
+  ]
+}
