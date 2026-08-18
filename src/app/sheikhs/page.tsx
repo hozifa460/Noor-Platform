@@ -1,16 +1,20 @@
-'use client';
-
-import dynamic from 'next/dynamic';
+import type { Metadata } from 'next';
 import { AppShell } from '@/components/layout/AppShell';
+import { SheikhsListView } from '@/components/sheikh/SheikhsListView';
 
-const ViewComponent = dynamic(() => import('@/components/sheikh/SheikhsListView').then(m => m.SheikhsListView), {
-  ssr: false,
-});
+export const metadata: Metadata = {
+  title: 'موسوعة المشايخ والعلماء والقراء | منصة نور',
+  description: 'دليل شامل لكبار قراء العالم الإسلامي وعلماء أهل السنة والجماعة ومكتباتهم الصوتية والمرئية.',
+  openGraph: {
+    title: 'موسوعة المشايخ والعلماء والقراء | منصة نور',
+    description: 'دليل شامل لكبار قراء العالم الإسلامي وعلماء أهل السنة والجماعة ومكتباتهم الصوتية والمرئية.',
+  },
+};
 
 export default function SheikhsPage() {
   return (
     <AppShell>
-      <ViewComponent />
+      <SheikhsListView />
     </AppShell>
   );
 }

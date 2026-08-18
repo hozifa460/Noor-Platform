@@ -1,78 +1,32 @@
 import { normalizeArabic, arabicSearchMatch, tokenizeArabic } from './arabic-normalizer';
 import { expandSemanticTerms, extractQueryCore } from './hadith-semantic';
-import { HADITH_BOOKS_LIST, type HadithBookMeta } from './hadith-data';
+import { HADITH_BOOKS_LIST } from './hadith-data';
 import { getCachedHadithBook, setCachedHadithBook } from './hadith-storage';
 import { BUILTIN_SEED_SHARH } from './seed-hadith-sharh';
 
-export interface HadithEnglish {
-  narrator?: string;
-  text?: string;
-}
+import {
+  type HadithEnglish,
+  type HadithItem,
+  type HadithChapter,
+  type HadithBookMetadata,
+  type HadithBookData,
+  type HadeethEncSharhItem,
+  type GlobalSearchResultItem,
+  type MicroIndexEntry,
+} from './hadith/types';
+import { extractCleanMatn, COMMON_STOP_WORDS } from './hadith/matn';
 
-export interface HadithItem {
-  id: number;
-  idInBook: number;
-  chapterId: number;
-  bookId: number;
-  arabic: string;
-  english?: HadithEnglish;
-  _norm?: string; // Pre-normalized text for instant < 0.5ms in-book search
-  _wordSet?: Set<string>;
-}
-
-export interface HadithChapter {
-  id: number;
-  bookId: number;
-  arabic: string;
-  english: string;
-}
-
-export interface HadithBookMetadata {
-  id: number;
-  length: number;
-  arabic: {
-    title: string;
-    author: string;
-    introduction?: string;
-  };
-  english?: {
-    title: string;
-    author: string;
-    introduction?: string;
-  };
-}
-
-export interface HadithBookData {
-  id: number;
-  metadata: HadithBookMetadata;
-  chapters: HadithChapter[];
-  hadiths: HadithItem[];
-}
-
-export interface HadeethEncSharhItem {
-  id: string;
-  title: string;
-  hadeeth: string;
-  grade: string;
-  explanation: string;
-  hints?: string[];
-  attribution?: string;
-  categories?: string[];
-}
-
-export interface GlobalSearchResultItem {
-  hadith: HadithItem;
-  book: HadithBookMeta;
-  chapter?: HadithChapter;
-}
-
-export interface MicroIndexEntry {
-  b: string; // bookId
-  i: number; // idInBook
-  c: number; // chapterId
-  t: string; // normalized snippet
-  g: string; // grade
-}
+export type {
+  HadithEnglish,
+  HadithItem,
+  HadithChapter,
+  HadithBookMetadata,
+  HadithBookData,
+  HadeethEncSharhItem,
+  GlobalSearchResultItem,
+  MicroIndexEntry,
+};
+export { extractCleanMatn, COMMON_STOP_WORDS };
 
 const bookCache = new Map<string, HadithBookData>();
 let sharhCache: HadeethEncSharhItem[] | null = null;
@@ -83,64 +37,6 @@ let walidIndicesCache: number[] | null = null;
 
 const HF_SUNNAH_BASE =
   'https://huggingface.co/datasets/hozifa1/quran_and_sunnah/resolve/main/sunnahset';
-
-const COMMON_STOP_WORDS = new Set([
-  'في', 'من', 'ما', 'لا', 'الي', 'علي', 'هو', 'هي', 'هم', 'هن', 'ثم', 'او', 'ان', 'انما',
-  'كل', 'ذلك', 'به', 'له', 'بها', 'لنا', 'لهم', 'كان', 'كانت', 'يكون', 'تكون',
-  'قال', 'قالت', 'يقول', 'سمعت', 'عن', 'رسول', 'الله', 'صلي', 'وسلم', 'رضي', 'عنه',
-  'كيف', 'ماذا', 'حديث', 'احاديث', 'فضل', 'اجر', 'حكم', 'صفة', 'كيفية', 'طريقة',
-  'اي', 'هل', 'كم', 'اريد', 'معرفة', 'دعا', 'دعاء'
-]);
-
-/**
- * Extracts clean Matn starting from prophetic speech
- */
-export function extractCleanMatn(rawArabic: string): string {
-  if (!rawArabic) return '';
-  const norm = normalizeArabic(rawArabic);
-  if (norm.length <= 60) return norm;
-
-  // Clean trailing takhrij
-  let cleaned = norm
-    .replace(
-      /\s*(?:رواه|اخرجه|خرجه|متفق عليه|قال الترمذي|قال ابو داود|قال الشيخ الالباني|صحيح البخاري|صحيح مسلم|في صحيحهما|في سننه).*$/i,
-      ''
-    )
-    .trim();
-
-  // Strip leading Mu'allaq book chains and companion swearing formulas
-  cleaned = cleaned
-    .replace(/^(?:و?قال\s+(?:هشام\s+بن\s+عمار|الليث|معمر|ابو\s+عبد\s+الله|البخاري|مسلم|الزهري|قتادة|مالك|ابن\s+جريج|سفيان|شعبة|حماد|وكيع|يحيى|احمد|علي|عثمان)[^:]*?)(?:حدثنا|اخبرنا|عن|قال)\s+/i, '')
-    .replace(/(?:والله\s+يمين\s+اخري\s+ما\s+كذبني|والله\s+ما\s+كذبني|والله\s+لقد\s+سمعت)\s*(?:انه\s+)?/gi, '');
-
-  // Speech anchors
-  const speechTransitions = [
-    /(?:سالت|سالنا|سئل|استاذن)\s+(?:من\s+)?(?:رسول\s+الله|النبي)(?:\s+صلي\s+الله\s+عليه\s+وسلم)?\s*(?:عن|اي|ما|فقال|قال)?\s*[:\s]+(.*)$/,
-    /(?:سمع|سمعت)\s+(?:النبي|رسول\s+الله)(?:\s+صلي\s+الله\s+عليه\s+وسلم)?\s+(?:يقول|قال|انه\s+قال)\s*[:\s]*(.*)$/,
-    /(?:قال|يقول|سمعت|حفظت)\s+(?:من\s+)?(?:رسول\s+الله|النبي)(?:\s+صلي\s+الله\s+عليه\s+وسلم)?\s*(?:يقول|قال|انه\s+قال)?\s*[:\s]+(.*)$/,
-    /(?:ان|انما)\s+(?:رسول\s+الله|النبي)(?:\s+صلي\s+الله\s+عليه\s+وسلم)?\s+(?:قال|انه\s+قال|يقول|خطبنا|نهي|امر|قضي|رخص)\s*[:\s]+(.*)$/,
-    /عن\s+(?:النبي|رسول\s+الله)(?:\s+صلي\s+الله\s+عليه\s+وسلم)?\s+(?:قال|انه\s+قال|يقول)\s*[:\s]+(.*)$/,
-    /(?:سمع|سمعت|حفظت)\s+(?:من\s+)?(?:رسول\s+الله|النبي)\s+صلي\s+الله\s+عليه\s+وسلم\s*(?:يقول|:\s*)?\s*(.*)$/,
-    /(?:ليكونن\s+من\s+امتي|لياتين\s+علي\s+الناس|يوشك\s+ان\s+تداعي|ستكون\s+فتن|ان\s+بين\s+يدي\s+الساعه|لا\s+تقوم\s+الساعه\s+حتي|من\s+اشراط\s+الساعه)\s+(.*)$/,
-    /(?:كان\s+)?(?:رسول\s+الله|النبي)\s+صلي\s+الله\s+عليه\s+وسلم\s+(كان|نهي|امر|قضي|رخص|توضا|صلي|سجد|خطب|بعث|سال|سئل|دخل|خرج|رايته|مر|قدم|اعطي|نزل|صام|حج)(.*)$/,
-  ];
-
-  for (const regex of speechTransitions) {
-    const m = cleaned.match(regex);
-    if (m && m[1] && m[1].trim().length >= 15) {
-      const extracted = m[1].trim();
-      if (/^(?:سالت|سالنا|سئل|استاذن)/.test(m[0])) {
-        const qalMatch = extracted.match(/(?:فقال|قال)\s*[:\s]+(.*)$/);
-        if (qalMatch && qalMatch[1] && qalMatch[1].trim().length >= 10) {
-          return qalMatch[1].trim();
-        }
-      }
-      return extracted;
-    }
-  }
-
-  return cleaned;
-}
 
 /**
  * Pre-normalizes all Hadiths in a book data structure for instant in-memory search with minimal memory footprint

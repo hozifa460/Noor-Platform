@@ -1,16 +1,20 @@
-'use client';
-
-import dynamic from 'next/dynamic';
+import type { Metadata } from 'next';
 import { AppShell } from '@/components/layout/AppShell';
+import { HistoryView } from '@/components/library/HistoryView';
 
-const ViewComponent = dynamic(() => import('@/components/library/HistoryView').then(m => m.HistoryView), {
-  ssr: false,
-});
+export const metadata: Metadata = {
+  title: 'سجل المشاهدة والاستماع | منصة نور',
+  description: 'سجل التلاوات والمحاضرات والكتب التي تصفحتها مؤخراً.',
+  openGraph: {
+    title: 'سجل المشاهدة والاستماع | منصة نور',
+    description: 'سجل التلاوات والمحاضرات والكتب التي تصفحتها مؤخراً.',
+  },
+};
 
 export default function HistoryPage() {
   return (
     <AppShell>
-      <ViewComponent />
+      <HistoryView />
     </AppShell>
   );
 }

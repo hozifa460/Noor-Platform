@@ -1,16 +1,20 @@
-'use client';
-
-import dynamic from 'next/dynamic';
+import type { Metadata } from 'next';
 import { AppShell } from '@/components/layout/AppShell';
+import { DownloadsView } from '@/components/library/DownloadsView';
 
-const ViewComponent = dynamic(() => import('@/components/library/DownloadsView').then(m => m.DownloadsView), {
-  ssr: false,
-});
+export const metadata: Metadata = {
+  title: 'المكتبة المحملة والأوفلاين | منصة نور',
+  description: 'الكتب والتلاوات المحفوظة على جهازك للقراءة والاستماع بدون إنترنت.',
+  openGraph: {
+    title: 'المكتبة المحملة والأوفلاين | منصة نور',
+    description: 'الكتب والتلاوات المحفوظة على جهازك للقراءة والاستماع بدون إنترنت.',
+  },
+};
 
 export default function DownloadsPage() {
   return (
     <AppShell>
-      <ViewComponent />
+      <DownloadsView />
     </AppShell>
   );
 }

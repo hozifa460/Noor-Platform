@@ -597,26 +597,30 @@ function ensureRoutePages() {
       fs.mkdirSync(routeDir, { recursive: true });
     }
 
-    const pageContent = `'use client';
-
-import dynamic from 'next/dynamic';
+    const pageContent = `import type { Metadata } from 'next';
 import { AppShell } from '@/components/layout/AppShell';
+${r.componentImport}
 
-const ViewComponent = dynamic(() => ${r.componentImport.replace(/import { (\w+) } from '([^']+)';/, "import('$2').then(m => m.$1)")}, {
-  ssr: false,
-});
+export const metadata: Metadata = {
+  title: '${r.title}',
+  description: '${r.desc}',
+  openGraph: {
+    title: '${r.title}',
+    description: '${r.desc}',
+  },
+};
 
 export default function ${r.name}Page() {
   return (
     <AppShell>
-      <ViewComponent />
+      ${r.component}
     </AppShell>
   );
 }
 `;
     fs.writeFileSync(path.join(routeDir, 'page.tsx'), pageContent);
   }
-  console.log('✓ All Next.js App Router route pages generated successfully.');
+  console.log('✓ All Next.js App Router route pages generated as Server Components.');
 }
 
 ensureGovernanceFiles();
