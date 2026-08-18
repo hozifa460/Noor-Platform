@@ -497,5 +497,154 @@ runBenchmarks().catch(console.error);
   console.log('✓ Governance, Operations & Observability workflows verified successfully.');
 }
 
+function ensureRoutePages() {
+  const routes = [
+    {
+      dir: 'quran',
+      name: 'Quran',
+      title: 'القرآن الكريم — تلاوات وتفاسير ومصاحف القراءات العشر | منصة نور',
+      desc: 'تصفح واستمع للقرآن الكريم كاملاً بأصوات كبار القراء وبروايات القراءات العشر المتواترة مع أمهات كتب التفسير.',
+      componentImport: "import { QuranHubView } from '@/components/quran/QuranHubView';",
+      component: '<QuranHubView />',
+    },
+    {
+      dir: 'hadith',
+      name: 'Hadith',
+      title: 'الموسوعة الحديثية الشاملة — كتب السنة وشروحها | منصة نور',
+      desc: 'بحث متقدم وتخريج فوري لأحاديث النبي ﷺ من كتب الصحاح والسنن والمسانيد مع بيان الأحكام والشروح المعتمدة.',
+      componentImport: "import { HadithHubView } from '@/components/hadith/HadithHubView';",
+      component: '<HadithHubView />',
+    },
+    {
+      dir: 'books',
+      name: 'Books',
+      title: 'المكتبة الإسلامية الرقمية — المكتبة الشاملة والمصاحف | منصة نور',
+      desc: 'أكبر مكتبة إسلامية رقمية تضم أكثر من 8,500 كتاب محقق وموافق للمطبوع في التفسير والحديث والفقه والعقيدة.',
+      componentImport: "import { BooksLibraryView } from '@/components/books/BooksLibraryView';",
+      component: '<BooksLibraryView />',
+    },
+    {
+      dir: 'fatwa',
+      name: 'Fatwa',
+      title: 'موسوعة الفتاوى الشرعية — فتاوى كبار العلماء | منصة نور',
+      desc: 'موسوعة الفتاوى الإسلامية الموثقة لكبار أئمة الإسلام والعلماء المعاصرين مصنفة ومفهرسة بدقة عالية.',
+      componentImport: "import { FatwaLibraryView } from '@/components/fatwa/FatwaLibraryView';",
+      component: '<FatwaLibraryView />',
+    },
+    {
+      dir: 'radio',
+      name: 'Radio',
+      title: 'الإذاعات الإسلامية المباشرة — تلاوات وقراءات 24/7 | منصة نور',
+      desc: 'استمع إلى أكثر من 150 إذاعة إسلامية وقرآنية تبث على مدار الساعة بأصوات مشاهير القراء وترجمات المعاني.',
+      componentImport: "import { RadioHubView } from '@/components/radio/RadioHubView';",
+      component: '<RadioHubView />',
+    },
+    {
+      dir: 'search',
+      name: 'Search',
+      title: 'البحث الشامل في العلوم الإسلامية | منصة نور',
+      desc: 'محرك بحث إسلامي فوري يبحث في آيات القرآن الكريم والأحاديث النبوية وكتب التراث والفتاوى.',
+      componentImport: "import { SearchView } from '@/components/search/SearchView';",
+      component: '<SearchView />',
+    },
+    {
+      dir: 'sheikhs',
+      name: 'Sheikhs',
+      title: 'موسوعة المشايخ والعلماء والقراء | منصة نور',
+      desc: 'دليل شامل لكبار قراء العالم الإسلامي وعلماء أهل السنة والجماعة ومكتباتهم الصوتية والمرئية.',
+      componentImport: "import { SheikhsListView } from '@/components/sheikh/SheikhsListView';",
+      component: '<SheikhsListView />',
+    },
+    {
+      dir: 'settings',
+      name: 'Settings',
+      title: 'الإعدادات والتخصيص | منصة نور',
+      desc: 'تخصيص المظهر، خطوط المصحف، وضع القراءة، وإدارة التخزين المؤقت في منصة نور.',
+      componentImport: "import { SettingsView } from '@/components/library/SettingsView';",
+      component: '<SettingsView />',
+    },
+    {
+      dir: 'favorites',
+      name: 'Favorites',
+      title: 'المفضلة والمحفوظات | منصة نور',
+      desc: 'المحتوى القرآني والحديثي والكتب المحفوظة للوصول السريع.',
+      componentImport: "import { FavoritesView } from '@/components/library/FavoritesView';",
+      component: '<FavoritesView />',
+    },
+    {
+      dir: 'history',
+      name: 'History',
+      title: 'سجل المشاهدة والاستماع | منصة نور',
+      desc: 'سجل التلاوات والمحاضرات والكتب التي تصفحتها مؤخراً.',
+      componentImport: "import { HistoryView } from '@/components/library/HistoryView';",
+      component: '<HistoryView />',
+    },
+    {
+      dir: 'downloads',
+      name: 'Downloads',
+      title: 'المكتبة المحملة والأوفلاين | منصة نور',
+      desc: 'الكتب والتلاوات المحفوظة على جهازك للقراءة والاستماع بدون إنترنت.',
+      componentImport: "import { DownloadsView } from '@/components/library/DownloadsView';",
+      component: '<DownloadsView />',
+    }
+  ];
+
+  for (const r of routes) {
+    const routeDir = path.join(root, 'src', 'app', r.dir);
+    if (!fs.existsSync(routeDir)) {
+      fs.mkdirSync(routeDir, { recursive: true });
+    }
+
+    const pageContent = `'use client';
+
+import dynamic from 'next/dynamic';
+import { AppShell } from '@/components/layout/AppShell';
+
+const ViewComponent = dynamic(() => ${r.componentImport.replace(/import { (\w+) } from '([^']+)';/, "import('$2').then(m => m.$1)")}, {
+  ssr: false,
+});
+
+export default function ${r.name}Page() {
+  return (
+    <AppShell>
+      <ViewComponent />
+    </AppShell>
+  );
+}
+`;
+    fs.writeFileSync(path.join(routeDir, 'page.tsx'), pageContent);
+  }
+  console.log('✓ All Next.js App Router route pages generated successfully.');
+}
+
+function refactorLargeEngines() {
+  const intentEnginePath = path.join(root, 'src', 'lib', 'book-intent-engine.ts');
+  if (fs.existsSync(intentEnginePath)) {
+    let content = fs.readFileSync(intentEnginePath, 'utf-8');
+
+    if (!content.includes('@/data/books/authors-knowledge')) {
+      const newImports = `import { normalizeArabic } from './arabic-normalizer';
+import type { MediaItem } from './types';
+import { RAW_AUTHORS, type AuthorKnowledge } from '@/data/books/authors-knowledge';
+import { RAW_ALIASES, type BookAliasKnowledge } from '@/data/books/aliases-knowledge';
+import { MADHHAB_KEYWORDS, DISCIPLINE_KEYWORDS } from '@/data/books/madhhabs-taxonomy';
+
+export type { AuthorKnowledge, BookAliasKnowledge };
+export { RAW_AUTHORS, RAW_ALIASES, MADHHAB_KEYWORDS, DISCIPLINE_KEYWORDS };
+`;
+      content = content.replace(/import { normalizeArabic } from '\.\/arabic-normalizer';\s*import type { MediaItem } from '\.\/types';/, newImports.trim());
+      content = content.replace(/export interface AuthorKnowledge[\s\S]*?const RAW_AUTHORS = \[[\s\S]*?\];\s*export const CLASSICAL_AUTHORS_KB/, 'export const CLASSICAL_AUTHORS_KB');
+      content = content.replace(/export interface BookAliasKnowledge[\s\S]*?const RAW_ALIASES = \[[\s\S]*?\];\s*export const BOOK_ALIASES_KB/, 'export const BOOK_ALIASES_KB');
+      content = content.replace(/export const MADHHAB_KEYWORDS: Record[\s\S]*?export const DISCIPLINE_KEYWORDS: Record[\s\S]*?\};\s*\/\//, '//');
+
+      fs.writeFileSync(intentEnginePath, content);
+      console.log('✓ book-intent-engine.ts slimmed down and decoupled.');
+    }
+  }
+}
+
 ensureGovernanceFiles();
+ensureRoutePages();
+refactorLargeEngines();
+
 
