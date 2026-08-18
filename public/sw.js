@@ -8,7 +8,7 @@
  *  - Stale-while-revalidate for static public data JSON.
  */
 
-const CACHE_VERSION = 'v2-msy6qqid';
+const CACHE_VERSION = 'v2-msyp6bkv';
 const STATIC_CACHE = `noor-static-${CACHE_VERSION}`;
 const CONTENT_CACHE = `noor-content-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
