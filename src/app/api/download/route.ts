@@ -15,17 +15,8 @@ import { enforceRateLimit } from '@/lib/rate-limiter';
  * 4. Sanitized user-facing error messages without internal stack leakage.
  */
 
-function findYtDlp(): string | null {
-  const possiblePaths = [
-    path.join(process.cwd(), 'bin', process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp'),
-    process.platform === 'win32' ? 'C:\\yt-dlp\\yt-dlp.exe' : '/usr/local/bin/yt-dlp',
-    process.platform === 'win32' ? 'C:\\Program Files\\yt-dlp\\yt-dlp.exe' : '/usr/bin/yt-dlp',
-  ];
-
-  for (const p of possiblePaths) {
-    if (fs.existsSync(p)) return p;
-  }
-  return null;
+function findYtDlp(): string {
+  return process.env.YTDLP_PATH || (process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp');
 }
 
 function isYouTubeUrl(url: string): boolean {
