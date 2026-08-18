@@ -73,7 +73,7 @@ function ytdlpGetDirectUrl(url: string, format: 'audio' | 'video'): Promise<stri
       url,
     ];
 
-    const proc = spawn(bin, args, { timeout: 25_000 });
+    const proc = spawn(/*turbopackIgnore: true*/ bin, args, { timeout: 25_000 });
     let stdout = '';
     let stderr = '';
 
