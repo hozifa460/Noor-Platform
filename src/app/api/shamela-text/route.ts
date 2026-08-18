@@ -36,6 +36,11 @@ function getTotalCacheBytes(): number {
 }
 
 function setCachedLines(url: string, lines: string[], estimatedBytes: number) {
+  // Never cache a single book if its memory footprint exceeds the total cache ceiling
+  if (estimatedBytes > MAX_CACHE_TOTAL_BYTES) {
+    return;
+  }
+
   while (
     BOOK_LINES_CACHE.size >= MAX_CACHED_BOOKS ||
     (BOOK_LINES_CACHE.size > 0 && getTotalCacheBytes() + estimatedBytes > MAX_CACHE_TOTAL_BYTES)
