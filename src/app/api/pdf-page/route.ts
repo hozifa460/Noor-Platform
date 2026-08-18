@@ -53,14 +53,13 @@ export async function GET(request: Request) {
       headers: {
         'Content-Type': 'image/png',
         'Cache-Control': 'public, max-age=86400, stale-while-revalidate=43200',
-        'Access-Control-Allow-Origin': '*',
         'X-Content-Type-Options': 'nosniff',
       },
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error('[pdf-page] Error:', err);
     return NextResponse.json(
-      { error: 'Failed to render PDF page', message: err instanceof Error ? err.message : String(err) },
+      { error: 'Failed to render PDF page' },
       { status: 500 }
     );
   }

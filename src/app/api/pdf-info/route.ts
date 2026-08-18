@@ -38,14 +38,13 @@ export async function GET(request: Request) {
       status: 200,
       headers: {
         'Cache-Control': 'public, max-age=86400, stale-while-revalidate=43200',
-        'Access-Control-Allow-Origin': '*',
         'X-Content-Type-Options': 'nosniff',
       },
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error('[pdf-info] Error:', err);
     return NextResponse.json(
-      { error: 'Failed to get PDF info', message: err instanceof Error ? err.message : String(err) },
+      { error: 'Failed to retrieve PDF metadata' },
       { status: 500 }
     );
   }

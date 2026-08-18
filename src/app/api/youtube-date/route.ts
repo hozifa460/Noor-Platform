@@ -92,7 +92,6 @@ export async function GET(request: Request) {
         status: 200,
         headers: {
           'Cache-Control': 'public, max-age=86400, stale-while-revalidate=43200',
-          'Access-Control-Allow-Origin': '*',
           'X-Content-Type-Options': 'nosniff',
         },
       }
@@ -108,7 +107,6 @@ export async function GET(request: Request) {
       status: 200,
       headers: {
         'Cache-Control': 'public, max-age=86400',
-        'Access-Control-Allow-Origin': '*',
         'X-Content-Type-Options': 'nosniff',
       },
     }

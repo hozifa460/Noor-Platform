@@ -80,15 +80,31 @@ export async function GET(req: NextRequest) {
           );
         }
 
-        const cl = res.headers.get('content-length');
-        if (cl && parseInt(cl, 10) > MAX_BOOK_BYTES) {
-          return NextResponse.json(
-            { error: 'Book size exceeds processing limit' },
-            { status: 413 }
-          );
+        const reader = res.body?.getReader();
+        if (!reader) {
+          return NextResponse.json({ error: 'Empty upstream body' }, { status: 502 });
         }
 
-        const fullText = await res.text();
+        const decoder = new TextDecoder();
+        let fullText = '';
+        let totalBytes = 0;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) {
+            totalBytes += value.byteLength;
+            if (totalBytes > MAX_BOOK_BYTES) {
+              await reader.cancel();
+              return NextResponse.json(
+                { error: 'Book size exceeds processing limit' },
+                { status: 413 }
+              );
+            }
+            fullText += decoder.decode(value, { stream: true });
+          }
+        }
+        fullText += decoder.decode();
         lines = fullText.split('\n').filter(Boolean);
         setCachedLines(targetUrl, lines);
       }

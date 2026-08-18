@@ -67,10 +67,29 @@ async function evictCacheIfNeeded(): Promise<void> {
   }
 }
 
+// In-flight download deduplication to prevent concurrent download races
+const inFlightDownloads = new Map<string, Promise<string>>();
+
 /**
- * Securely downloads and caches a PDF file.
+ * Securely downloads and caches a PDF file with concurrency locking.
  */
 export async function getOrDownloadPdf(url: string): Promise<string> {
+  const existing = inFlightDownloads.get(url);
+  if (existing) return existing;
+
+  const downloadPromise = (async () => {
+    try {
+      return await performGetOrDownloadPdf(url);
+    } finally {
+      inFlightDownloads.delete(url);
+    }
+  })();
+
+  inFlightDownloads.set(url, downloadPromise);
+  return downloadPromise;
+}
+
+async function performGetOrDownloadPdf(url: string): Promise<string> {
   const validation = await validateSafeUrl(url, { enforceWhitelist: true });
   if (!validation.safe) {
     throw new Error(`PDF security validation failed: ${validation.error}`);

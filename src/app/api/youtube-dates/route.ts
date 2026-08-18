@@ -120,17 +120,15 @@ export async function GET(request: Request) {
         status: 200,
         headers: {
           'Cache-Control': 'public, max-age=3600',
-          'Access-Control-Allow-Origin': '*',
           'X-Content-Type-Options': 'nosniff',
         },
       }
     );
-  } catch (err: any) {
+  } catch (err) {
     console.error('[youtube-dates] Error:', err);
     return NextResponse.json(
       {
         error: 'Failed to fetch YouTube dates',
-        message: err instanceof Error ? err.message : String(err),
         dates: {},
       },
       { status: 500 }
