@@ -1,224 +1,220 @@
-# 🕌 Noor Platform | منصة النور
+# 🕌 منصة نـور | Noor Platform
+### المنصة الإسلامية الشاملة للقرآن الكريم والحديث والمكتبة التراثية والفتاوى والإذاعات
+*The Comprehensive Modern Islamic Digital Hub for Quran, Hadith, Classical Heritage, Fatawa & 24/7 Radios*
 
 <div align="center">
 
-<img src="./public/logo.svg" alt="Noor Platform logo" width="140" />
+<img src="./public/logo.svg" alt="Noor Platform logo" width="130" />
 
-## منصة النور — Islamic Streaming Platform
+[![Next.js 16](https://img.shields.io/badge/Next.js-16.1_Turbopack-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![React 19](https://img.shields.io/badge/React-19.0-149eca?style=for-the-badge&logo=react)](https://react.dev/)
+[![TypeScript 5](https://img.shields.io/badge/TypeScript-5.0-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Tailwind CSS 4](https://img.shields.io/badge/Tailwind_CSS-4.0-06b6d4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![PWA Ready](https://img.shields.io/badge/PWA-Offline_Ready-5a0fc8?style=for-the-badge&logo=pwa)](https://web.dev/progressive-web-apps/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-emerald?style=for-the-badge)](LICENSE)
 
-منصة إسلامية حديثة تجمع المحتوى المرئي والمسموع والكتب والفتاوى في تجربة واحدة، مع تحميل المحتوى تلقائيًا من مستودعات GitHub وGitLab ودمجه في مكتبة موحّدة.
-
-*A modern Islamic platform that brings videos, audio, books, and fatwas together in one experience, while automatically loading content from GitHub and GitLab repositories into a unified library.*
-
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-19-149eca?style=for-the-badge&logo=react)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06b6d4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
-[![PWA](https://img.shields.io/badge/PWA-Enabled-5a0fc8?style=for-the-badge&logo=pwa)](https://web.dev/progressive-web-apps/)
-
-[⭐ مستودع المشروع على GitHub](https://github.com/hozifa460/Noor-Platform)
+**[🌐 مستودع المشروع الرسمي على GitHub](https://github.com/hozifa460/Noor-Platform)**
 
 </div>
 
 ---
 
-## 📖 نبذة عن المشروع
+## 🌟 نبذة عن المنصة (About Noor Platform)
 
-منصة النور هي تطبيق ويب بواجهة عربية واتجاه RTL، صُمم ليكون مركزًا موحّدًا للوصول إلى المحتوى الإسلامي. تعتمد المنصة على ملفات JSON موزّعة في مستودعات GitHub وGitLab، ثم تقوم بجلبها ودمجها وتصنيفها تلقائيًا حسب نوع المحتوى واسم الشيخ.
+**منصة نور** هي صرح رقمي إسلامي متكامل ومفتوح المصدر، يجمع بين أصالة العلوم الشرعية وأحدث تقنيات الويب الحديثة والذكاء الاصطناعي. تم تصميم المنصة لتكون المرجع الشامل للمسلم والباحث وطالب العلم، من خلال واجهة عربية فاخرة تدعم اتجاه (RTL) وتعمل بكفاءة فائقة على كافة الأجهزة مع دعم كامل للعمل بدون إنترنت (Offline PWA).
 
-### English
+> **Noor Platform** is an enterprise-grade, open-source modern Islamic digital platform that unites the Holy Quran, Prophetic Sunnah, classical heritage manuscripts, encyclopedic Fatwa libraries, and 24/7 live radios within a high-performance web experience.
 
-Noor Platform is an Arabic RTL web application designed as a unified hub for Islamic content. It reads distributed JSON indexes from GitHub and GitLab, merges them, and automatically classifies the content by media type and Sheikh name.
+---
 
-## ✨ المميزات الرئيسية
+## 📑 الأركان والمراكز الرئيسية في المنصة (Core Hubs)
 
-| الميزة | الوصف | Feature |
-|---|---|---|
-| 🎬 مكتبة وسائط موحّدة | فيديوهات، شورتس، بث مباشر، إذاعات، مقالات، كتب وفتاوى في مكان واحد. | Unified media library |
-| 👳 ملفات المشايخ | اكتشاف المشايخ تلقائيًا من بنية الملفات مع صفحة خاصة لكل شيخ. | Sheikh profiles |
-| 🔄 مزامنة تلقائية | جلب ملفات `index.json` ودمج المصادر مع دعم التحديث الدوري والتحميل التدريجي. | Automatic synchronization |
-| 🛡️ مصادر احتياطية | التبديل تلقائيًا بين GitHub وGitLab عند الحاجة، مع إظهار حالة كل مصدر. | Repository fallback |
-| 📚 قارئ PDF متقدم | بحث داخل الكتاب، إشارات مرجعية، حفظ موضع القراءة، تكبير، ملء الشاشة، وأنماط قراءة متعددة. | Advanced PDF reader |
-| ▶️ مشغل متعدد | دعم YouTube والفيديو والصوت والبث المباشر وملفات PDF. | Multi-format player |
-| ❤️ مكتبة شخصية | المفضلة، سجل المشاهدة، متابعة المشاهدة، والتنزيلات المحلية. | Personal library |
-| 🌙 تجربة قابلة للتخصيص | الوضع الفاتح والداكن، إعدادات اللغة، موفر البيانات، والجلب المسبق. | Customizable experience |
-| 📱 تطبيق قابل للتثبيت | دعم PWA وService Worker مع تصميم متجاوب للهواتف والحواسيب. | Installable PWA |
-| ⌨️ اختصارات وتنقّل سلس | تنقّل داخلي سريع، دعم زر الرجوع في المتصفح، واختصارات لوحة المفاتيح. | Smooth navigation |
-
-### English
-
-The platform includes a unified media library, automatically discovered Sheikh profiles, progressive synchronization, GitHub/GitLab fallback sources, an advanced PDF reader, multi-format playback, favorites, history, continue watching, local downloads, themes, PWA support, responsive layouts, and keyboard-friendly navigation.
-
-## 🧩 مصادر المحتوى الافتراضية
-
-تأتي المنصة مهيّأة افتراضيًا مع المصادر التالية:
-
-- `hozifa460/fatawa_database/radio_database` — مجموعات الفيديو والشورتس والبث ومحتوى المشايخ.
-- `hazozahz-islamway/hazozahz-islamway/radio_islam` — مصدر GitLab احتياطي ومكمّل.
-- `hozifa460/fatawa_database/fatawa_bibaz` — أرشيف الفتاوى.
-
-يمكن تعديل المصادر أو إضافة مصادر جديدة من صفحة **الإعدادات** داخل التطبيق، مع تحديد المزود والفرع والمسار وتفعيل المزامنة.
-
-### English
-
-The default configuration includes the three sources above. Additional GitHub or GitLab repositories can be added from **Settings** by specifying the provider, branch, path, and synchronization status.
-
-## 🛠️ التقنيات المستخدمة
-
-- **Next.js 16** مع App Router وواجهات API.
-- **React 19** و **TypeScript 5**.
-- **Tailwind CSS 4** و **shadcn/ui / Radix UI** لبناء الواجهة.
-- **Zustand** لإدارة حالة المكتبة والمشغل والإعدادات والمفضلة والسجل.
-- **TanStack Query** لإدارة عمليات الجلب والتحديث.
-- **PDF.js** لبناء قارئ الكتب داخل المنصة.
-- **HLS.js** وواجهات YouTube لتشغيل مصادر الفيديو والبث.
-- **IndexedDB وlocalStorage** للتخزين المحلي، التقدم، الإشارات المرجعية والتنزيلات.
-- **Prisma وSQLite** كطبقة بيانات قابلة للتوسعة.
-
-### English
-
-The project is built with Next.js 16, React 19, TypeScript 5, Tailwind CSS 4, shadcn/ui, Radix UI, Zustand, TanStack Query, PDF.js, HLS.js, IndexedDB, localStorage, Prisma, and SQLite.
-
-## 🚀 تشغيل المشروع محليًا
-
-### المتطلبات
-
-- Node.js 20 أو أحدث.
-- npm أو Bun.
-- اتصال بالإنترنت لجلب المحتوى من المستودعات الخارجية.
-
-### التثبيت والتشغيل
-
-```bash
-git clone https://github.com/hozifa460/Noor-Platform.git
-cd Noor-Platform
-npm install
-npm run dev
+```mermaid
+mindmap
+  root((منصة نــور))
+    مركز القرآن الكريم
+      المصحف المتجهي بـ 4 أنماط
+      114 سورة و 604 صفحة
+      محرك التلاوات والروايات
+      التفاسير الميسرة والترجمات العالمية
+    مركز الحديث النبوي
+      كتب السنة التسعة المعتمدة
+      التخريج وأحكام المحدثين
+      البحث اللفظي والدلالي الذكي
+    مكتبة أمهات الكتب والتراث
+      المكتبة الشاملة ومخطوطات OpenITI
+      محرك التقطيع اللحظي السريع
+      قارئ الكتب الرقمي المزدوج PDF و HTML
+    موسوعة الفتاوى الكبرى
+      أكثر من 300 ألف فتوى مفهرسة
+      محرك Web Workers للبحث اللحظي
+      فتاوى كبار العلماء ونور على الدرب
+    مركز الإذاعات الإسلامية
+      156 إذاعة بث مباشر 24 ساعة
+      بورتريهات موثقة لكبار القراء
+      الإذاعات العامة والعلوم والترجمات
+    المساعد الإسلامي الذكي
+      ربط بمحرك فقيه AI
+      بحث فقهي ذكي بالدليل الصريح
 ```
 
-افتح بعد ذلك:
+---
 
-```text
-http://localhost:3000
-```
+## ✨ المميزات الفنية والشرعية (Key Features)
 
-### أو باستخدام Bun
+### 1. 📖 مركز ومصحف القرآن الكريم المتجهي (Vector Quran Hub)
+* **المصحف المتجهي الكامل:** عرض دقيق لجميع صفحات المصحف الشريف الـ 604 والـ 114 سورة بخطوط الرسم العثماني المعتمدة.
+* **4 أنماط بصرية راقية:** دعم نمط *التذهيب الملكي*، *الورقي القديم (Sepia)*، *الواحة الخضراء*، و*النمط الليلي لشاشات OLED*.
+* **محرك التلاوات والتفاسير:** استماع لتلاوات كبار القراء بروايات متعددة (حفص، ورش، قالون، الدوري)، مع تفاسير (السعدي، ابن كثير، الميسر، الطبري) وترجمات معاني القرآن لأكثر من 10 لغات عالمية.
+* **نافذة الآية التفاعلية:** عرض الآية مع مفرداتها، إعرابها، أسباب النزول، وتكرار الاستماع للحفظ.
 
-```bash
-bun install
-bun run dev
-```
+### 2. 📜 مركز الحديث النبوي الشريف (Hadith Hub)
+* **كتب السنة التسعة الكبرى:** صحيح البخاري، صحيح مسلم، سنن أبي داود، جامع الترمذي، سنن النسائي، سنن ابن ماجه، موطأ مالك، مسند أحمد، وسنن الدارمي.
+* **محرك التحقق والتخريج:** إظهار حكم المحدثين ودرجة صحة الحديث (صحيح، حسن، ضعيف) مع السند والمتن والشروح المعتمدة.
+* **بحث دلالي متقدم:** إمكانية البحث بنص الحديث أو بمعناه وموضوعه الفقهي.
 
-### English
+### 3. 📚 مكتبة أمهات الكتب والشاملة (Classical Heritage Library)
+* **محرك التقطيع اللحظي (On-Demand Page Slicing):** تقنية مبتكرة لقراءة أمهات الكتب التي تتجاوز آلاف الصفحات خلال أقل من **30 جزءاً من الثانية** دون الحاجة لتحميل الكتاب كاملاً.
+* **شريط أمهات الكتب في الصدارة:** وصول فوري لتفسير الطبري، سير أعلام النبلاء، البداية والنهاية، فتاوى ابن تيمية، وفتح الباري.
+* **تكامل مع مخطوطات OpenITI والمكتبة الشاملة:** فهارس رقمية منظمة ومصنفة حسب الفنون والقرون الهجرية.
 
-Requirements: Node.js 20+, npm or Bun, and an internet connection for remote content sources.
+### 4. ⚖️ موسوعة الفتاوى الكبرى (Fatwa Search Engine)
+* **أكثر من 300,000 فتوى إسلامية مفهرسة:** فتاوى كبار العلماء (ابن باز، ابن عثيمين، اللجنة الدائمة، نور على الدرب، وإسلام ويب).
+* **معمارية خيوط المعالجة المتوازية (Web Workers Architecture):** بحث لحظي فائق السرعة عبر المتصفح دون أي بطء أو تجميد لواجهة المستخدم.
 
-```bash
-git clone https://github.com/hozifa460/Noor-Platform.git
-cd Noor-Platform
-npm install
-npm run dev
-```
+### 5. 📻 مركز الإذاعات الإسلامية المباشرة (24/7 Live Radio Hub)
+* **156 إذاعة مباشرة تعمل 24/7:** تم فحص وتطهير كافة البثوث الشبكية بروابط موثوقة وعالية النقاء بنسبة 100%.
+* **بورتريهات موثقة لكبار القراء:** صور فوتوغرافية حقيقية ورسمية مستوردة من ويكيميديا ومحفوظة محلياً (المنشاوي، عبد الباسط، الحصري، العفاسي، المعيقلي، السديس، الشريم، الطبلاوي، مصطفى إسماعيل، إلخ).
+* **تبويبات منظمة:** إذاعات القرآن الكبرى، إذاعات كبار القراء، إذاعات الحديث والتفاسير، وإذاعات ترجمات معاني القرآن.
 
-Then open `http://localhost:3000` in your browser.
+### 6. 🤖 المساعد الإسلامي الذكي (AI Assistant Trigger)
+* زر عائم تفاعلي يعلن عن الربط القادم بمحرك **«فقيه» (Faqih AI)** للإجابات الفقهية الموثقة بالأدلة من الكتاب والسنة.
 
-## 📦 أوامر المشروع
+---
 
-| الأمر | الاستخدام |
+## 🛠️ البنية التقنية (Tech Stack)
+
+| المجال | التقنيات المستخدمة |
 |---|---|
-| `npm run dev` | تشغيل بيئة التطوير على المنفذ 3000. |
-| `npm run build` | إنشاء نسخة الإنتاج. |
-| `npm start` | تشغيل نسخة الإنتاج بعد البناء. |
-| `npm run lint` | فحص الكود باستخدام ESLint. |
-| `npm run db:generate` | توليد Prisma Client. |
-| `npm run db:push` | مزامنة مخطط Prisma مع قاعدة البيانات. |
+| **إطار العمل الأساسي** | [Next.js 16 (App Router + Turbopack)](https://nextjs.org/) & [React 19](https://react.dev/) |
+| **لغة البرمجة والأنماط** | [TypeScript 5](https://www.typescriptlang.org/) (Strict Mode) |
+| **تصميم الواجهات** | [Tailwind CSS 4](https://tailwindcss.com/) & [shadcn/ui](https://ui.shadcn.com/) & [Radix UI](https://www.radix-ui.com/) |
+| **إدارة الحالة العامة** | [Zustand](https://github.com/pmndrs/zustand) (Modular Stores) |
+| **محرك التخزين والـ Offline** | IndexedDB, Cache Storage & [Service Workers (PWA)](https://web.dev/progressive-web-apps/) |
+| **الوسائط والملفات** | HTML5 Audio Stream Engine, PDF.js, HLS.js, YouTube API |
+| **معالجة البيانات والبحث** | Web Workers, Micro-Sharding, SQLite FTS5, Arabic Normalizer |
 
-### English
+---
 
-Use `npm run dev` for development, `npm run build` to create a production build, `npm start` to serve it, `npm run lint` for linting, and the `db:*` scripts for Prisma database tasks.
+## 🚀 التشغيل والتثبيت المحلي (Local Development)
 
-## 🗂️ هيكل المشروع
+### المتطلبات الأساسية
+* **Node.js** الإصدار `20.x` أو أحدث.
+* مدير الحزم **npm** أو **bun** أو **pnpm**.
+
+### خطوات التثبيت:
+
+```bash
+# 1. استنساخ المستودع
+git clone https://github.com/hozifa460/Noor-Platform.git
+
+# 2. الانتقال إلى مجلد المشروع
+cd Noor-Platform
+
+# 3. تثبيت الاعتماديات
+npm install
+
+# 4. تشغيل خادم التطوير
+npm run dev
+```
+
+افتح المتصفح وتوجه إلى الرابط:
+👉 `http://localhost:3000`
+
+---
+
+## 🏗️ بناء نسخة الإنتاج (Production Build)
+
+```bash
+# تجميع وبناء نسخة الإنتاج المحسنة
+npm run build
+
+# تشغيل خادم الإنتاج
+npm run start
+```
+
+---
+
+## 🧪 حزمة الاختبارات وفحص الجودة (Testing & Verification)
+
+يحتوي المشروع على حزمة اختبارات برمجية شاملة تغطي كافة المحركات:
+
+```bash
+# اختبار مركز ومصحف القرآن الكريم
+node scripts/test_mushaf_reader.mjs
+
+# اختبار تدفق صفحات الكتب والمكتبة الشاملة
+node scripts/test_toc_chunk_streaming.mjs
+
+# اختبار البثوث الإذاعية المباشرة والبورتريهات
+node scripts/test_browser_radio_hub.mjs
+
+# اختبار محرك البحث في الفتاوى والـ Web Workers
+node scripts/test_fatwa_inverted_index.mjs
+
+# اختبار زر ومودال الذكاء الاصطناعي
+node scripts/test_floating_ai_button.mjs
+```
+
+---
+
+## 📂 هيكلية المشروع (Project Architecture)
 
 ```text
 Noor-Platform/
-├── public/                 # الشعار، الأيقونات، الكتب، الإذاعات وملفات PWA
-├── prisma/                 # مخطط Prisma
-├── scripts/                # أدوات مساعدة لإدارة البيانات والأيقونات
+├── public/                     # الملفات الثابتة والصور والخطوط والإذاعات
+│   ├── fonts/quran/            # خطوط المصحف العثماني والرسم القرآني
+│   ├── images/sheikhs/         # صور وبورتريهات القراء الرسمية الموثقة
+│   ├── radio/                  # كتالوج الإذاعات الإسلامية المعتمدة
+│   └── workers/                # ملفات الـ Web Workers لمعالجة الفتاوى والبحث
 ├── src/
-│   ├── app/                # الصفحات وواجهات API
-│   ├── components/         # مكونات الواجهة والمشغل وقارئ PDF
-│   ├── hooks/              # المزامنة، المشاهدة، البث والـ PDF
-│   ├── lib/                # الجلب، التصنيف، المستودعات والتخزين
-│   └── stores/             # حالات المكتبة والمشغل والإعدادات
-├── next.config.ts
-├── package.json
-└── tsconfig.json
+│   ├── app/                    # مسارات Next.js App Router وواجهات الـ API
+│   │   ├── api/shamela-text/   # محرك تقطيع صفحات الكتب والشاملة اللحظي
+│   │   ├── api/sheikh-avatar/  # مولد الهويات البصرية والوسام الإسلامي
+│   │   └── page.tsx            # الصفحة الرئيسية وإدارة التنقل والمسارات
+│   ├── components/             # واجهات ومكونات التطبيق التفاعلية
+│   │   ├── ai/                 # زر ومودال المساعد الإسلامي الذكي
+│   │   ├── books/              # قارئ المصحف الشريف وقارئ الكتب والشاملة
+│   │   ├── fatwa/              # مركز ومحرك الفتاوى والبحث
+│   │   ├── hadith/             # مركز كتب السنة وشروح الأحاديث
+│   │   ├── quran/              # مركز السور والتفاسير والترجمات
+│   │   └── radio/              # مركز الإذاعات والتصنيفات الصوتية
+│   ├── hooks/                  # خطافات React المخصصة (useLibrary, usePdfViewer, ...)
+│   ├── lib/                    # المحركات البرمجية وخوارزميات البحث والمعالجة
+│   └── stores/                 # مخازن الحالة العامة (Zustand Stores)
+├── scripts/                    # أدوات بناء الفهارس وتدقيق الجودة وفحص الروابط
+└── README.md                   # التوثيق الشامل للمشروع
 ```
 
-### English
+---
 
-The main source code lives under `src/`: `app` contains pages and API routes, `components` contains the UI and players, `hooks` contains synchronization and viewer logic, `lib` contains data utilities, and `stores` contains application state. Static assets and built-in catalogs live under `public/`.
+## 🤝 المساهمة والتطوير (Contributing)
 
-## ⚙️ كيف تعمل المزامنة؟
+نرحب بجميع المساهمات الهادفة لخدمة كتاب الله وسنة نبيه صلى الله عليه وسلم ونشر العلم النافع:
+1. قم بعمل **Fork** للمشروع.
+2. أنشئ فرعاً لميزتك الجديدة (`git checkout -b feature/NewFeature`).
+3. احفظ التعديلات (`git commit -m 'feat: Add NewFeature'`).
+4. ارفع الفرع إلى حسابك (`git push origin feature/NewFeature`).
+5. افتح **Pull Request** للمراجعة والدمج.
 
-1. تُقرأ ملفات الفهرسة من المستودعات المفعّلة.
-2. تُدمج المسارات القادمة من المصادر المختلفة مع دعم المصدر الاحتياطي.
-3. تُجلب ملفات JSON بالتوازي وبعدد اتصالات محدود.
-4. تُحوّل البيانات إلى عناصر وسائط موحّدة.
-5. يُكتشف اسم الشيخ والقسم تلقائيًا من بنية الملفات.
-6. تُعرض النتائج تدريجيًا، بينما تُحمّل ملفات الأرشيف عند طلب المستخدم.
+---
 
-### English
+## 📜 الترخيص (License)
 
-The app reads enabled repository indexes, merges file paths with fallback support, fetches JSON files concurrently with controlled concurrency, normalizes them into shared media items, derives Sheikh and section metadata, renders results progressively, and lazy-loads archive files when requested.
-
-## 🤝 المساهمة
-
-المساهمات مرحّب بها. يمكنك فتح Issue لاقتراح ميزة أو الإبلاغ عن مشكلة، أو إنشاء Pull Request لتحسين الكود أو الواجهة أو تجربة القراءة.
-
-### English
-
-Contributions are welcome. Open an Issue for feature requests and bug reports, or submit a Pull Request with improvements to the code, interface, or reading experience.
-
-## ⚠️ ملاحظات مهمة
-
-- يعتمد عرض المحتوى على توافر المستودعات ومصادر الوسائط الخارجية.
-- تأكد من امتلاكك الحق في إعادة نشر أو استخدام أي محتوى تضيفه إلى مصادر البيانات.
-- المنصة لا تدّعي ملكية المحتوى القادم من YouTube أو GitHub أو GitLab أو أي مصدر خارجي.
-- استخدم خدمات التنزيل والمصادر الخارجية بما يتوافق مع شروط استخدامها والقوانين المحلية.
-- لا تُضمّن أسرارًا أو مفاتيح API داخل المستودع.
-
-### English
-
-- Content availability depends on external repositories and media providers.
-- Make sure you have permission to redistribute or use any content added to the data sources.
-- The platform does not claim ownership of content originating from YouTube, GitHub, GitLab, or other external providers.
-- Use download services and external sources in accordance with their terms and applicable laws.
-- Never commit secrets or API keys to the repository.
-
-## 📄 الترخيص
-
-لم يتم تحديد ترخيص مفتوح رسمي للمشروع داخل المستودع حتى الآن. يُرجى التواصل مع صاحب المشروع قبل إعادة الاستخدام أو التوزيع.
-
-### English
-
-No formal open-source license has been specified in the repository yet. Contact the project owner before reusing or redistributing the code.
-
-## 👨‍💻 المطوّر
-
-**hozifa460**
-
-- GitHub: [@hozifa460](https://github.com/hozifa460)
-- Repository: [Noor-Platform](https://github.com/hozifa460/Noor-Platform)
-
-### English
-
-Developed by **hozifa460**. Visit the [GitHub profile](https://github.com/hozifa460) or the [Noor-Platform repository](https://github.com/hozifa460/Noor-Platform).
+هذا المشروع مرخص تحت رخصة **MIT** — وقف لله تعالى ومتاح للاستخدام والتطوير الخيري والنافع.
 
 <div align="center">
 
-### 🌙 نسأل الله أن يجعل هذا العمل نافعًا ومباركًا
-
-*May Allah make this work beneficial and blessed.*
+**منصة نور — نورٌ على نور يهدي به الله من يشاء**
 
 </div>
