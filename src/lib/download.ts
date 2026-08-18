@@ -131,7 +131,7 @@ export async function downloadForOffline(
   }
 
   const reader = res.body.getReader();
-  const chunks: Uint8Array[] = [];
+  const chunks: BlobPart[] = [];
   let received = 0;
   for (;;) {
     const { done, value } = await reader.read();

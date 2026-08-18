@@ -47,7 +47,7 @@ export function MediaCard({ item, variant = 'default' }: MediaCardProps) {
   const Icon = isLive ? Radio : isAudio ? Headphones : isPdf ? FileText : hasVideo ? Play : Play;
   const SourceIcon = item.youtubeUrl ? Youtube : null;
 
-  if (isShort || variant === 'short') {
+  if (isShort) {
     return (
       <div className="group relative w-full aspect-[9/16] rounded-xl overflow-hidden bg-muted text-right focus:outline-none focus-within:ring-2 focus-within:ring-primary">
         <button

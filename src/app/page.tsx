@@ -17,12 +17,19 @@ import { HistoryView } from '@/components/library/HistoryView';
 import { DownloadsView } from '@/components/library/DownloadsView';
 import { SettingsView } from '@/components/library/SettingsView';
 import { SearchView } from '@/components/search/SearchView';
+import { BooksLibraryView } from '@/components/books/BooksLibraryView';
+import { FatwaLibraryView } from '@/components/fatwa/FatwaLibraryView';
+import { QuranHubView } from '@/components/quran/QuranHubView';
+import { HadithHubView } from '@/components/hadith/HadithHubView';
+import { RadioHubView } from '@/components/radio/RadioHubView';
+import { FloatingAIButton } from '@/components/ai/FloatingAIButton';
 import { useNavStore, hashToViewState } from '@/stores/nav.store';
 import { usePlayerStore } from '@/stores/player.store';
 import { useLibrarySync } from '@/hooks/use-library';
 import { useLiveMonitor } from '@/hooks/use-live-monitor';
 import { useSettingsStore } from '@/stores/settings.store';
 import { useTheme } from 'next-themes';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import type { ViewState } from '@/lib/types';
 
 export default function Home() {
@@ -93,6 +100,10 @@ export default function Home() {
     switch (view) {
       case 'home':
         return <HomeView />;
+      case 'quran':
+        return <QuranHubView />;
+      case 'hadith':
+        return <HadithHubView />;
       case 'sheikhs':
         return <SheikhsListView />;
       case 'sheikh':
@@ -104,11 +115,11 @@ export default function Home() {
       case 'live':
         return <SectionView section="live" />;
       case 'radio':
-        return <SectionView section="radio" />;
+        return <RadioHubView />;
       case 'fatwa':
-        return <SectionView section="fatwa" />;
+        return <FatwaLibraryView />;
       case 'books':
-        return <SectionView section="books" />;
+        return <BooksLibraryView />;
       case 'articles':
         return <SectionView section="articles" />;
       case 'favorites':
@@ -137,11 +148,16 @@ export default function Home() {
 
         <main className="flex-1 min-w-0">
           <div className="container mx-auto px-3 sm:px-4 lg:px-6 py-6 pb-24 lg:pb-6">
-            {renderView()}
+            <ErrorBoundary>
+              {renderView()}
+            </ErrorBoundary>
           </div>
           <Footer />
         </main>
       </div>
+
+      {/* Floating AI Assistant Button */}
+      <FloatingAIButton />
 
       {/* Mobile bottom navigation */}
       <MobileNav />

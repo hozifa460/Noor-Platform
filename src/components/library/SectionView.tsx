@@ -4,7 +4,7 @@ import { MediaGrid } from '@/components/media/MediaGrid';
 import { FatwaCard } from '@/components/media/FatwaCard';
 import { MediaCardSkeleton } from '@/components/media/MediaCardSkeleton';
 import { useLibraryStore } from '@/stores/library.store';
-import { useFatwaStore } from '@/stores/fatwa-store';
+import { FatwaLibraryView } from '@/components/fatwa/FatwaLibraryView';
 import { useYouTubeDates } from '@/hooks/use-youtube-dates';
 import type { MediaItem, SectionKind } from '@/lib/types';
 import { PlayCircle, Zap, Radio, FileQuestion, BookOpen, FileText, Loader2, Search, History } from 'lucide-react';
@@ -198,7 +198,7 @@ export function SectionView({ section }: SectionViewProps) {
 
   // Fatwa-specific rendering
   if (section === 'fatwa') {
-    return <FatwaSectionView />;
+    return <FatwaLibraryView />;
   }
 
   // Live-specific rendering: split into "مباشر الآن" + "بثوث سابقة"
@@ -227,155 +227,6 @@ export function SectionView({ section }: SectionViewProps) {
         </div>
       ) : (
         <MediaGrid items={filtered} variant={section === 'shorts' ? 'short' : 'default'} emptyMessage="لا يوجد محتوى في هذا القسم حاليًا" />
-      )}
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════════
-//  FatwaSectionView — lazy loading with pagination + search.
-// ════════════════════════════════════════════════════════════════
-
-function FatwaSectionView() {
-  const fatwaStore = useFatwaStore();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchInput, setSearchInput] = useState('');
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const searchSentinelRef = useRef<HTMLDivElement | null>(null);
-  const loadTriggered = useRef(false);
-
-  // Start progressive loading on mount
-  useEffect(() => {
-    if (loadTriggered.current) return;
-    loadTriggered.current = true;
-    fatwaStore.startLoading();
-  }, [fatwaStore]);
-
-  // Infinite scroll for browsing
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting && !searchQuery) {
-          fatwaStore.showMore();
-        }
-      },
-      { rootMargin: '600px' },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [fatwaStore, searchQuery]);
-
-  // Infinite scroll for search results
-  useEffect(() => {
-    const el = searchSentinelRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting && searchQuery) {
-          fatwaStore.showMoreSearch();
-        }
-      },
-      { rootMargin: '400px' },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [fatwaStore, searchQuery]);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const q = searchInput.trim();
-    setSearchQuery(q);
-    fatwaStore.search(q);
-  };
-
-  const visibleFatwas = searchQuery
-    ? fatwaStore.searchResults.slice(0, fatwaStore.searchVisibleCount)
-    : fatwaStore.fatwas.slice(0, fatwaStore.visibleCount);
-
-  const totalShown = visibleFatwas.length;
-  const totalAvailable = searchQuery ? fatwaStore.searchResults.length : fatwaStore.fatwas.length;
-  const hasMore = searchQuery
-    ? fatwaStore.searchVisibleCount < fatwaStore.searchResults.length
-    : fatwaStore.visibleCount < fatwaStore.fatwas.length || !fatwaStore.allLoaded;
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold">
-          <FileQuestion className="size-6 text-primary" />
-          الفتاوى
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {fatwaStore.loading && 'جاري تحميل الفتاوى...'}
-          {!fatwaStore.loading && !fatwaStore.allLoaded && `${fatwaStore.fatwas.length} فتوى محمّلة · جاري تحميل المزيد`}
-          {fatwaStore.allLoaded && `${fatwaStore.fatwas.length} فتوى`}
-        </p>
-      </div>
-
-      {/* Search bar */}
-      <form onSubmit={handleSearch} className="relative max-w-xl">
-        <Search className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-        <Input
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="ابحث في الفتاوى عن سؤالك..."
-          className="pr-10 h-11"
-        />
-        {searchQuery && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="absolute left-2 top-1/2 -translate-y-1/2 h-8"
-            onClick={() => { setSearchQuery(''); setSearchInput(''); fatwaStore.clearSearch(); }}
-          >
-            مسح
-          </Button>
-        )}
-      </form>
-
-      {/* Search results info */}
-      {searchQuery && (
-        <div className="text-sm text-muted-foreground">
-          {fatwaStore.searching ? 'جاري البحث...' : `${fatwaStore.searchResults.length} نتيجة لـ «${searchQuery}»`}
-        </div>
-      )}
-
-      {/* Fatwa cards */}
-      {visibleFatwas.length === 0 && !fatwaStore.loading ? (
-        <div className="py-20 text-center text-muted-foreground">
-          {searchQuery ? 'لا توجد نتائج. جاري تحميل المزيد من الفتاوى...' : 'جاري تحميل الفتاوى...'}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {visibleFatwas.map((item) => (
-            <FatwaCard key={item.id} item={item} />
-          ))}
-          {/* Loading skeleton while fetching more */}
-          {fatwaStore.loading && !searchQuery && (
-            <div className="col-span-full flex items-center justify-center gap-2 py-6 text-muted-foreground">
-              <Loader2 className="size-5 animate-spin" />
-              <span className="text-sm">جاري تحميل المزيد من الفتاوى...</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Infinite scroll sentinel */}
-      {hasMore && (
-        <div ref={searchQuery ? searchSentinelRef : sentinelRef} className="py-10 flex justify-center">
-          <Loader2 className="size-6 animate-spin text-primary" />
-        </div>
-      )}
-
-      {/* Progress indicator */}
-      {!fatwaStore.allLoaded && !searchQuery && (
-        <div className="fixed bottom-4 left-4 z-30 bg-card border border-border rounded-xl px-3 py-2 shadow-lg flex items-center gap-2 text-xs">
-          <Loader2 className={`size-3 ${fatwaStore.loading ? 'animate-spin' : ''} text-primary`} />
-          <span>{fatwaStore.fatwas.length} فتوى · {fatwaStore.loadedFiles.size} ملف</span>
-        </div>
       )}
     </div>
   );

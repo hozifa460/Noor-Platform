@@ -1,0 +1,270 @@
+{
+  "timestamp": "2026-08-16T04:43:53.170Z",
+  "baselineResults": {},
+  "concurrencyTest": [
+    {
+      "concurrencyLevel": 10,
+      "totalDurationMs": 179.73,
+      "avgLatencyPerQueryMs": 17.97,
+      "errors": 0,
+      "successRate": "100.0%"
+    },
+    {
+      "concurrencyLevel": 50,
+      "totalDurationMs": 470,
+      "avgLatencyPerQueryMs": 9.4,
+      "errors": 0,
+      "successRate": "100.0%"
+    },
+    {
+      "concurrencyLevel": 100,
+      "totalDurationMs": 773.73,
+      "avgLatencyPerQueryMs": 7.74,
+      "errors": 0,
+      "successRate": "100.0%"
+    },
+    {
+      "concurrencyLevel": 200,
+      "totalDurationMs": 1638.41,
+      "avgLatencyPerQueryMs": 8.19,
+      "errors": 0,
+      "successRate": "100.0%"
+    }
+  ],
+  "burstMemoryTest": {
+    "initialHeapMB": 38.21,
+    "snapshots": [
+      {
+        "iterations": 100,
+        "durationMs": 17.15,
+        "avgLatencyMs": 0.172,
+        "heapUsedMB": 32.09,
+        "heapTotalMB": 95.66,
+        "rssMB": 148.47
+      },
+      {
+        "iterations": 500,
+        "durationMs": 70.83,
+        "avgLatencyMs": 0.177,
+        "heapUsedMB": 39.03,
+        "heapTotalMB": 96.16,
+        "rssMB": 148.16
+      },
+      {
+        "iterations": 1000,
+        "durationMs": 94.94,
+        "avgLatencyMs": 0.19,
+        "heapUsedMB": 39.63,
+        "heapTotalMB": 96.16,
+        "rssMB": 148.16
+      },
+      {
+        "iterations": 2000,
+        "durationMs": 172.98,
+        "avgLatencyMs": 0.173,
+        "heapUsedMB": 40.82,
+        "heapTotalMB": 96.16,
+        "rssMB": 148.16
+      }
+    ],
+    "finalHeapDeltaMB": 2.61
+  },
+  "rankingCorrectnessTest": [
+    {
+      "query": "إنما الأعمال بالنيات",
+      "expectedBook": "bukhari",
+      "expectedId": 1,
+      "actualBook": "bukhari",
+      "actualId": 1,
+      "totalReturned": 6,
+      "latencyMs": 133.3,
+      "passed": true
+    },
+    {
+      "query": "بالنيات",
+      "expectedBook": "bukhari",
+      "expectedId": 1,
+      "actualBook": "bukhari",
+      "actualId": 1,
+      "totalReturned": 6,
+      "latencyMs": 0.19,
+      "passed": true
+    },
+    {
+      "query": "بر الوالدين",
+      "expectedBook": "bukhari",
+      "actualBook": "aladab_almufrad",
+      "actualId": 22,
+      "totalReturned": 1,
+      "latencyMs": 6.02,
+      "passed": false
+    },
+    {
+      "query": "وبالوالدين",
+      "expectedBook": "bukhari",
+      "actualBook": "bukhari",
+      "actualId": 2770,
+      "totalReturned": 10,
+      "latencyMs": 2.61,
+      "passed": true
+    },
+    {
+      "query": "الصلاة",
+      "expectedBook": "bukhari",
+      "actualBook": "bukhari",
+      "actualId": 195,
+      "totalReturned": 10,
+      "latencyMs": 0.17,
+      "passed": true
+    },
+    {
+      "query": "الطهور شطر الإيمان",
+      "expectedBook": "muslim",
+      "actualBook": "muslim",
+      "actualId": 440,
+      "totalReturned": 7,
+      "latencyMs": 0.09,
+      "passed": true
+    },
+    {
+      "query": "طلب العلم فريضة",
+      "expectedBook": "ibnmajah",
+      "actualBook": "ibnmajah",
+      "actualId": 4303,
+      "totalReturned": 2,
+      "latencyMs": 0.04,
+      "passed": true
+    },
+    {
+      "query": "لا يؤمن أحدكم حتى يحب لأخيه",
+      "expectedBook": "bukhari",
+      "actualBook": "bukhari",
+      "actualId": 13,
+      "totalReturned": 8,
+      "latencyMs": 0.19,
+      "passed": true
+    },
+    {
+      "query": "كلمتان خفيفتان",
+      "expectedBook": "bukhari",
+      "actualBook": "bukhari",
+      "actualId": 6167,
+      "totalReturned": 7,
+      "latencyMs": 0.04,
+      "passed": true
+    }
+  ],
+  "boundaryStressTest": [
+    {
+      "test": "Null-like strings",
+      "input": "null",
+      "status": "PASS",
+      "returnedCount": 0,
+      "latencyMs": 138.51,
+      "error": null
+    },
+    {
+      "test": "Undefined-like strings",
+      "input": "undefined",
+      "status": "PASS",
+      "returnedCount": 0,
+      "latencyMs": 144.93,
+      "error": null
+    },
+    {
+      "test": "Object prototype pollution keys",
+      "input": "__proto__",
+      "status": "PASS",
+      "returnedCount": 0,
+      "latencyMs": 158.96,
+      "error": null
+    },
+    {
+      "test": "Constructor token",
+      "input": "constructor",
+      "status": "PASS",
+      "returnedCount": 0,
+      "latencyMs": 144.01,
+      "error": null
+    },
+    {
+      "test": "Zero-width joiner & non-joiner",
+      "input": "‌‍﻿",
+      "status": "PASS",
+      "returnedCount": 0,
+      "latencyMs": 0.02,
+      "error": null
+    },
+    {
+      "test": "Mixed Unicode emojis & Arabic",
+      "input": "🕌 الصلاة 📖",
+      "status": "PASS",
+      "returnedCount": 0,
+      "latencyMs": 3.91,
+      "error": null
+    },
+    {
+      "test": "Long repeated word (1000 tokens)",
+      "input": "الله الله الله الله الله الله ",
+      "status": "PASS",
+      "returnedCount": 10,
+      "latencyMs": 784.85,
+      "error": null
+    },
+    {
+      "test": "Special regex characters",
+      "input": ".*+?^${}()|[]\\",
+      "status": "PASS",
+      "returnedCount": 0,
+      "latencyMs": 319.61,
+      "error": null
+    },
+    {
+      "test": "Negative numbers",
+      "input": "-10",
+      "status": "PASS",
+      "returnedCount": 0,
+      "latencyMs": 255.94,
+      "error": null
+    },
+    {
+      "test": "Max 32-bit int",
+      "input": "2147483647",
+      "status": "PASS",
+      "returnedCount": 0,
+      "latencyMs": 0.8,
+      "error": null
+    },
+    {
+      "test": "Float number",
+      "input": "3.14159",
+      "status": "PASS",
+      "returnedCount": 0,
+      "latencyMs": 251.47,
+      "error": null
+    },
+    {
+      "test": "Right-to-Left Override character (U+202E)",
+      "input": "‮حديث",
+      "status": "PASS",
+      "returnedCount": 10,
+      "latencyMs": 0.16,
+      "error": null
+    }
+  ],
+  "criticalBugsFound": [
+    {
+      "category": "RANKING_INVERSION",
+      "description": "Query \"بر الوالدين\" failed prioritization. Expected [bukhari], got [aladab_almufrad] (hadith #22).",
+      "details": {
+        "query": "بر الوالدين",
+        "expectedBook": "bukhari",
+        "actualBook": "aladab_almufrad",
+        "actualId": 22,
+        "totalReturned": 1,
+        "latencyMs": 6.02,
+        "passed": false
+      }
+    }
+  ]
+}

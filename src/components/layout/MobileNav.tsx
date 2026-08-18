@@ -1,6 +1,6 @@
 'use client';
 
-import { Home, Users, Search, Heart, Settings } from 'lucide-react';
+import { Home, Users, Search, BookOpen, Settings } from 'lucide-react';
 import { useNavStore } from '@/stores/nav.store';
 import type { ViewKind } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -13,9 +13,9 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { view: 'home', label: 'الرئيسية', icon: Home },
+  { view: 'quran', label: 'القرآن', icon: BookOpen },
   { view: 'sheikhs', label: 'مشايخ', icon: Users },
   { view: 'search', label: 'بحث', icon: Search },
-  { view: 'favorites', label: 'مفضلة', icon: Heart },
   { view: 'settings', label: 'إعدادات', icon: Settings },
 ];
 

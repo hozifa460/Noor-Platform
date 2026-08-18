@@ -1,33 +1,44 @@
 import { NextResponse } from 'next/server';
 import { spawn } from 'child_process';
 import { existsSync } from 'fs';
+import path from 'path';
+import { validateSafeUrl, sanitizeFilename } from '@/lib/security';
+import { enforceRateLimit } from '@/lib/rate-limiter';
 
 /**
- * Universal download endpoint.
+ * Universal Secure Media Download Endpoint.
  *
- * Supports:
- *   1. Direct media URLs (mp3, mp4, etc.) — server-side proxy that streams the
- *      bytes back with `Content-Disposition: attachment` so the browser saves
- *      the file. Also bypasses CORS for archive.org / cross-origin media.
- *   2. YouTube URLs — uses yt-dlp to extract a direct downloadable URL, then
- *      streams the result back. Falls back to redirecting the user to a
- *      download helper service if yt-dlp is unavailable or blocked.
- *
- * Usage:
- *   /api/download?url=<encoded URL>&format=audio|video&filename=custom.mp3
+ * Security Enhancements:
+ *   1. Strict SSRF protection & Private IP validation.
+ *   2. Domain whitelist enforcement (archive.org, youtube, git repositories).
+ *   3. Rate limiting per client IP.
+ *   4. Cross-platform yt-dlp path resolution (Windows, Linux, macOS).
+ *   5. Elimination of third-party adware redirects (y2mate).
+ *   6. Sanitized filename and Content-Disposition headers.
+ *   7. Stream size and timeout guards against Denial of Service.
  */
 
-const YT_DLP_PATHS = [
+const KNOWN_YT_DLP_PATHS = [
+  'yt-dlp',
+  'yt-dlp.exe',
   '/home/z/.local/bin/yt-dlp',
   '/usr/local/bin/yt-dlp',
   '/usr/bin/yt-dlp',
+  'C:\\yt-dlp\\yt-dlp.exe',
+  'C:\\Program Files\\yt-dlp\\yt-dlp.exe',
 ];
 
 function findYtDlp(): string | null {
-  for (const p of YT_DLP_PATHS) {
-    if (existsSync(p)) return p;
+  for (const p of KNOWN_YT_DLP_PATHS) {
+    if (!path.isAbsolute(p)) {
+      // In PATH or relative name
+      return p;
+    }
+    if (existsSync(p)) {
+      return p;
+    }
   }
-  return null;
+  return 'yt-dlp';
 }
 
 function isYouTubeUrl(url: string): boolean {
@@ -58,87 +69,120 @@ function extractYouTubeId(url: string): string | null {
 /** Promisified yt-dlp invocation that returns the direct media URL on stdout. */
 function ytdlpGetDirectUrl(url: string, format: 'audio' | 'video'): Promise<string> {
   return new Promise((resolve, reject) => {
-    const bin = findYtDlp();
-    if (!bin) {
-      reject(new Error('yt-dlp not installed'));
-      return;
-    }
-    const formatFlag = format === 'audio'
-      ? 'bestaudio[ext=m4a]/bestaudio/best'
-      : 'best[ext=mp4][height<=720]/best[height<=720]/best';
+    const bin = findYtDlp() || 'yt-dlp';
+    const formatFlag =
+      format === 'audio'
+        ? 'bestaudio[ext=m4a]/bestaudio/best'
+        : 'best[ext=mp4][height<=720]/best[height<=720]/best';
+
     const args = [
       '--no-warnings',
       '--no-playlist',
       '--no-check-certificates',
-      '--extractor-args', 'youtube:player_client=android,web_safari,ios,tv',
-      '-f', formatFlag,
+      '--extractor-args',
+      'youtube:player_client=android,web_safari,ios,tv',
+      '-f',
+      formatFlag,
       '--get-url',
       url,
     ];
-    const proc = spawn(bin, args, { timeout: 30000 });
+
+    const proc = spawn(bin, args, { timeout: 25_000 });
     let stdout = '';
     let stderr = '';
-    proc.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
-    proc.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
-    proc.on('error', reject);
+
+    proc.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
+    proc.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+    proc.on('error', (err) => {
+      reject(new Error(`yt-dlp execution error: ${err.message}`));
+    });
+
     proc.on('close', (code) => {
       const directUrl = stdout.trim().split('\n')[0];
       if (code === 0 && directUrl && /^https?:\/\//i.test(directUrl)) {
         resolve(directUrl);
       } else {
-        reject(new Error(stderr || `yt-dlp exit ${code}`));
+        reject(new Error(stderr || `yt-dlp exited with code ${code}`));
       }
     });
   });
 }
 
-/** Streams a URL back to the client with attachment headers. */
-async function streamUrl(url: string, filename: string): Promise<Response> {
-  // Don't pass request.signal — it gets aborted when the client navigates away
-  // or the iframe is removed, which would cut off long downloads.
-  const upstream = await fetch(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'audio/*,video/*,application/octet-stream,*/*;q=0.8',
-    },
-    redirect: 'follow',
-  });
+/** Maximum allowed stream size: 250 MB */
+const MAX_STREAM_BYTES = 250 * 1024 * 1024;
+const STREAM_TIMEOUT_MS = 60_000;
 
-  if (!upstream.ok || upstream.body === null) {
+/** Streams a validated URL back to the client with attachment headers. */
+async function streamUrl(url: string, filename: string): Promise<Response> {
+  // Validate the URL before fetching to protect against SSRF
+  const validation = await validateSafeUrl(url, { enforceWhitelist: true });
+  if (!validation.safe) {
     return NextResponse.json(
-      { error: `Upstream returned ${upstream.status}`, url },
-      { status: upstream.status || 502 },
+      { error: 'Forbidden', message: validation.error || 'Access to this host is not permitted' },
+      { status: 403 }
     );
   }
 
-  // Guess content type from upstream or filename.
-  const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
-  const contentLength = upstream.headers.get('content-length') || '';
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
 
-  // Build a Content-Disposition header that handles Arabic filenames safely.
-  // The ASCII fallback (`filename="..."`) must only contain ASCII chars;
-  // the Unicode filename is encoded via `filename*=UTF-8''...`.
-  const asciiFallback = filename
-    .replace(/[^\x00-\x7F]+/g, '_') // Replace any non-ASCII with underscore
-    .replace(/[^\w.\- ]+/g, '_')
-    .slice(0, 200) || 'media';
-  const utf8Encoded = encodeURIComponent(filename.slice(0, 200));
-  const disposition = `attachment; filename="${asciiFallback}"; filename*=UTF-8''${utf8Encoded}`;
+  try {
+    const upstream = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; Noor-Platform/1.0; +https://github.com/hozifa460/Noor-Platform)',
+        'Accept': 'audio/*,video/*,application/pdf,application/octet-stream,*/*;q=0.8',
+      },
+      redirect: 'follow',
+      signal: controller.signal,
+    });
 
-  const headers = new Headers();
-  headers.set('Content-Type', contentType);
-  if (contentLength) headers.set('Content-Length', contentLength);
-  headers.set('Content-Disposition', disposition);
-  headers.set('Cache-Control', 'no-store');
-  headers.set('Access-Control-Allow-Origin', '*');
+    if (!upstream.ok || upstream.body === null) {
+      return NextResponse.json(
+        { error: `Upstream error HTTP ${upstream.status}`, url },
+        { status: upstream.status >= 400 && upstream.status < 600 ? upstream.status : 502 }
+      );
+    }
 
-  return new Response(upstream.body, { status: 200, headers });
+    // Check Content-Length if provided by upstream
+    const contentLengthHeader = upstream.headers.get('content-length');
+    if (contentLengthHeader) {
+      const contentLength = parseInt(contentLengthHeader, 10);
+      if (!isNaN(contentLength) && contentLength > MAX_STREAM_BYTES) {
+        return NextResponse.json(
+          { error: 'File Too Large', message: `File size exceeds the maximum allowed limit (${MAX_STREAM_BYTES / (1024 * 1024)}MB)` },
+          { status: 413 }
+        );
+      }
+    }
+
+    const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
+    const cleanName = sanitizeFilename(filename, 'media_file');
+
+    // Safe Content-Disposition RFC 6266 / RFC 5987
+    const asciiFallback = cleanName.replace(/[^\x20-\x7E]/g, '_').slice(0, 120) || 'media';
+    const utf8Encoded = encodeURIComponent(cleanName.slice(0, 150));
+    const disposition = `attachment; filename="${asciiFallback}"; filename*=UTF-8''${utf8Encoded}`;
+
+    const headers = new Headers();
+    headers.set('Content-Type', contentType);
+    if (contentLengthHeader) headers.set('Content-Length', contentLengthHeader);
+    headers.set('Content-Disposition', disposition);
+    headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+    headers.set('X-Content-Type-Options', 'nosniff');
+
+    return new Response(upstream.body, { status: 200, headers });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Sanitizes a title into a safe filename with the correct extension. */
 function buildFilename(title: string | null, format: 'audio' | 'video', url: string): string {
-  const base = (title || 'media').trim().slice(0, 120) || 'media';
-  // Pick extension based on format / URL.
+  const base = sanitizeFilename(title || 'media', 'media');
   let ext = format === 'audio' ? 'mp3' : 'mp4';
   const urlLower = url.toLowerCase();
   if (/\.(mp3)(\?|$)/i.test(urlLower)) ext = 'mp3';
@@ -153,6 +197,12 @@ function buildFilename(title: string | null, format: 'audio' | 'video', url: str
 }
 
 export async function GET(request: Request) {
+  // 1. Rate Limiting (20 downloads per minute per IP)
+  const rateLimitResult = enforceRateLimit(request, 'api-download', 20, 60_000);
+  if (!rateLimitResult.allowed && rateLimitResult.response) {
+    return rateLimitResult.response;
+  }
+
   const { searchParams } = new URL(request.url);
   const target = searchParams.get('url');
   const format = (searchParams.get('format') as 'audio' | 'video') || 'video';
@@ -162,37 +212,52 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Missing url parameter' }, { status: 400 });
   }
 
+  // 2. Primary SSRF and URL validation
+  const validation = await validateSafeUrl(target, { enforceWhitelist: true });
+  if (!validation.safe) {
+    return NextResponse.json(
+      {
+        error: 'Forbidden URL',
+        message: validation.error || 'The requested URL is not allowed',
+      },
+      { status: 403 }
+    );
+  }
+
   const filename = customName
     ? buildFilename(customName, format, target)
     : buildFilename(null, format, target);
 
-  // === Case 1: YouTube URL — resolve via yt-dlp, then stream ===
+  // === Case 1: YouTube URL ===
   if (isYouTubeUrl(target)) {
     try {
       const directUrl = await ytdlpGetDirectUrl(target, format);
-      return streamUrl(directUrl, filename);
-    } catch (err) {
-      // yt-dlp failed (often YouTube blocks datacenter IPs).
-      // Fall back to redirecting the user to a download helper service.
+      return await streamUrl(directUrl, filename);
+    } catch (err: any) {
       const videoId = extractYouTubeId(target);
-      if (videoId) {
-        const helperUrl = `https://www.y2mate.com/youtube/${videoId}`;
-        return NextResponse.redirect(helperUrl, { status: 302 });
-      }
+      // Clean, safe response without third-party adware redirect
       return NextResponse.json(
-        { error: 'YouTube download failed and no helper available', detail: err instanceof Error ? err.message : String(err) },
-        { status: 502 },
+        {
+          error: 'YouTube Download Unavailable',
+          message: 'Could not extract direct stream URL for this YouTube video.',
+          videoId: videoId || undefined,
+          detail: err instanceof Error ? err.message : String(err),
+        },
+        { status: 502 }
       );
     }
   }
 
-  // === Case 2: Direct media URL — stream through the proxy ===
+  // === Case 2: Direct media URL (archive.org, GitHub raw, etc.) ===
   try {
     return await streamUrl(target, filename);
-  } catch (err) {
+  } catch (err: any) {
     return NextResponse.json(
-      { error: 'Failed to stream media', detail: err instanceof Error ? err.message : String(err) },
-      { status: 502 },
+      {
+        error: 'Streaming Failed',
+        detail: err instanceof Error ? err.message : String(err),
+      },
+      { status: 502 }
     );
   }
 }

@@ -8,6 +8,7 @@ import { SheikhCard } from '@/components/sheikh/SheikhCard';
 import { useLibraryStore } from '@/stores/library.store';
 import { useNavStore } from '@/stores/nav.store';
 import { useState, useMemo } from 'react';
+import { arabicSearchMatch } from '@/lib/arabic-normalizer';
 
 export function SearchView() {
   const query = useNavStore((s) => s.searchQuery || '');
@@ -20,8 +21,9 @@ export function SearchView() {
   const results = useMemo(() => search(query), [search, query]);
   const sheikhResults = useMemo(() => {
     if (!query.trim()) return [];
-    const q = query.trim().toLowerCase();
-    return allSheikhs().filter((s) => s.name.toLowerCase().includes(q)).slice(0, 6);
+    return allSheikhs()
+      .filter((s) => arabicSearchMatch(s.name, query) || arabicSearchMatch(s.bio, query))
+      .slice(0, 6);
   }, [allSheikhs, query]);
 
   const submit = (e: React.FormEvent) => {
@@ -43,7 +45,10 @@ export function SearchView() {
         {local && (
           <button
             type="button"
-            onClick={() => setLocal('')}
+            onClick={() => {
+              setLocal('');
+              openSearch('');
+            }}
             className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           >
             <X className="size-5" />
@@ -77,7 +82,7 @@ export function SearchView() {
       {query.trim() && results.length === 0 && sheikhResults.length === 0 && (
         <div className="py-20 text-center">
           <Search className="size-12 mx-auto text-muted-foreground/40 mb-3" />
-          <p className="text-muted-foreground">لا توجد نتائج</p>
+          <p className="text-muted-foreground">لا توجد نتائج مطابقة لبحثك</p>
         </div>
       )}
     </div>

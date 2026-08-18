@@ -19,12 +19,14 @@ function pickString(v: unknown): string | undefined {
   return undefined;
 }
 
-function pickStringArray(v: unknown): string[] | undefined {
+function pickStringArray(v: unknown): string[] {
   if (Array.isArray(v)) {
-    const filtered = v.map((x) => (typeof x === 'string' ? x.trim() : '')).filter(Boolean);
-    return filtered.length > 0 ? filtered : undefined;
+    return v.map((x) => (typeof x === 'string' ? x.trim() : '')).filter(Boolean);
   }
-  return undefined;
+  if (typeof v === 'string' && v.trim()) {
+    return v.split(/[,،]/).map((x) => x.trim()).filter(Boolean);
+  }
+  return [];
 }
 
 /**
@@ -43,17 +45,66 @@ function buildLeafItem(
     description?: string;
   },
 ): MediaItem | null {
-  const title = pickString(leaf.title) || 'بدون عنوان';
+  let title = pickString(leaf.title) || 'بدون عنوان';
   const subtitle = pickString(leaf.subtitle);
   const emoji = pickString(leaf.emoji);
+  let bookAuthor: string | undefined;
 
   // Real data uses youtube URLs in both audioUrl and videoUrl.
   // Detect youtube so we can use the YouTube embed player.
   const rawAudio = pickString(leaf.audioUrl) || pickString(leaf.audio);
   const rawVideo = pickString(leaf.videoUrl) || pickString(leaf.video) || pickString(leaf.mp4);
   const liveUrl = pickString(leaf.liveUrl) || pickString(leaf.hls) || pickString(leaf.stream);
-  const pdfUrl = pickString(leaf.pdfUrl) || pickString(leaf.pdf);
-  const imageUrl = pickString(leaf.imageUrl) || pickString(leaf.thumbnail) || pickString(leaf.thumbnailUrl);
+  let pdfUrl = pickString(leaf.pdfUrl) || pickString(leaf.pdf);
+  let imageUrl = pickString(leaf.imageUrl) || pickString(leaf.image) || pickString(leaf.thumbnail) || pickString(leaf.thumbnailUrl);
+
+  // Extract PDF attachment from IslamHouse book schema
+  if (!pdfUrl && Array.isArray(leaf.attachments)) {
+    const pdfAtt = leaf.attachments.find(
+      (a: unknown) =>
+        a &&
+        typeof a === 'object' &&
+        ((a as { extension_type?: string }).extension_type === 'PDF' ||
+          (a as { url?: string }).url?.toLowerCase().endsWith('.pdf'))
+    ) as { url?: string; size?: string } | undefined;
+    if (pdfAtt?.url) {
+      pdfUrl = pdfAtt.url;
+    }
+  }
+
+  // OpenITI classical book URI
+  if (!pdfUrl && typeof leaf.uri === 'string' && leaf.uri) {
+    pdfUrl = leaf.uri.startsWith('http') ? leaf.uri : `https://raw.githubusercontent.com/OpenITI/${leaf.uri}`;
+  }
+
+  // Format OpenITI classical titles and authors cleanly
+  if (ctx.filePath.includes('openiti') || (typeof leaf.uri === 'string' && leaf.uri.includes('AH/'))) {
+    if (title.includes('.')) {
+      const parts = title.split('.');
+      if (parts.length >= 2) {
+        const rawAuthor = parts[0].replace(/^\d+/, '').replace(/([A-Z])/g, ' $1').trim();
+        const rawBook = parts[1].replace(/([A-Z])/g, ' $1').trim();
+        title = rawBook || parts[1];
+        if (!bookAuthor) bookAuthor = rawAuthor || parts[0];
+      }
+    }
+  }
+
+  // Extract author from prepared_by or author field
+  if (Array.isArray(leaf.prepared_by) && leaf.prepared_by.length > 0) {
+    const authorObj = leaf.prepared_by.find(
+      (p: unknown) => p && typeof p === 'object' && (p as { kind?: string }).kind === 'author'
+    ) as { title?: string } | undefined;
+    bookAuthor = authorObj?.title || (leaf.prepared_by[0] as { title?: string })?.title;
+  } else if (typeof leaf.author === 'string' && leaf.author.trim()) {
+    bookAuthor = leaf.author.trim();
+  }
+
+  const bookTags = [
+    ...pickStringArray(leaf.tags),
+    ...pickStringArray(leaf.category),
+    ...pickStringArray(leaf.categories),
+  ];
 
   const videoSource = pickString(leaf.videoSource) || pickString(leaf.source);
   const mediaType = pickString(leaf.mediaType);
@@ -72,16 +123,20 @@ function buildLeafItem(
     youtubeUrl = rawAudio;
     audioUrl = undefined;
   }
-  // Also detect "direct" videoSource but with archive.org mp4 → keep as videoUrl.
+
+  const effectiveDescription =
+    pickString(leaf.full_description) ||
+    pickString(leaf.description) ||
+    ctx.description;
 
   const item: MediaItem = {
     id: '',
     title,
     subtitle,
     emoji,
-    description: ctx.description,
+    description: effectiveDescription,
     sheikhId: ctx.sheikhId,
-    sheikhName: ctx.sheikhName,
+    sheikhName: bookAuthor || ctx.sheikhName,
     section: ctx.section,
     sourceFile: ctx.filePath,
     sourceRepoId: ctx.repoId,
@@ -95,10 +150,10 @@ function buildLeafItem(
     videoSource,
     mediaType,
     duration: typeof leaf.duration === 'number' ? leaf.duration : undefined,
-    publishedAt: pickString(leaf.publishedAt) || pickString(leaf.date),
+    publishedAt: pickString(leaf.publishedAt) || pickString(leaf.date) || pickString(leaf.add_date),
     views: typeof leaf.views === 'number' ? leaf.views : undefined,
-    tags: pickStringArray(leaf.tags),
-    language: pickString(leaf.language) || 'ar',
+    tags: bookTags.length > 0 ? Array.from(new Set(bookTags)) : undefined,
+    language: pickString(leaf.source_language) || pickString(leaf.language) || 'ar',
   };
 
   // Stable id from URL + title to dedupe across mirrors.
@@ -120,17 +175,35 @@ function buildLeafItem(
   // Don't filter them out just because they have no audio/video/PDF —
   // they're meant to be read, not played.
   if (ctx.section === 'fatwa') {
-    const question = pickString(leaf.question);
+    const question = pickString(leaf.question) || pickString(leaf.cleaned_text);
     const answer = pickString(leaf.answer);
-    // Use `question` as the description (long-form text) if no description set.
+    const scholar = pickString(leaf.mufti_or_scholar) || pickString(leaf.scholar) || pickString(leaf.sheikh);
+    const extraTags = [
+      ...pickStringArray(leaf.categories),
+      ...pickStringArray(leaf.keywords),
+    ];
+
+    if (scholar && (!item.sheikhName || item.sheikhName === prettifySheikhName(ctx.sheikhId))) {
+      item.sheikhName = scholar;
+    }
+
+    if (extraTags.length > 0) {
+      item.tags = Array.from(new Set([...(item.tags || []), ...extraTags]));
+    }
+
+    // Audio fatwa support
+    if (leaf.audio && typeof leaf.audio === 'string' && leaf.audio.startsWith('http')) {
+      item.audioUrl = leaf.audio;
+    }
+
+    // Use `question` as description if not set
     if (question && !item.description) {
       item.description = question;
     }
-    // If title is the default "بدون عنوان", prefer the question's first line.
+    // If title is default "بدون عنوان", prefer question first line
     if ((!item.title || item.title === 'بدون عنوان') && question) {
       item.title = question.split('\n')[0].slice(0, 200);
     }
-    // The `answer` becomes the body text shown when the user opens the fatwa.
     if (answer) {
       item.answer = answer;
     }

@@ -10,7 +10,11 @@
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:reset": "prisma migrate reset"
+    "db:reset": "prisma migrate reset",
+    "graft:build": "graft build",
+    "graft:map": "graft map",
+    "graft:check": "graft check",
+    "graft:viz": "graft viz"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

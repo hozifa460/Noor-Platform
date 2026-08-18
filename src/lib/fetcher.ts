@@ -54,7 +54,29 @@ async function tryFetchJson<T>(
     try {
       const res = await fetchWithTimeout(url, { method: 'GET' }, timeoutMs);
       if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-      const data = (await res.json()) as T;
+
+      const text = await res.text();
+      let data: T;
+      try {
+        data = JSON.parse(text) as T;
+      } catch {
+        // Fallback: parse as line-delimited JSON (NDJSON)
+        const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+        const parsed: unknown[] = [];
+        for (const line of lines) {
+          try {
+            parsed.push(JSON.parse(line));
+          } catch {
+            /* skip malformed lines */
+          }
+        }
+        if (parsed.length > 0) {
+          data = parsed as unknown as T;
+        } else {
+          throw new Error(`Failed to parse JSON response from ${url}`);
+        }
+      }
+
       return { data, status: res.status, lastModified: res.headers.get('last-modified') || undefined };
     } catch (err) {
       lastErr = err;
@@ -142,16 +164,43 @@ export async function fetchMergedIndex(
           }
         }
         if (data === null) throw lastErr instanceof Error ? lastErr : new Error('All index URLs failed');
-        const list = Array.isArray(data?.files) ? data.files : [];
-        for (const f of list) {
-          const cleaned = String(f).trim();
+        let rawList: string[] = [];
+        if (data && typeof data === 'object') {
+          if (Array.isArray(data)) {
+            // Either array of strings or array of Hugging Face tree objects
+            rawList = data
+              .map((item: unknown) => {
+                if (typeof item === 'string') return item;
+                if (item && typeof item === 'object' && 'path' in item) {
+                  const node = item as { path: string; type?: string };
+                  if (node.type === 'directory') return '';
+                  return node.path;
+                }
+                return '';
+              })
+              .filter((p) => p && p.endsWith('.json'));
+          } else if (Array.isArray((data as IndexFile).files)) {
+            rawList = (data as IndexFile).files;
+          }
+        }
+
+        const subPath = (repo.path || '').replace(/^\/+|\/+$/g, '');
+        for (const f of rawList) {
+          let cleaned = String(f).trim().replace(/^\/+/, '');
           if (!cleaned) continue;
+
+          // Normalize relative path if returned with repo subPath prefix
+          if (subPath && (cleaned === subPath || cleaned.startsWith(`${subPath}/`))) {
+            cleaned = cleaned.slice(subPath.length).replace(/^\/+/, '');
+          }
+          if (!cleaned) continue;
+
           if (!seen.has(cleaned)) {
             seen.add(cleaned);
             files.push(cleaned);
           }
         }
-        perRepo.push({ repoId: repo.id, ok: true, fileCount: list.length });
+        perRepo.push({ repoId: repo.id, ok: true, fileCount: rawList.length });
       } catch (err) {
         perRepo.push({
           repoId: repo.id,

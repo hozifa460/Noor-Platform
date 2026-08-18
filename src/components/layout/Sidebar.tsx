@@ -15,6 +15,7 @@ import {
   Download,
   Settings,
   X,
+  Scroll,
   type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,8 @@ interface NavItem {
 
 const MAIN_NAV: NavItem[] = [
   { view: 'home', label: 'الرئيسية', labelEn: 'Home', icon: Home },
+  { view: 'quran', label: 'القرآن الكريم', labelEn: 'Holy Quran', icon: BookOpen },
+  { view: 'hadith', label: 'الحديث النبوي', labelEn: 'Hadith', icon: Scroll },
   { view: 'sheikhs', label: 'المشايخ', labelEn: 'Sheikhs', icon: Users },
 ];
 

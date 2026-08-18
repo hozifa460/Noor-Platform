@@ -43,12 +43,9 @@ export function PageRenderer({
 
   useEffect(() => {
     let cancelled = false;
-    Promise.resolve().then(() => {
-      if (!cancelled) {
-        setRendered(false);
-        setError(false);
-      }
-    });
+
+    setRendered(false);
+    setError(false);
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -58,8 +55,13 @@ export function PageRenderer({
         await renderPage(pageNum, canvas, zoom);
         if (cancelled) return;
         setRendered(true);
-      } catch (err) {
-        if (cancelled) return;
+      } catch (err: any) {
+        const isCancelled =
+          cancelled ||
+          err?.name === 'RenderingCancelledException' ||
+          err?.message?.includes('cancelled') ||
+          err?.message?.includes('Cannot use the same canvas');
+        if (isCancelled) return;
         console.error('[PageRenderer] Failed to render page', pageNum, err);
         setError(true);
       }
@@ -67,6 +69,16 @@ export function PageRenderer({
 
     return () => {
       cancelled = true;
+      const extCanvas = canvas as HTMLCanvasElement & {
+        _activeRenderTask?: { cancel: () => void };
+      };
+      if (extCanvas?._activeRenderTask) {
+        try {
+          extCanvas._activeRenderTask.cancel();
+        } catch {
+          // ignore
+        }
+      }
     };
   }, [pageNum, renderPage, zoom]);
 

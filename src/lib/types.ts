@@ -29,12 +29,12 @@ export interface IndexFile {
   baseUrl?: string;
 }
 
-/** A repository source (GitHub or GitLab). */
+/** A repository source (Hugging Face, GitHub, or GitLab). */
 export interface RepositorySource {
   /** Stable id used in caches and logs. */
   id: string;
-  /** 'github' | 'gitlab' */
-  provider: 'github' | 'gitlab';
+  /** 'huggingface' | 'github' | 'gitlab' */
+  provider: 'huggingface' | 'github' | 'gitlab';
   /** Owner (GitHub user/org or GitLab namespace). */
   owner: string;
   /** Repository name. */
@@ -102,6 +102,13 @@ export interface MediaItem {
   tags?: string[];
   language?: string;
 
+  // Book & Classical Corpus metadata
+  islamicArt?: string;
+  matchReason?: string;
+  shamelaId?: number;
+  shamelaPath?: string;
+  shamelaCategoryId?: number;
+
   /**
    * Live broadcast status. Computed at runtime for items in the `live` section:
    *   - `'now'`    — currently broadcasting (publishedAt within last 4 hours)
@@ -147,6 +154,8 @@ export interface Sheikh {
 /** A view in the single-page navigation. */
 export type ViewKind =
   | 'home'
+  | 'quran'
+  | 'hadith'
   | 'sheikhs'
   | 'videos'
   | 'shorts'

@@ -1,0 +1,61 @@
+# Sentrux Architecture & Code Quality Rules for Noor Platform
+# Enforces clean layer boundaries, zero circular dependencies, and security invariants.
+
+[project]
+name = "noor-platform"
+language = "typescript"
+framework = "nextjs"
+version = "1.0.0"
+
+[metrics]
+target_score = 9500
+min_acceptable_score = 9000
+
+[layers]
+# Strict architectural hierarchy: UI -> Hooks -> Stores -> Lib -> Types
+order = [
+  "types",
+  "lib",
+  "stores",
+  "hooks",
+  "components",
+  "app"
+]
+
+[layers.definitions]
+types = ["src/lib/types.ts"]
+lib = ["src/lib/**"]
+stores = ["src/stores/**"]
+hooks = ["src/hooks/**"]
+components = ["src/components/**"]
+app = ["src/app/**"]
+
+[rules.acyclicity]
+enforce = true
+max_circular_dependencies = 0
+
+[rules.modularity]
+max_file_lines = 400
+max_function_lines = 100
+max_complexity = 15
+no_god_files = true
+
+[rules.security]
+# SSRF Protection: All external fetches in API routes must use validateSafeUrl()
+enforce_ssrf_guard = true
+# DoS Protection: No execSync in API routes; use execFileAsync only
+disallow_exec_sync = true
+# Rate Limiting: All API endpoints must invoke enforceRateLimit()
+require_rate_limiting = true
+# Input Sanitization: No unsanitized Arabic strings in headers or queries
+enforce_input_sanitization = true
+
+[testing]
+require_security_tests = true
+require_normalizer_tests = true
+require_clean_build = true
+test_commands = [
+  "npx tsx scripts/test_security_audit.mjs",
+  "npx tsx scripts/test_arabic_normalizer.mjs",
+  "npx next build"
+]

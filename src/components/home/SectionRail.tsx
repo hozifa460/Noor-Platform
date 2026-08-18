@@ -174,7 +174,7 @@ export function SectionRail({
             {title}
           </h2>
           <button
-            onClick={() => setView(section)}
+            onClick={() => setView(section === 'main' ? 'videos' : section)}
             className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
           >
             عرض الكل
@@ -203,7 +203,7 @@ export function SectionRail({
           {title}
         </h2>
         <button
-          onClick={() => setView(section)}
+          onClick={() => setView(section === 'main' ? 'videos' : section)}
           className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
         >
           عرض الكل

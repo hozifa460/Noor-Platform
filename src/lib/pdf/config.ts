@@ -95,6 +95,13 @@ const ALLOWED_HOST_PATTERNS = [
   /^([a-z0-9-]+\.)+archive\.org$/i,
   /^raw\.githubusercontent\.com$/i,
   /^gitlab\.com$/i,
+  /^([a-z0-9-]+\.)+gitlab\.com$/i,
+  /^huggingface\.co$/i,
+  /^([a-z0-9-]+\.)+huggingface\.co$/i,
+  /^hf\.co$/i,
+  /^([a-z0-9-]+\.)+hf\.co$/i,
+  /^islamhouse\.com$/i,
+  /^([a-z0-9-]+\.)+islamhouse\.com$/i,
 ];
 
 export function isAllowedPdfHost(url: string): boolean {

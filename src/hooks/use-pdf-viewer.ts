@@ -191,37 +191,31 @@ export function usePdfViewer(url: string, bookSlug?: string): UsePdfViewerResult
       setLoadProgress(0);
       setPdfDoc(null);
       setNumPages(0);
-      renderedPagesRef.current.clear();
-
       try {
         const pdfjsLib = await loadPdfjs();
         if (cancelled) return;
 
-        const proxyUrl = proxifyPdfUrl(url);
-        const loadingTask = pdfjsLib.getDocument(getDocumentParams(proxyUrl));
+        let proxyUrl = proxifyPdfUrl(url);
+        let loadingTask;
+        try {
+          loadingTask = pdfjsLib.getDocument(getDocumentParams(proxyUrl));
+          doc = await loadingTask.promise;
+        } catch (proxyErr) {
+          if (cancelled) return;
+          console.warn('[usePdfViewer] Proxy fetch failed, falling back to direct URL:', proxyErr);
+          loadingTask = pdfjsLib.getDocument(getDocumentParams(url));
+          doc = await loadingTask.promise;
+        }
 
-        loadingTask.onProgress = ({
-          loaded,
-          total,
-        }: {
-          loaded: number;
-          total: number;
-        }) => {
-          if (total > 0) {
-            setLoadProgress(Math.min(100, (loaded / total) * 100));
-          } else {
-            setLoadProgress((p) => Math.min(95, p + 1));
-          }
-        };
-
-        doc = await loadingTask.promise;
         if (cancelled) {
-          doc.destroy();
+          if (doc) (doc as PDFDocumentProxy).destroy();
           return;
         }
 
-        setPdfDoc(doc);
-        setNumPages(doc.numPages);
+        if (doc) {
+          setPdfDoc(doc);
+          setNumPages(doc.numPages);
+        }
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
@@ -324,6 +318,22 @@ export function usePdfViewer(url: string, bookSlug?: string): UsePdfViewerResult
     ): Promise<void> => {
       if (!pdfDoc) return;
 
+      // Cancel any ongoing render task on this canvas and await its cleanup
+      const extCanvas = canvas as HTMLCanvasElement & {
+        _activeRenderTask?: { cancel: () => void; promise?: Promise<void> };
+      };
+      if (extCanvas._activeRenderTask) {
+        try {
+          extCanvas._activeRenderTask.cancel();
+          if (extCanvas._activeRenderTask.promise) {
+            await extCanvas._activeRenderTask.promise.catch(() => {});
+          }
+        } catch {
+          // ignore
+        }
+        extCanvas._activeRenderTask = undefined;
+      }
+
       // Check IndexedDB cache first.
       const cached = await getCachedPage(url, pageNum, renderZoom);
       if (cached) {
@@ -354,7 +364,24 @@ export function usePdfViewer(url: string, bookSlug?: string): UsePdfViewerResult
         canvasContext: ctx,
         viewport,
       } as any);
-      await renderTask.promise;
+      extCanvas._activeRenderTask = renderTask;
+
+      try {
+        await renderTask.promise;
+      } catch (err: any) {
+        if (
+          err?.name === 'RenderingCancelledException' ||
+          err?.message?.includes('cancelled') ||
+          err?.message?.includes('Cannot use the same canvas')
+        ) {
+          return;
+        }
+        throw err;
+      } finally {
+        if (extCanvas._activeRenderTask === renderTask) {
+          extCanvas._activeRenderTask = undefined;
+        }
+      }
 
       // Cache the rendered page.
       try {

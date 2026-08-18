@@ -27,9 +27,7 @@ export function SinglePageView({ viewer }: SinglePageViewProps) {
     if (!canvas) return;
     let cancelled = false;
 
-    Promise.resolve().then(() => {
-      if (!cancelled) setPageRendering(true);
-    });
+    setPageRendering(true);
 
     (async () => {
       try {
@@ -41,20 +39,36 @@ export function SinglePageView({ viewer }: SinglePageViewProps) {
         for (const p of [currentPage + 1, currentPage + 2]) {
           if (cancelled || p > numPages) return;
           try {
-            const page = await pdfDoc.getPage(p);
-            // Just loading caches it in PDF.js's internal cache.
+            await pdfDoc.getPage(p);
           } catch {
             // ignore
           }
         }
-      } catch (err) {
-        console.error('[SinglePageView] Failed to render page', currentPage, err);
+      } catch (err: any) {
+        const isCancelled =
+          cancelled ||
+          err?.name === 'RenderingCancelledException' ||
+          err?.message?.includes('cancelled') ||
+          err?.message?.includes('Cannot use the same canvas');
+        if (!isCancelled) {
+          console.error('[SinglePageView] Failed to render page', currentPage, err);
+        }
         setPageRendering(false);
       }
     })();
 
     return () => {
       cancelled = true;
+      const extCanvas = canvas as HTMLCanvasElement & {
+        _activeRenderTask?: { cancel: () => void };
+      };
+      if (extCanvas?._activeRenderTask) {
+        try {
+          extCanvas._activeRenderTask.cancel();
+        } catch {
+          // ignore
+        }
+      }
     };
   }, [pdfDoc, currentPage, zoom, numPages, renderPage]);
 

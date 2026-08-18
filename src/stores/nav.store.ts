@@ -133,6 +133,8 @@ export function hashToViewState(hash: string): ViewState | null {
       const q = h.includes('?q=') ? decodeURIComponent(h.split('?q=')[1]) : '';
       return { view: 'search', searchQuery: q };
     }
+    case 'quran':
+    case 'hadith':
     case 'videos':
     case 'shorts':
     case 'live':

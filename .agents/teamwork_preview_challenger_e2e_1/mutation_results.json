@@ -1,0 +1,114 @@
+[
+  {
+    "mutationId": "MUT_SCHEMA_1",
+    "description": "Detect non-existent micro-index file",
+    "expectedToCatch": true,
+    "caught": true,
+    "pass": true,
+    "details": "fs.existsSync correctly returned false"
+  },
+  {
+    "mutationId": "MUT_SIZE_1",
+    "description": "Verify size strictly < 3,000,000 bytes",
+    "expectedToCatch": true,
+    "caught": true,
+    "pass": true,
+    "details": "Actual size: 2847219 bytes (2.72 MB)"
+  },
+  {
+    "mutationId": "MUT_SIZE_2",
+    "description": "Verify size strictly < 3,145,728 bytes (3 MiB)",
+    "expectedToCatch": true,
+    "caught": true,
+    "pass": true,
+    "details": "Actual size: 2847219 bytes"
+  },
+  {
+    "mutationId": "MUT_NORM_1",
+    "description": "Catch missing Tashkeel / Harakat normalization",
+    "expectedToCatch": true,
+    "caught": true,
+    "pass": true,
+    "details": "Normalized: \"انما الاعمال بالنيات\" vs Broken: \"إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ\""
+  },
+  {
+    "mutationId": "MUT_NORM_2",
+    "description": "Catch missing Alef forms normalization",
+    "expectedToCatch": true,
+    "caught": true,
+    "pass": true,
+    "details": "Normalized: \"ايمان احمد ايه استغفار\""
+  },
+  {
+    "mutationId": "MUT_PREFIX_1",
+    "description": "Catch morphological prefix match (وبالوالدين -> الوالدين)",
+    "expectedToCatch": true,
+    "caught": true,
+    "pass": true,
+    "details": "Match result: true"
+  },
+  {
+    "mutationId": "MUT_GRADE_1",
+    "description": "Catch invalid Bukhari #1 consensus grade",
+    "expectedToCatch": true,
+    "caught": true,
+    "pass": true,
+    "details": "Bukhari #1 grade: صحيح"
+  },
+  {
+    "mutationId": "MUT_GRADE_2",
+    "description": "Catch unknown book grade fallback",
+    "expectedToCatch": true,
+    "caught": true,
+    "pass": true,
+    "details": "Fallback grade: مقبول"
+  },
+  {
+    "mutationId": "SPOOF_TIMER_1",
+    "description": "Verify performance.now() high-resolution monotonicity",
+    "expectedToCatch": true,
+    "caught": true,
+    "pass": true,
+    "details": "Elapsed: 1.4578ms for 100k ops"
+  },
+  {
+    "mutationId": "LATENCY_الصلاة",
+    "description": "Latency check for \"الصلاة\"",
+    "expectedToCatch": true,
+    "caught": false,
+    "pass": false,
+    "details": "Avg: 27.27ms (SLA < 2.0ms), Top: bukhari #195"
+  },
+  {
+    "mutationId": "LATENCY_النيات",
+    "description": "Latency check for \"النيات\"",
+    "expectedToCatch": true,
+    "caught": false,
+    "pass": false,
+    "details": "Avg: 166.52ms (SLA < 2.0ms), Top: bukhari #1"
+  },
+  {
+    "mutationId": "LATENCY_بر الوالدين",
+    "description": "Latency check for \"بر الوالدين\"",
+    "expectedToCatch": true,
+    "caught": false,
+    "pass": false,
+    "details": "Avg: 2.82ms (SLA < 2.0ms), Top: aladab_almufrad #22"
+  },
+  {
+    "mutationId": "LATENCY_لا يؤمن أحدكم",
+    "description": "Latency check for \"لا يؤمن أحدكم\"",
+    "expectedToCatch": true,
+    "caught": true,
+    "pass": true,
+    "details": "Avg: 0.23ms (SLA < 2.0ms), Top: bukhari #13"
+  },
+  {
+    "mutationId": "LATENCY_خزعبلاتغيرموجودة",
+    "description": "Latency check for \"خزعبلاتغيرموجودة\"",
+    "expectedToCatch": true,
+    "caught": false,
+    "pass": false,
+    "details": "Avg: 160.54ms (SLA < 2.0ms), Top: none #-1"
+  }
+]

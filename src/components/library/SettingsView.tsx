@@ -72,12 +72,14 @@ export function SettingsView() {
               <div key={repo.id} className="rounded-xl border border-border p-4 space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    {repo.provider === 'github' ? (
+                    {repo.provider === 'huggingface' ? (
+                      <span className="text-base leading-none">🤗</span>
+                    ) : repo.provider === 'github' ? (
                       <Github className="size-4" />
                     ) : (
                       <Gitlab className="size-4" />
                     )}
-                    <span className="text-xs text-muted-foreground">{repo.id}</span>
+                    <span className="text-xs text-muted-foreground font-mono">{repo.id}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {status && (
@@ -100,10 +102,11 @@ export function SettingsView() {
                     <Label className="text-xs">المزود</Label>
                     <Select
                       value={repo.provider}
-                      onValueChange={(v) => updateRepo(repo.id, { provider: v as 'github' | 'gitlab' })}
+                      onValueChange={(v) => updateRepo(repo.id, { provider: v as 'huggingface' | 'github' | 'gitlab' })}
                     >
                       <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="huggingface">🤗 Hugging Face</SelectItem>
                         <SelectItem value="github">GitHub</SelectItem>
                         <SelectItem value="gitlab">GitLab</SelectItem>
                       </SelectContent>

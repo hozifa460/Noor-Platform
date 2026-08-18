@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import type { MediaItem, Sheikh } from '@/lib/types';
 import { buildSheikhs, dedupeItems, type NormalizeResult } from '@/lib/sheikh';
+import { arabicSearchMatch, arabicSearchScore } from '@/lib/arabic-normalizer';
 
 interface LibraryState {
   /** All loaded media items (merged + deduplicated). */
@@ -36,6 +37,7 @@ interface LibraryState {
 
   setItems: (items: MediaItem[], sheikhMetaByFile?: Map<string, NormalizeResult['sheikhMeta']>) => void;
   addItems: (items: MediaItem[]) => void;
+  addItemsBatch: (items: MediaItem[]) => void;
   setSyncing: (v: boolean) => void;
   setRepoStatus: (s: LibraryState['repoStatus']) => void;
   setLastSync: (t: number) => void;
@@ -55,10 +57,13 @@ interface LibraryState {
   getSheikh: (id: string) => Sheikh | undefined;
   /** Returns all sheikhs as an array (cached reference). */
   allSheikhs: () => Sheikh[];
-  /** Search items by query. */
+  /** High performance Arabic search with diacritics removal and ranking. */
   search: (query: string) => MediaItem[];
   reset: () => void;
 }
+
+// In-memory ID set for fast O(1) membership check during active ingestion
+const globalItemIdSet = new Set<string>();
 
 export const useLibraryStore = create<LibraryState>((set, get) => ({
   items: [],
@@ -74,29 +79,60 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
   setItems: (items, sheikhMetaByFile) => {
     const deduped = dedupeItems(items);
+    globalItemIdSet.clear();
+    for (const it of deduped) {
+      globalItemIdSet.add(it.id);
+    }
     const meta = sheikhMetaByFile || get().sheikhMetaByFile;
     const sheikhs = buildSheikhs(deduped, meta);
+    const known = Array.from(new Set(deduped.map((i) => i.sourceFile).filter(Boolean) as string[]));
+
     set({
       items: deduped,
       sheikhs,
       sheikhsArray: Array.from(sheikhs.values()),
-      knownFiles: Array.from(new Set(deduped.map((i) => i.sourceFile).filter(Boolean) as string[])),
+      knownFiles: known,
       sheikhMetaByFile: meta,
     });
   },
 
   addItems: (newItems) => {
-    const merged = dedupeItems([...get().items, ...newItems]);
-    const sheikhs = buildSheikhs(merged, get().sheikhMetaByFile);
-    set({ items: merged, sheikhs, sheikhsArray: Array.from(sheikhs.values()) });
+    if (!newItems || newItems.length === 0) return;
+
+    // Fast O(1) filter for unseen items
+    const toAdd: MediaItem[] = [];
+    for (const item of newItems) {
+      if (!globalItemIdSet.has(item.id)) {
+        globalItemIdSet.add(item.id);
+        toAdd.push(item);
+      }
+    }
+
+    if (toAdd.length === 0) return;
+
+    const currentItems = get().items;
+    const merged = currentItems.concat(toAdd);
+    const meta = get().sheikhMetaByFile;
+    const sheikhs = buildSheikhs(merged, meta);
+    const known = Array.from(new Set(merged.map((i) => i.sourceFile).filter(Boolean) as string[]));
+
+    set({
+      items: merged,
+      sheikhs,
+      sheikhsArray: Array.from(sheikhs.values()),
+      knownFiles: known,
+    });
+  },
+
+  addItemsBatch: (newItems) => {
+    get().addItems(newItems);
   },
 
   setSyncing: (syncing) => set({ syncing }),
   setRepoStatus: (repoStatus) => set({ repoStatus }),
   setLastSync: (lastSync) => set({ lastSync }),
 
-  setArchiveFiles: (files) =>
-    set({ archiveFiles: files, loadedArchives: new Set() }),
+  setArchiveFiles: (files) => set({ archiveFiles: files, loadedArchives: new Set() }),
 
   markArchiveLoaded: (filePath) =>
     set((s) => {
@@ -119,14 +155,38 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   allSheikhs: () => get().sheikhsArray,
 
   search: (query) => {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
-    return get().items.filter((i) =>
-      [i.title, i.subtitle, i.description, i.sheikhName, i.groupTitle, ...(i.tags || [])]
-        .filter(Boolean)
-        .some((field) => String(field).toLowerCase().includes(q)),
-    );
+    if (!query || !query.trim()) return [];
+    const q = query.trim();
+    const items = get().items;
+    const matches: { item: MediaItem; score: number }[] = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      const targetText = `${it.title} ${it.subtitle || ''} ${it.sheikhName || ''} ${it.groupTitle || ''} ${it.description || ''} ${(it.tags || []).join(' ')}`;
+
+      if (arabicSearchMatch(targetText, q)) {
+        const titleScore = arabicSearchScore(it.title, q);
+        const sheikhScore = arabicSearchScore(it.sheikhName, q);
+        const score = titleScore * 2 + sheikhScore;
+        matches.push({ item: it, score });
+      }
+    }
+
+    matches.sort((a, b) => b.score - a.score);
+    return matches.map((m) => m.item);
   },
 
-  reset: () => set({ items: [], sheikhs: new Map(), sheikhsArray: [], lastSync: null, knownFiles: [], sheikhMetaByFile: new Map(), archiveFiles: [], loadedArchives: new Set() }),
+  reset: () => {
+    globalItemIdSet.clear();
+    set({
+      items: [],
+      sheikhs: new Map(),
+      sheikhsArray: [],
+      lastSync: null,
+      knownFiles: [],
+      sheikhMetaByFile: new Map(),
+      archiveFiles: [],
+      loadedArchives: new Set(),
+    });
+  },
 }));

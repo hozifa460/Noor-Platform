@@ -217,3 +217,62 @@
 video::-webkit-media-controls-enclosure {
   direction: ltr;
 }
+
+/* Authentic Quran Calligraphy Typography */
+@font-face {
+  font-family: 'Amiri Quran';
+  src: url('/fonts/quran/amiri_quran.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Scheherazade New';
+  src: url('/fonts/quran/scheherazade_new.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Scheherazade New';
+  src: url('/fonts/quran/scheherazade_bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+.font-quran {
+  font-family: 'Amiri Quran', 'Scheherazade New', var(--font-amiri), serif;
+  font-feature-settings: "cv01" on, "cv02" on;
+  letter-spacing: 0px;
+  word-spacing: 2px;
+  text-rendering: optimizeLegibility;
+}
+
+/* Classical Deluxe Mus-haf Page Frame */
+.mushaf-real-page {
+  background: radial-gradient(circle at center, #fdfbf7 0%, #f7f1e3 100%);
+  color: #1a1e1b;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(180, 140, 60, 0.25);
+}
+
+.dark .mushaf-real-page {
+  background: radial-gradient(circle at center, #19201c 0%, #121614 100%);
+  color: #f3f7f4;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(217, 170, 75, 0.2);
+}
+
+/* Ornate Gilded Surah Frame */
+.surah-frame-gilded {
+  background: linear-gradient(135deg, #1b382b 0%, #0d2118 50%, #1a3629 100%);
+  border: 2px solid #c89b3c;
+  box-shadow: inset 0 0 12px rgba(200, 155, 60, 0.3), 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+
+.dark .surah-frame-gilded {
+  background: linear-gradient(135deg, #0f241c 0%, #07130e 50%, #0f241c 100%);
+  border: 2px solid #d4a745;
+}
+

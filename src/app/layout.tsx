@@ -1,22 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { Cairo, Amiri } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Providers } from "@/components/providers";
 import { Toaster as Sonner } from "@/components/ui/sonner";
-
-const cairo = Cairo({
-  variable: "--font-cairo",
-  subsets: ["arabic", "latin"],
-  display: "swap",
-});
-
-const amiri = Amiri({
-  variable: "--font-amiri",
-  subsets: ["arabic", "latin"],
-  weight: ["400", "700"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "منصة النور — Islamic Streaming Platform",
@@ -55,7 +41,7 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
       <body
-        className={`${cairo.variable} ${amiri.variable} font-sans antialiased bg-background text-foreground min-h-screen`}
+        className="font-sans antialiased bg-background text-foreground min-h-screen"
       >
         <Providers>
           {children}

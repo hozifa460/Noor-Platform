@@ -1,33 +1,41 @@
 import { NextResponse } from 'next/server';
 import { getSheikhMeta } from '@/lib/sheikh-meta';
+import { validateSafeUrl } from '@/lib/security';
+import { enforceRateLimit } from '@/lib/rate-limiter';
 
 /**
- * Sheikh avatar endpoint.
- *
- * Usage: /api/sheikh-avatar?id=zein_khair_allah&name=زين خير الله
- *
- * Resolution order:
- *   1. Curated image URL (for famous sheikhs with known photos)
- *   2. YouTube channel avatar (fetched server-side from the channel page)
- *   3. Generated SVG avatar (Islamic-themed, with the sheikh's initials)
- *
- * The image is PROXIED through our server (not redirected) to avoid
- * cross-origin issues, rate limiting, and hot-linking protection.
- * Results are cached server-side for 24 hours.
+ * Sheikh avatar endpoint with SSRF protection and memory caching.
  */
 
 const AVATAR_CACHE: Map<string, { buffer: Buffer; contentType: string; ts: number }> = new Map();
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+const MAX_AVATAR_CACHE_ITEMS = 500;
+
+function pruneCache() {
+  if (AVATAR_CACHE.size > MAX_AVATAR_CACHE_ITEMS) {
+    const now = Date.now();
+    for (const [key, val] of AVATAR_CACHE.entries()) {
+      if (now - val.ts > CACHE_TTL) {
+        AVATAR_CACHE.delete(key);
+      }
+    }
+  }
+}
 
 /** Fetches the YouTube channel avatar URL by scraping the channel page. */
 async function fetchYouTubeAvatarUrl(channelId: string): Promise<string | null> {
+  // Validate channelId format to avoid arbitrary queries
+  if (!/^[a-zA-Z0-9_-]{15,35}$/.test(channelId)) return null;
+
   try {
-    const res = await fetch(`https://www.youtube.com/channel/${channelId}`, {
+    const url = `https://www.youtube.com/channel/${encodeURIComponent(channelId)}`;
+    const res = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (compatible; Noor-Platform/1.0)',
         'Accept-Language': 'en-US,en;q=0.9',
       },
       redirect: 'follow',
+      signal: AbortSignal.timeout(8000),
     });
 
     if (!res.ok) return null;
@@ -51,18 +59,30 @@ async function fetchYouTubeAvatarUrl(channelId: string): Promise<string | null> 
   }
 }
 
-/** Fetches an image URL and returns it as a Buffer + content type. */
+/** Fetches an image URL safely with SSRF protection and returns it as a Buffer + content type. */
 async function fetchImageAsBuffer(url: string): Promise<{ buffer: Buffer; contentType: string } | null> {
+  const validation = await validateSafeUrl(url, { enforceWhitelist: true });
+  if (!validation.safe) {
+    return null;
+  }
+
   try {
     const res = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (compatible; Noor-Platform/1.0)',
         'Accept': 'image/*,*/*;q=0.8',
       },
       redirect: 'follow',
+      signal: AbortSignal.timeout(8000),
     });
 
     if (!res.ok) return null;
+
+    const contentLength = res.headers.get('content-length');
+    if (contentLength && parseInt(contentLength, 10) > 5 * 1024 * 1024) {
+      return null; // Don't cache images larger than 5MB
+    }
+
     const buffer = Buffer.from(await res.arrayBuffer());
     const contentType = res.headers.get('content-type') || 'image/jpeg';
     return { buffer, contentType };
@@ -71,10 +91,10 @@ async function fetchImageAsBuffer(url: string): Promise<{ buffer: Buffer; conten
   }
 }
 
-/** Generates a nice SVG avatar with the sheikh's initials and Islamic colors. */
+/** Generates an SVG avatar with the sheikh's initials and Islamic aesthetic. */
 function generateSvgAvatar(name: string, seed: string): { buffer: Buffer; contentType: string } {
   const words = name
-    .replace(/^(الشيخ|الدكتور|د\.?|القارئ)\s+/i, '')
+    .replace(/^(الشيخ|الدكتور|د\.?|القارئ|العلامة|فضيلة الشيخ)\s+/i, '')
     .split(/\s+/)
     .filter((w) => w.length > 1)
     .slice(0, 2);
@@ -105,7 +125,7 @@ function generateSvgAvatar(name: string, seed: string): { buffer: Buffer; conten
   <rect width="400" height="400" fill="url(#stars)"/>
   <circle cx="200" cy="200" r="140" fill="white" opacity="0.08"/>
   <circle cx="200" cy="200" r="120" fill="white" opacity="0.05"/>
-  <text x="200" y="200" font-family="Arial, sans-serif" font-size="120" font-weight="bold"
+  <text x="200" y="200" font-family="sans-serif" font-size="120" font-weight="bold"
         fill="white" text-anchor="middle" dominant-baseline="central" opacity="0.95">
     ${initials}
   </text>
@@ -118,73 +138,82 @@ function generateSvgAvatar(name: string, seed: string): { buffer: Buffer; conten
 }
 
 export async function GET(request: Request) {
+  // Rate limiting (120 req/min)
+  const rateLimitResult = enforceRateLimit(request, 'api-sheikh-avatar', 120, 60_000);
+  if (!rateLimitResult.allowed && rateLimitResult.response) {
+    return rateLimitResult.response;
+  }
+
   const { searchParams } = new URL(request.url);
-  const id = searchParams.get('id') || '';
-  const name = searchParams.get('name') || id;
+  const id = (searchParams.get('id') || '').slice(0, 80);
+  const name = (searchParams.get('name') || id).slice(0, 100);
 
   if (!id) {
     return NextResponse.json({ error: 'Missing id parameter' }, { status: 400 });
   }
 
-  // Check server-side cache first.
-  // Cache key includes a version suffix so we can bust the cache by
-  // bumping the version when sheikh-meta.ts is updated.
-  const CACHE_VERSION = 'v3';
+  pruneCache();
+
+  const CACHE_VERSION = 'v4';
   const cacheKey = `${id}:${CACHE_VERSION}`;
   const cached = AVATAR_CACHE.get(cacheKey);
   if (cached && Date.now() - cached.ts < CACHE_TTL) {
-    return new NextResponse(cached.buffer, {
+    return new NextResponse(new Uint8Array(cached.buffer), {
       status: 200,
       headers: {
         'Content-Type': cached.contentType,
-        'Cache-Control': 'public, max-age=86400',
+        'Cache-Control': 'public, max-age=86400, stale-while-revalidate=43200',
+        'X-Content-Type-Options': 'nosniff',
       },
     });
   }
 
   const meta = getSheikhMeta(id);
 
-  // Try curated image URL first.
+  // 1. Curated image URL
   if (meta.imageUrl) {
     const result = await fetchImageAsBuffer(meta.imageUrl);
     if (result) {
       AVATAR_CACHE.set(cacheKey, { ...result, ts: Date.now() });
-      return new NextResponse(result.buffer, {
+      return new NextResponse(new Uint8Array(result.buffer), {
         status: 200,
         headers: {
           'Content-Type': result.contentType,
           'Cache-Control': 'public, max-age=86400',
+          'X-Content-Type-Options': 'nosniff',
         },
       });
     }
   }
 
-  // Try YouTube channel avatar.
+  // 2. YouTube avatar
   if (meta.channelId) {
     const avatarUrl = await fetchYouTubeAvatarUrl(meta.channelId);
     if (avatarUrl) {
       const result = await fetchImageAsBuffer(avatarUrl);
       if (result) {
         AVATAR_CACHE.set(cacheKey, { ...result, ts: Date.now() });
-        return new NextResponse(result.buffer, {
+        return new NextResponse(new Uint8Array(result.buffer), {
           status: 200,
           headers: {
             'Content-Type': result.contentType,
             'Cache-Control': 'public, max-age=86400',
+            'X-Content-Type-Options': 'nosniff',
           },
         });
       }
     }
   }
 
-  // Fallback: generated SVG avatar.
+  // 3. Fallback SVG avatar
   const svgResult = generateSvgAvatar(name, id);
   AVATAR_CACHE.set(cacheKey, { ...svgResult, ts: Date.now() });
-  return new NextResponse(svgResult.buffer, {
+  return new NextResponse(new Uint8Array(svgResult.buffer), {
     status: 200,
     headers: {
       'Content-Type': svgResult.contentType,
       'Cache-Control': 'public, max-age=86400',
+      'X-Content-Type-Options': 'nosniff',
     },
   });
 }

@@ -52,3 +52,10 @@ prompt
 server.log
 # Skills directory
 /skills/
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+graft/
+
+# Large dataset caches (exceeds GitHub limits)
+public/data/
+Noor_Platform_Audit_Report.pdf

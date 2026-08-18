@@ -15,14 +15,27 @@ import type { SectionKind } from './types';
 export function classifyFile(filePath: string): SectionKind {
   const name = filePath.split('/').pop() || filePath;
   const lowerPath = filePath.toLowerCase();
+  let decodedPath = lowerPath;
+  try {
+    decodedPath = decodeURIComponent(lowerPath);
+  } catch {
+    /* ignore */
+  }
 
   // Built-in files from /public/ (radio, books, articles)
   if (/radio\.json$/i.test(name) || lowerPath.includes('islamic_radios')) return 'radio';
   if (/books\.json$/i.test(name) || lowerPath.includes('islamic_books')) return 'books';
   if (/articles\.json$/i.test(name) || lowerPath.includes('islamic_articles')) return 'articles';
 
-  // Fatwa folder detection
-  if (lowerPath.includes('fatawa_bibaz/') || lowerPath.includes('islam_fatawa/')) {
+  // Fatwa folder & keyword detection (supports English and Arabic)
+  if (
+    decodedPath.includes('fatawa') ||
+    decodedPath.includes('fatwa') ||
+    decodedPath.includes('فتاوى') ||
+    decodedPath.includes('فتاوي') ||
+    decodedPath.includes('nur_ealaa_aldarb') ||
+    decodedPath.includes('islamhouse_fatwa')
+  ) {
     return 'fatwa';
   }
 
@@ -30,17 +43,11 @@ export function classifyFile(filePath: string): SectionKind {
   if (/\.shorts\.json$/i.test(name)) return 'shorts';
   if (/\.live\.json$/i.test(name)) return 'live';
   if (/\.radio\.json$/i.test(name)) return 'radio';
-
-  // Fatwa file patterns
-  if (/\.fatwa\.json$/i.test(name)) return 'fatwa';
-  if (/^fatawa[_a]?/i.test(name) || /^fatwa_/i.test(name)) return 'fatwa';
-  if (/^nur_ealaa_aldarb/i.test(name)) return 'fatwa';
-
   if (/\.books\.json$/i.test(name)) return 'books';
   if (/\.articles\.json$/i.test(name)) return 'articles';
   if (/^1_.+\.json$/i.test(name)) return 'main';
 
-  // Fallback: treat unknown JSON as a generic video collection.
+  // Fallback: treat unknown JSON as videos collection.
   return 'videos';
 }
 

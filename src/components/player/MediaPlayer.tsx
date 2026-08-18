@@ -34,6 +34,9 @@ import { triggerDownload, downloadForOffline } from '@/lib/download';
 import type { MediaItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { EBookTextReader } from '@/components/books/EBookTextReader';
+import { VectorMushafReader } from '@/components/books/VectorMushafReader';
 
 interface MediaPlayerProps {
   item: MediaItem | null;
@@ -41,12 +44,36 @@ interface MediaPlayerProps {
 }
 
 /** Decide which player kind to use based on available URLs. */
-function pickPlayer(item: MediaItem): 'youtube' | 'video' | 'audio' | 'live' | 'pdf' | 'fatwa' | null {
+function pickPlayer(item: MediaItem): 'youtube' | 'video' | 'audio' | 'live' | 'pdf' | 'fatwa' | 'ebook' | 'mushaf' | null {
+  // 1. Quran Mushaf items (Always check FIRST to prevent Quran items from being swallowed by book reader)
+  if (
+    item.id.startsWith('quran-') ||
+    (item.tags || []).some((t) => t === 'quran' || t === 'مصحف' || t === 'قراءة') ||
+    (item.title || '').includes('مصحف')
+  ) {
+    return 'mushaf';
+  }
+
+  // 2. Pure text eBook, Shamela 4 books, or OpenITI classical texts
+  if (
+    item.tags?.includes('ebook_text') ||
+    item.tags?.includes('openiti') ||
+    item.tags?.includes('شاملة') ||
+    item.id.startsWith('ebook-') ||
+    item.id.startsWith('openiti-') ||
+    item.id.startsWith('shamela-') ||
+    item.mediaType === 'text_archive' ||
+    item.mediaType === 'shamela_archive' ||
+    Boolean((item as any).shamelaPath)
+  ) {
+    return 'ebook';
+  }
   // Fatwa items are text-only — render the question + answer reader.
   if (item.section === 'fatwa') return 'fatwa';
   if (item.youtubeUrl) return 'youtube';
   if (item.liveUrl) return 'live';
-  if (item.pdfUrl) return 'pdf';
+  if (item.pdfUrl && item.pdfUrl.toLowerCase().endsWith('.pdf')) return 'pdf';
+  if (item.pdfUrl) return 'ebook';
   if (item.videoUrl) return 'video';
   if (item.audioUrl) return 'audio';
   return null;
@@ -54,6 +81,7 @@ function pickPlayer(item: MediaItem): 'youtube' | 'video' | 'audio' | 'live' | '
 
 export function MediaPlayer({ item, onClose }: MediaPlayerProps) {
   const [loading, setLoading] = useState(true);
+  const [showPdfOverride, setShowPdfOverride] = useState(false);
   const upsertSession = useContinueWatchingStore((s) => s.upsert);
   const getSession = useContinueWatchingStore((s) => s.get);
   const recordHistory = useHistoryStore((s) => s.record);
@@ -163,6 +191,28 @@ export function MediaPlayer({ item, onClose }: MediaPlayerProps) {
 
   const kind = pickPlayer(item);
 
+  // Pure text eBook custom reader
+  if (kind === 'ebook' && !showPdfOverride) {
+    return (
+      <EBookTextReader
+        bookItem={item}
+        onClose={onClose}
+        onSwitchToPdf={item.pdfUrl ? () => setShowPdfOverride(true) : undefined}
+      />
+    );
+  }
+
+  // Vector Quran Mushaf Reader
+  if (kind === 'mushaf' && !showPdfOverride) {
+    return (
+      <VectorMushafReader
+        bookItem={item}
+        onClose={onClose}
+        onSwitchToPdf={item.pdfUrl ? () => setShowPdfOverride(true) : undefined}
+      />
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-stretch sm:items-center justify-center sm:p-4">
       <div
@@ -192,66 +242,70 @@ export function MediaPlayer({ item, onClose }: MediaPlayerProps) {
 
         {/* Player area */}
         <div className="flex-1 overflow-auto bg-black/95 sm:bg-background">
-          {loading ? (
-            <div className="aspect-video grid place-items-center">
-              <Loader2 className="size-10 animate-spin text-primary" />
-            </div>
-          ) : kind === null ? (
-            <div className="aspect-video grid place-items-center text-center p-6">
-              <div>
-                <Video className="size-12 mx-auto mb-3 text-muted-foreground opacity-50" />
-                <p className="text-muted-foreground">لا توجد وسائط قابلة للتشغيل لهذا العنصر</p>
+          <ErrorBoundary
+            fallbackTitle="تعذر تشغيل هذا المحتوى"
+            fallbackMessage="قد يكون رابط الوسائط غير متاح أو تالفاً من المصدر الموزّع."
+          >
+            {loading ? (
+              <div className="aspect-video grid place-items-center">
+                <Loader2 className="size-10 animate-spin text-primary" />
               </div>
-            </div>
-          ) : kind === 'youtube' ? (
-            <YouTubePlayer url={item.youtubeUrl!} start={startPos} onTimeUpdate={handleTimeUpdate} onEnded={handleEnded} />
-          ) : kind === 'live' ? (
-            <div>
-              <Html5Player
-                url={item.liveUrl!}
-                poster={item.imageUrl}
-                isLive
-                onTimeUpdate={handleTimeUpdate}
-                onEnded={handleEnded}
-              />
-              <div className="absolute top-3 right-3 flex items-center gap-2 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full pulse-live">
-                <Radio className="size-3" />
-                مباشر
-              </div>
-            </div>
-          ) : kind === 'video' ? (
-            <Html5Player
-              url={item.videoUrl!}
-              poster={item.imageUrl}
-              start={startPos}
-              onTimeUpdate={handleTimeUpdate}
-              onEnded={handleEnded}
-            />
-          ) : kind === 'audio' ? (
-            <div className="p-4 sm:p-6">
-              {item.imageUrl && (
-                <div className="relative w-full max-w-md mx-auto mb-4 aspect-square rounded-2xl overflow-hidden shadow-2xl">
-                  { }
-                  <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            ) : kind === null ? (
+              <div className="aspect-video grid place-items-center text-center p-6">
+                <div>
+                  <Video className="size-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                  <p className="text-muted-foreground">لا توجد وسائط قابلة للتشغيل لهذا العنصر</p>
                 </div>
-              )}
+              </div>
+            ) : kind === 'youtube' ? (
+              <YouTubePlayer url={item.youtubeUrl!} start={startPos} onTimeUpdate={handleTimeUpdate} onEnded={handleEnded} />
+            ) : kind === 'live' ? (
+              <div>
+                <Html5Player
+                  url={item.liveUrl!}
+                  poster={item.imageUrl}
+                  isLive
+                  onTimeUpdate={handleTimeUpdate}
+                  onEnded={handleEnded}
+                />
+                <div className="absolute top-3 right-3 flex items-center gap-2 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full pulse-live">
+                  <Radio className="size-3" />
+                  مباشر
+                </div>
+              </div>
+            ) : kind === 'video' ? (
               <Html5Player
-                url={item.audioUrl!}
+                url={item.videoUrl!}
+                poster={item.imageUrl}
                 start={startPos}
                 onTimeUpdate={handleTimeUpdate}
                 onEnded={handleEnded}
               />
-            </div>
-          ) : kind === 'pdf' ? (
-            <div className="p-2 sm:p-4 bg-background">
-              <PdfViewer url={item.pdfUrl!} title={item.title} bookSlug={item.id} />
-            </div>
-          ) : kind === 'fatwa' ? (
-            <div className="p-4 sm:p-6 bg-background overflow-auto max-h-[70vh]">
-              <FatwaReader item={item} />
-            </div>
-          ) : null}
+            ) : kind === 'audio' ? (
+              <div className="p-4 sm:p-6">
+                {item.imageUrl && (
+                  <div className="relative w-full max-w-md mx-auto mb-4 aspect-square rounded-2xl overflow-hidden shadow-2xl">
+                    <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                  </div>
+                )}
+                <Html5Player
+                  url={item.audioUrl!}
+                  start={startPos}
+                  onTimeUpdate={handleTimeUpdate}
+                  onEnded={handleEnded}
+                />
+              </div>
+            ) : kind === 'pdf' ? (
+              <div className="p-2 sm:p-4 bg-background">
+                <PdfViewer url={item.pdfUrl!} title={item.title} bookSlug={item.id} />
+              </div>
+            ) : kind === 'fatwa' ? (
+              <div className="p-4 sm:p-6 bg-background overflow-auto max-h-[70vh]">
+                <FatwaReader item={item} />
+              </div>
+            ) : null}
+          </ErrorBoundary>
         </div>
 
         {/* Footer with actions + description */}
