@@ -2,7 +2,6 @@
 
 import { Play, Headphones, Radio, FileText, Youtube, Clock, Heart, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { usePlayerStore } from '@/stores/player.store';
 import { useFavoritesStore } from '@/stores/favorites.store';
 import { useContinueWatchingStore } from '@/stores/continue-watching.store';

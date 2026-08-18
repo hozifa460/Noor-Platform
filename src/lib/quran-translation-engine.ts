@@ -1,4 +1,4 @@
-import { QURAN_TRANSLATIONS, type QuranTranslationMeta } from './quran-data';
+import { QURAN_TRANSLATIONS } from './quran-data';
 
 interface RawAyahTranslation {
   id?: string;
@@ -10,7 +10,7 @@ interface RawAyahTranslation {
 }
 
 interface RawTranslationFile {
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   suras: Record<string, RawAyahTranslation[]>;
 }
 

@@ -1,27 +1,21 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   BookOpen,
   Search,
   Settings2,
   ListTree,
   Bookmark,
-  BookmarkCheck,
   Download,
   Check,
   ChevronRight,
   ChevronLeft,
-  Maximize2,
-  Minimize2,
-  Sun,
-  Moon,
   Sparkles,
   FileText,
   Copy,
   Highlighter,
   X,
-  Share2,
   Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';

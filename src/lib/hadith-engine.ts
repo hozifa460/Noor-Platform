@@ -1,7 +1,8 @@
-import { normalizeArabic, arabicSearchMatch, arabicSearchScore, tokenizeArabic } from './arabic-normalizer';
+import { normalizeArabic, arabicSearchMatch, tokenizeArabic } from './arabic-normalizer';
 import { expandSemanticTerms, extractQueryCore } from './hadith-semantic';
 import { HADITH_BOOKS_LIST, type HadithBookMeta } from './hadith-data';
 import { getCachedHadithBook, setCachedHadithBook } from './hadith-storage';
+import { BUILTIN_SEED_SHARH } from './seed-hadith-sharh';
 
 export interface HadithEnglish {
   narrator?: string;
@@ -284,11 +285,14 @@ export async function loadHadeethEncSharh(): Promise<HadeethEncSharhItem[]> {
       buildSharhInvertedIndex(sharhCache);
       return sharhCache;
     }
-  } catch (err) {
-    console.warn('Failed to fetch HadeethEnc Sharh:', err);
+  } catch {
+    /* fallback to builtin */
   }
 
-  return [];
+  // 5. Ultimate fallback to built-in verified seeds
+  sharhCache = BUILTIN_SEED_SHARH;
+  buildSharhInvertedIndex(sharhCache);
+  return sharhCache;
 }
 
 /**

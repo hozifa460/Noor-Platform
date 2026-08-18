@@ -18,7 +18,7 @@ class FatwaWorkerClient {
     try {
       this.worker = new Worker('/workers/fatwa-search-worker.js');
       this.worker.onmessage = (e) => {
-        const { type, query, results, totalCount } = e.data;
+        const { type, query, results } = e.data;
         if (type === 'INDEX_READY') {
           this.isReady = true;
         } else if (type === 'SEARCH_RESULTS') {

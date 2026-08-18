@@ -43,7 +43,7 @@ export function Html5Player({
     let cancelled = false;
 
     async function setup() {
-      if (!media) return;
+      if (cancelled || !media) return;
       // Cleanup any previous HLS instance
       if (hlsRef.current) {
         const hls = hlsRef.current as { destroy: () => void };

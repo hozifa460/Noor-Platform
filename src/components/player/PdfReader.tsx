@@ -2,14 +2,12 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Loader2,
   ExternalLink,
   Maximize,
   Minimize,
   FileText,
   Download,
   BookOpen,
-  ChevronLeft,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';

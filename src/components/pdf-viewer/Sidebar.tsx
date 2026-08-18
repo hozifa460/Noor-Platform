@@ -19,7 +19,6 @@ export function Sidebar({ viewer, onClose }: SidebarProps) {
     lastReadPage,
     goToPage,
     toggleBookmark,
-    isBookmarked,
     renderPage,
   } = viewer;
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { normalizeArabic, tokenizeArabic } from '@/lib/arabic-normalizer';
+import { normalizeArabic } from '@/lib/arabic-normalizer';
 import { scoreArabicSearch, extractConceptGroups } from '@/lib/arabic-search-engine';
 import { FATWA_CATEGORIES, SCHOLARS_LIST, type FatwaIndexItem } from '@/lib/fatwa-index';
 import { BUILTIN_SEED_FATWAS } from '@/lib/seed-fatwas';
@@ -28,12 +28,21 @@ class MicroShardEngine {
 
     this.routerPromise = (async () => {
       try {
+        if (typeof window === 'undefined') {
+          const fs = await import('fs');
+          const path = await import('path');
+          const localPath = path.join(process.cwd(), 'public', 'data', 'micro_shards', 'prefix_router.json');
+          if (fs.existsSync(localPath)) {
+            this.routerTable = JSON.parse(fs.readFileSync(localPath, 'utf8'));
+            return;
+          }
+        }
         const res = await fetch('/data/micro_shards/prefix_router.json');
         if (res.ok) {
           this.routerTable = await res.json();
         }
-      } catch (err) {
-        console.warn('Failed to load prefix router:', err);
+      } catch {
+        /* fallback to builtin */
       }
     })();
 

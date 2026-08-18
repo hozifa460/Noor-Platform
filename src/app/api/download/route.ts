@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { spawn } from 'child_process';
 import path from 'path';
-import fs from 'fs';
 import { validateSafeUrl, sanitizeFilename } from '@/lib/security';
 import { enforceRateLimitAsync } from '@/lib/rate-limiter';
 

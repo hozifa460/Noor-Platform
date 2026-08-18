@@ -107,7 +107,7 @@ export async function fetchJsonWithFallback<T>(
   for (const repo of enabled) {
     const url = fileUrl(repo, filePath);
     try {
-      const { data, status, lastModified: lm } = await tryFetchJson<T>(url, timeoutMs);
+      const { data, lastModified: lm } = await tryFetchJson<T>(url, timeoutMs);
       // Prefer the most recently modified copy across mirrors.
       if (bestData === null || (lm && (!lastModified || lm > lastModified))) {
         bestData = data;

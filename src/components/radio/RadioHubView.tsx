@@ -1,13 +1,11 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Radio, Search, Sparkles, Volume2, Globe, BookOpen, User, Play, Flame, Check } from 'lucide-react';
+import { Radio, Search, Sparkles, Volume2, Globe, BookOpen, User, Play, Flame } from 'lucide-react';
 import { useLibraryStore } from '@/stores/library.store';
 import { usePlayerStore } from '@/stores/player.store';
 import { MediaCardSkeleton } from '@/components/media/MediaCardSkeleton';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { MediaItem } from '@/lib/types';
 

@@ -44,12 +44,13 @@ export function SinglePageView({ viewer }: SinglePageViewProps) {
             // ignore
           }
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const errorObj = err as { name?: string; message?: string };
         const isCancelled =
           cancelled ||
-          err?.name === 'RenderingCancelledException' ||
-          err?.message?.includes('cancelled') ||
-          err?.message?.includes('Cannot use the same canvas');
+          errorObj?.name === 'RenderingCancelledException' ||
+          errorObj?.message?.includes('cancelled') ||
+          errorObj?.message?.includes('Cannot use the same canvas');
         if (!isCancelled) {
           console.error('[SinglePageView] Failed to render page', currentPage, err);
         }
@@ -70,7 +71,7 @@ export function SinglePageView({ viewer }: SinglePageViewProps) {
         }
       }
     };
-  }, [pdfDoc, currentPage, zoom, numPages, renderPage]);
+  }, [pdfDoc, currentPage, zoom, numPages, renderPage, currentKey]);
 
   if (!pdfDoc) return null;
 

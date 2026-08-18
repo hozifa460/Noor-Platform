@@ -1,9 +1,8 @@
 'use client';
 
-import { ChevronLeft, Users, Verified } from 'lucide-react';
+import { ChevronLeft, Verified } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useNavStore } from '@/stores/nav.store';
-import { getSheikhMeta } from '@/lib/sheikh-meta';
 import type { Sheikh } from '@/lib/types';
 
 interface SheikhCardProps {

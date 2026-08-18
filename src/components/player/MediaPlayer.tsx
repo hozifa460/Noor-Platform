@@ -64,7 +64,7 @@ function pickPlayer(item: MediaItem): 'youtube' | 'video' | 'audio' | 'live' | '
     item.id.startsWith('shamela-') ||
     item.mediaType === 'text_archive' ||
     item.mediaType === 'shamela_archive' ||
-    Boolean((item as any).shamelaPath)
+    Boolean((item as unknown as Record<string, unknown>).shamelaPath)
   ) {
     return 'ebook';
   }
@@ -87,7 +87,6 @@ export function MediaPlayer({ item, onClose }: MediaPlayerProps) {
   const recordHistory = useHistoryStore((s) => s.record);
   const isFavorite = useFavoritesStore((s) => s.isFavorite);
   const toggleFavorite = useFavoritesStore((s) => s.toggle);
-  const downloads = useDownloadsStore((s) => s.downloads);
   const addDownload = useDownloadsStore((s) => s.add);
 
   const session = item ? getSession(item.id) : undefined;
@@ -151,7 +150,7 @@ export function MediaPlayer({ item, onClose }: MediaPlayerProps) {
 
     setDownloading(true);
     try {
-      const { blob, size } = await downloadForOffline(item, (p) => {
+      const { blob, size } = await downloadForOffline(item, (_p) => {
         // Could show progress in the future.
       });
       const blobKey = `${item.id}`;

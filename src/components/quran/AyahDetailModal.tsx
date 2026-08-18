@@ -4,17 +4,14 @@ import { useState, useEffect, useRef } from 'react';
 import {
   BookOpen,
   X,
-  Volume2,
   Pause,
   Play,
   RotateCcw,
   Copy,
   Check,
   Globe,
-  Share2,
   Scroll,
   Sparkles,
-  Layers,
   ChevronRight,
   ChevronLeft,
   Headphones,
@@ -24,7 +21,6 @@ import { Badge } from '@/components/ui/badge';
 import {
   SUPPORTED_TAFSIRS,
   fetchAyahTafsir,
-  type TafsirMeta,
 } from '@/lib/quran-tafsir-engine';
 import {
   getAyahTranslation,
@@ -36,14 +32,8 @@ import {
   type QiraahMeta,
 } from '@/lib/quran-data';
 import {
-  getRecitersForRiwayah,
-  getMp3QuranSurahUrl,
-  type RiwayahReciterEntry,
-} from '@/lib/mp3quran-engine';
-import {
   useQuranStore,
   getAyahRecitersForQiraah,
-  QURAN_RECITERS,
   type AyahItem,
   type ReciterMeta,
 } from '@/stores/quran-store';

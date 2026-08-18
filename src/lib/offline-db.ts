@@ -56,7 +56,7 @@ export async function putBlob(key: string, blob: Blob): Promise<void> {
       return;
     }
 
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve) => {
       try {
         const tx = db.transaction(STORE, 'readwrite');
         tx.objectStore(STORE).put(item);

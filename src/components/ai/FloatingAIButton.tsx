@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Sparkles, Bot, X, BookOpen, CheckCircle2, ShieldCheck, Zap } from 'lucide-react';
+import { Sparkles, Bot, X, BookOpen, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';

@@ -59,4 +59,9 @@ graft/
 
 # Large dataset caches (exceeds GitHub limits)
 public/data/
+!public/data/radio/clean_catalog.json
+!public/data/radio/catalog.json
+!public/data/ebooks/catalog.json
+!public/data/micro_shards/prefix_router.json
+!public/data/micro_shards/showcase.json
 Noor_Platform_Audit_Report.pdf

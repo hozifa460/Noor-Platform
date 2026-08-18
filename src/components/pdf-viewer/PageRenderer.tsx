@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -55,12 +55,13 @@ export function PageRenderer({
         await renderPage(pageNum, canvas, zoom);
         if (cancelled) return;
         setRenderedPageKey(currentKey);
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const errorObj = err as { name?: string; message?: string };
         const isCancelled =
           cancelled ||
-          err?.name === 'RenderingCancelledException' ||
-          err?.message?.includes('cancelled') ||
-          err?.message?.includes('Cannot use the same canvas');
+          errorObj?.name === 'RenderingCancelledException' ||
+          errorObj?.message?.includes('cancelled') ||
+          errorObj?.message?.includes('Cannot use the same canvas');
         if (isCancelled) return;
         console.error('[PageRenderer] Failed to render page', pageNum, err);
         setErrorPageKey(currentKey);
@@ -80,7 +81,7 @@ export function PageRenderer({
         }
       }
     };
-  }, [pageNum, renderPage, zoom]);
+  }, [pageNum, renderPage, zoom, currentKey]);
 
   return (
     <div

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Users, Video, Radio, BookOpen } from 'lucide-react';
+import { Users, Video, BookOpen } from 'lucide-react';
 import { useLibraryStore } from '@/stores/library.store';
 
 /** Animated counter that counts up from 0 to target. Re-triggers when target changes. */

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BookOpen, Copy, Check, Globe, Share2, Sparkles, Volume2, VolumeX, Award } from 'lucide-react';
+import { BookOpen, Copy, Check, Globe, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { loadHadithBook, type HadithItem, type HadithChapter } from '@/lib/hadith-engine';

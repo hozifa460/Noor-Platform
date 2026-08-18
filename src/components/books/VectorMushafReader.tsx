@@ -1,31 +1,25 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
-  BookOpen,
   Search,
   Settings2,
   ListTree,
-  Bookmark,
   ChevronRight,
   ChevronLeft,
-  Volume2,
-  VolumeX,
   Play,
   Pause,
   Copy,
   Sparkles,
   FileText,
   X,
-  Share2,
   Loader2,
   Check,
-  Globe,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { ALL_SURAHS, type SurahMeta, QIRAAT_LIST } from '@/lib/quran-data';
+import { ALL_SURAHS } from '@/lib/quran-data';
 import { fetchAyahTafsir, SUPPORTED_TAFSIRS } from '@/lib/quran-tafsir-engine';
 import type { MediaItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -134,7 +128,7 @@ const RECITERS = [
 ];
 
 export function VectorMushafReader({
-  bookItem,
+  bookItem: _bookItem,
   onClose,
   onSwitchToPdf,
 }: VectorMushafReaderProps) {

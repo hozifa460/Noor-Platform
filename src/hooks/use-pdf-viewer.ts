@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   loadPdfjs,
   getDocumentParams,
@@ -9,7 +9,6 @@ import {
 import { getCachedPage, setCachedPage } from '@/lib/pdf/cache';
 
 type PDFDocumentProxy = import('pdfjs-dist').PDFDocumentProxy;
-type PDFPageProxy = import('pdfjs-dist').PDFPageProxy;
 
 export type ViewMode = 'single' | 'continuous' | 'spread';
 export type ReadingMode = 'light' | 'dark' | 'sepia';
@@ -131,7 +130,7 @@ export function usePdfViewer(url: string, bookSlug?: string): UsePdfViewerResult
   const [retryCount, setRetryCount] = useState(0);
 
   // ─── Refs ────────────────────────────────────────────────────────
-  const renderedPagesRef = useRef<Set<number>>(new Set());
+  const _renderedPagesRef = useRef<Set<number>>(new Set());
   const containerRef = useRef<HTMLDivElement | null>(null);
   const bookmarkStorageKey = bookSlug ? `pdf-bookmarks:${bookSlug}` : '';
   const progressStorageKey = bookSlug ? `pdf-progress:${bookSlug}` : '';

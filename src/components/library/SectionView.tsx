@@ -1,16 +1,13 @@
 'use client';
 
 import { MediaGrid } from '@/components/media/MediaGrid';
-import { FatwaCard } from '@/components/media/FatwaCard';
 import { MediaCardSkeleton } from '@/components/media/MediaCardSkeleton';
 import { useLibraryStore } from '@/stores/library.store';
 import { FatwaLibraryView } from '@/components/fatwa/FatwaLibraryView';
 import { useYouTubeDates } from '@/hooks/use-youtube-dates';
 import type { MediaItem, SectionKind } from '@/lib/types';
-import { PlayCircle, Zap, Radio, FileQuestion, BookOpen, FileText, Loader2, Search, History } from 'lucide-react';
-import { useMemo, useEffect, useRef, useState } from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { PlayCircle, Zap, Radio, FileQuestion, BookOpen, FileText, History } from 'lucide-react';
+import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 
 const TITLES: Record<SectionKind, { ar: string; icon: typeof PlayCircle }> = {
@@ -24,58 +21,7 @@ const TITLES: Record<SectionKind, { ar: string; icon: typeof PlayCircle }> = {
   main: { ar: 'المجموعات الرئيسية', icon: PlayCircle },
 };
 
-/**
- * Sort items by publishedAt (newest first). Falls back to insertion order for
- * items without publishedAt. Items WITHOUT publishedAt are placed at the END
- * (after all dated items) so the freshest content is always at the top.
- */
-function sortByNewest(items: MediaItem[]): MediaItem[] {
-  return [...items].sort((a, b) => {
-    const ta = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
-    const tb = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
-    return tb - ta;
-  });
-}
 
-/**
- * Returns true if an item was sourced from a YouTube-channel sheikh.
- *
- * Heuristic: the auto-sync Dart script writes `<sheikh>.videos.json`,
- * `<sheikh>.shorts.json`, and `<sheikh>.live.json` for sheikhs with YouTube
- * channels. Main-collection files (`1_*.json`, `*_1.json`) come from the
- * `radio_islam` GitLab repo and are NOT YouTube-synced.
- */
-function isYouTubeSourced(item: MediaItem): boolean {
-  if (!item.sourceFile) return false;
-  return /\.(videos|shorts|live)\.json$/i.test(item.sourceFile);
-}
-
-/**
- * Round-robin interleave: takes one item from each sheikh in turn so no
- * single sheikh dominates the visible window.
- */
-function interleaveBySheikh(items: MediaItem[]): MediaItem[] {
-  const groups = new Map<string, MediaItem[]>();
-  const order: string[] = [];
-  for (const item of items) {
-    const key = item.sheikhId || 'unknown';
-    if (!groups.has(key)) { groups.set(key, []); order.push(key); }
-    groups.get(key)!.push(item);
-  }
-  const result: MediaItem[] = [];
-  let remaining = items.length;
-  while (remaining > 0) {
-    for (const key of order) {
-      const group = groups.get(key);
-      if (group && group.length > 0) {
-        result.push(group.shift()!);
-        remaining--;
-        if (remaining === 0) break;
-      }
-    }
-  }
-  return result;
-}
 
 /**
  * Returns true if an item was sourced from a YouTube-channel sync file
@@ -170,7 +116,7 @@ export function SectionView({ section }: SectionViewProps) {
   const items = useLibraryStore((s) => s.items);
   const syncing = useLibraryStore((s) => s.syncing);
   const lastSync = useLibraryStore((s) => s.lastSync);
-  const { getDate, loaded: datesLoaded } = useYouTubeDates();
+  const { getDate } = useYouTubeDates();
 
   const filtered = useMemo(() => {
     let sectionItems = items.filter((i) => i.section === section);
@@ -190,7 +136,7 @@ export function SectionView({ section }: SectionViewProps) {
 
     // For other sections: use interleave by sheikh.
     return sortByNewestWithDiversity(sectionItems);
-  }, [items, section, getDate, datesLoaded]);
+  }, [items, section, getDate]);
 
   const meta = TITLES[section];
   const Icon = meta.icon;
@@ -241,7 +187,7 @@ function LiveSectionView() {
   const items = useLibraryStore((s) => s.items);
   const syncing = useLibraryStore((s) => s.syncing);
   const lastSync = useLibraryStore((s) => s.lastSync);
-  const { getDate, loaded: datesLoaded } = useYouTubeDates();
+  const { getDate } = useYouTubeDates();
 
   const { liveNow, ended } = useMemo(() => {
     // Only show YouTube-synced live items (.live.json files).
@@ -260,7 +206,7 @@ function LiveSectionView() {
       liveNow: sortByActualDate(now, getDate),
       ended: sortByActualDate(past, getDate),
     };
-  }, [items, getDate, datesLoaded]);
+  }, [items, getDate]);
 
   const isLoading = liveNow.length === 0 && ended.length === 0 && (syncing || !lastSync);
 

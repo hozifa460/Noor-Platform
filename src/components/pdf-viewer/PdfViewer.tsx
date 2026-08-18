@@ -80,12 +80,14 @@ export function PdfViewer({
     viewer.setContainerRef(el);
   }, [viewer]);
 
+  const { pdfDoc, goToPage } = viewer;
+
   // Navigate to initial page if provided (deep linking).
   useEffect(() => {
-    if (initialPage && initialPage > 1 && viewer.pdfDoc) {
-      viewer.goToPage(initialPage);
+    if (initialPage && initialPage > 1 && pdfDoc) {
+      goToPage(initialPage);
     }
-  }, [initialPage, viewer.pdfDoc, viewer.goToPage]);
+  }, [initialPage, pdfDoc, goToPage]);
 
   // ─── Keyboard shortcuts ──────────────────────────────────────────
   useEffect(() => {

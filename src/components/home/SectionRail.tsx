@@ -28,49 +28,7 @@ interface SectionRailProps {
  * This is NOT a random shuffle — it's deterministic based on input order,
  * so the same items always produce the same output (stable UI).
  */
-function interleaveBySheikh(items: MediaItem[]): MediaItem[] {
-  // Group items by sheikhId, preserving insertion order within each group.
-  const groups = new Map<string, MediaItem[]>();
-  const order: string[] = [];
-  for (const item of items) {
-    const key = item.sheikhId || 'unknown';
-    if (!groups.has(key)) {
-      groups.set(key, []);
-      order.push(key);
-    }
-    groups.get(key)!.push(item);
-  }
 
-  // Round-robin: take one from each group in turn.
-  const result: MediaItem[] = [];
-  let remaining = items.length;
-  while (remaining > 0) {
-    for (const key of order) {
-      const group = groups.get(key);
-      if (group && group.length > 0) {
-        result.push(group.shift()!);
-        remaining--;
-        if (remaining === 0) break;
-      }
-    }
-  }
-  return result;
-}
-
-/**
- * Returns true if an item was sourced from a YouTube-channel sheikh.
- *
- * Heuristic: the auto-sync Dart script writes `<sheikh>.videos.json`,
- * `<sheikh>.shorts.json`, and `<sheikh>.live.json` for sheikhs with YouTube
- * channels. Main-collection files (`1_*.json`, `*_1.json`) come from the
- * `radio_islam` GitLab repo and are NOT YouTube-synced.
- *
- * Items without `sourceFile` are conservatively treated as non-YouTube.
- */
-function isYouTubeSourced(item: MediaItem): boolean {
-  if (!item.sourceFile) return false;
-  return /\.(videos|shorts|live)\.json$/i.test(item.sourceFile);
-}
 
 /**
  * Returns true if an item was sourced from a YouTube-channel sync file
@@ -146,7 +104,7 @@ export function SectionRail({
 }: SectionRailProps) {
   const items = useLibraryStore((s) => s.items);
   const setView = useNavStore((s) => s.setView);
-  const { getDate, loaded: datesLoaded } = useYouTubeDates();
+  const { getDate } = useYouTubeDates();
 
   const filtered = useMemo(() => {
     let sectionItems = items.filter((i) => i.section === section);
@@ -162,7 +120,7 @@ export function SectionRail({
     // For other sections: interleave by sheikh.
     const ordered = shuffle ? sortByNewestWithDiversity(sectionItems) : sectionItems;
     return ordered.slice(0, limit);
-  }, [items, section, limit, shuffle, getDate, datesLoaded]);
+  }, [items, section, limit, shuffle, getDate]);
 
   // Show skeleton while loading.
   if (loading) {

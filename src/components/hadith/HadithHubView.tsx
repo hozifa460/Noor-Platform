@@ -4,25 +4,14 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import {
   BookOpen,
   Search,
-  Sparkles,
-  Layers,
-  ChevronLeft,
-  ChevronRight,
-  Copy,
-  Check,
-  Bookmark,
   Scroll,
-  Award,
-  Filter,
   X,
   Library,
-  Globe,
-  RefreshCw,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { HADITH_BOOKS_LIST, type HadithBookMeta } from '@/lib/hadith-data';
+import { HADITH_BOOKS_LIST } from '@/lib/hadith-data';
 import { useHadithStore } from '@/stores/hadith-store';
 import { HadithCard } from './HadithCard';
 import { HadithDetailModal } from './HadithDetailModal';

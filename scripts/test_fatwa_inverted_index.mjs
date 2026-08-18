@@ -33,7 +33,7 @@ async function runFatwaIndexTests() {
   assert(othaymeenScholar && othaymeenScholar.query === 'عثيمين', 'Maps othaymeen ID to "عثيمين" query');
 
   const binbazResults = await microShardEngine.search('صلاة', 'all', 'binbaz', 20);
-  assert(Array.isArray(binbazResults), 'Search with scholar filter returns valid array');
+  assert(Array.isArray(binbazResults) && binbazResults.length > 0, `Search with scholar filter returns valid matching fatwas (${binbazResults.length} found)`);
 
   // 3. Morphological Stemming & Fiqh Synonyms
   console.log('\n--- Test Suite 3: Morphological Stemming & Fiqh Synonyms ---');

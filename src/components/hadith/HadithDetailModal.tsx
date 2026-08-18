@@ -7,11 +7,8 @@ import {
   Copy,
   Check,
   Globe,
-  Share2,
   Scroll,
   Sparkles,
-  Award,
-  Layers,
   ChevronRight,
   ChevronLeft,
   Volume2,
@@ -20,7 +17,6 @@ import {
   Minimize2,
   ZoomIn,
   ZoomOut,
-  Type,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

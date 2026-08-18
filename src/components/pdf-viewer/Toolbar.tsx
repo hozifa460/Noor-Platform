@@ -17,7 +17,6 @@ import {
   BookOpen,
   Columns2,
   ScrollText,
-  BookMarked,
   Sun,
   Moon,
   Coffee,
@@ -29,7 +28,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import type { UsePdfViewerResult, ViewMode, ReadingMode } from '@/hooks/use-pdf-viewer';
+import type { UsePdfViewerResult } from '@/hooks/use-pdf-viewer';
 
 interface ToolbarProps {
   viewer: UsePdfViewerResult;

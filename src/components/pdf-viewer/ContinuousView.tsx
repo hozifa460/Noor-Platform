@@ -25,7 +25,7 @@ export function ContinuousView({ viewer }: ContinuousViewProps) {
   const { pdfDoc, numPages, zoom, currentPage, renderPage, goToPage } = viewer;
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [visibleRange, setVisibleRange] = useState({ start: 1, end: 5 });
-  const [pageHeight, setPageHeight] = useState(ESTIMATED_PAGE_HEIGHT);
+  const pageHeight = ESTIMATED_PAGE_HEIGHT;
   const visiblePageRef = useRef(currentPage);
 
   // Detect which page is currently in view based on scroll position.

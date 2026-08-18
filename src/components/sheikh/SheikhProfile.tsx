@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, Users, Verified, FileText, Headphones, PlayCircle, Radio, BookOpen, FileQuestion, ChevronDown, Archive, Loader2 } from 'lucide-react';
+import { ArrowRight, Verified, FileText, PlayCircle, Radio, BookOpen, FileQuestion, ChevronDown, Archive, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -53,7 +53,7 @@ interface SheikhProfileProps {
  * appends its items to the library. Shows a loading spinner while fetching
  * and disappears once all archives for this section are loaded.
  */
-function ArchiveLoader({ archives, sheikhId }: { archives: string[]; sheikhId: string }) {
+function ArchiveLoader({ archives, sheikhId: _sheikhId }: { archives: string[]; sheikhId?: string }) {
   const loadedArchives = useLibraryStore((s) => s.loadedArchives);
   const [loading, setLoading] = useState(false);
 

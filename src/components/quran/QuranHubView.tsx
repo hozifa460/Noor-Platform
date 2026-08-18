@@ -4,33 +4,18 @@ import { useEffect, useRef, useState, useMemo } from 'react';
 import {
   BookOpen,
   Search,
-  Sparkles,
-  Layers,
   Globe,
   ChevronLeft,
   ChevronRight,
   Play,
   Pause,
   Volume2,
-  VolumeX,
   Copy,
   Check,
-  Bookmark,
-  Languages,
-  FileText,
-  Sliders,
-  Type,
-  Maximize2,
-  Share2,
-  Eye,
-  EyeOff,
   Headphones,
   Download,
   X,
-  Scroll,
   RotateCcw,
-  RotateCw,
-  Info,
   FastForward,
   Rewind,
 } from 'lucide-react';
@@ -42,14 +27,10 @@ import {
   getAyahRecitersForQiraah,
   QURAN_RECITERS,
   type AyahItem,
-  type ReciterMeta,
 } from '@/stores/quran-store';
 import {
   ALL_SURAHS,
   QIRAAT_LIST,
-  QURAN_TRANSLATIONS,
-  type QiraahMeta,
-  type SurahMeta,
 } from '@/lib/quran-data';
 import {
   loadMp3QuranReciters,
@@ -97,8 +78,6 @@ export function QuranHubView() {
   const prevSurah = useQuranStore((s) => s.prevSurah);
   const setActiveReciter = useQuranStore((s) => s.setActiveReciter);
   const setViewMode = useQuranStore((s) => s.setViewMode);
-  const setFontSize = useQuranStore((s) => s.setFontSize);
-  const toggleTranslation = useQuranStore((s) => s.toggleTranslation);
   const loadSurah = useQuranStore((s) => s.loadSurah);
   const playAyah = useQuranStore((s) => s.playAyah);
   const pauseAudio = useQuranStore((s) => s.pauseAudio);

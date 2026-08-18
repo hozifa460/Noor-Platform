@@ -290,10 +290,6 @@ async function loadOpenItiDynamicEBook(bookId: string): Promise<EBookMetaRespons
   }
 }
 
-function chapterIdxSafe(idx: number): number {
-  return Math.max(1, idx);
-}
-
 function cleanTitleFallback(t: string): string {
   return t.length > 25 ? t.slice(0, 25) + '...' : t;
 }

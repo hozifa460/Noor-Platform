@@ -26,7 +26,6 @@ import { toast } from 'sonner';
 
 export function FatwaLibraryView() {
   const fatwas = useFatwaStore((s) => s.fatwas);
-  const loading = useFatwaStore((s) => s.loading);
   const searching = useFatwaStore((s) => s.searching);
   const selectedCategory = useFatwaStore((s) => s.selectedCategory);
   const selectedScholar = useFatwaStore((s) => s.selectedScholar);

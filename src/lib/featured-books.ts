@@ -1,5 +1,3 @@
-import type { MediaItem } from './types';
-
 export interface FeaturedClassic {
   id: string;
   shamelaId?: number;

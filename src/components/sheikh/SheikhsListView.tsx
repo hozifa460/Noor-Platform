@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Users, Search, Loader2 } from 'lucide-react';
+import { Users, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { SheikhCard } from '@/components/sheikh/SheikhCard';
 import { SheikhCardSkeleton } from '@/components/sheikh/SheikhCardSkeleton';
