@@ -84,15 +84,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 5. Static JSON (stale-while-revalidate)
-  if (url.pathname.endsWith('.json')) {
+  // 5. Static JSON under 2MB (stale-while-revalidate)
+  if (url.pathname.endsWith('.json') && !url.pathname.includes('manifest')) {
     event.respondWith(
       caches.open(CONTENT_CACHE).then(async (cache) => {
         const cached = await cache.match(req);
         const fetchPromise = fetch(req)
           .then((networkRes) => {
             if (networkRes.ok) {
-              cache.put(req, networkRes.clone());
+              const cl = networkRes.headers.get('content-length');
+              if (!cl || parseInt(cl, 10) < 2 * 1024 * 1024) {
+                cache.put(req, networkRes.clone());
+              }
             }
             return networkRes;
           })

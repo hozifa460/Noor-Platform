@@ -345,7 +345,7 @@ export function expandSemanticTerms(query: string): string[] {
   for (const [category, data] of Object.entries(HADITH_INTENT_CLUSTERS)) {
     const normCat = normalizeArabic(category);
 
-    let isMatched =
+    const isMatched =
       normQuery.includes(normCat) ||
       coreQuery.includes(normCat) ||
       data.terms.some((t) => {

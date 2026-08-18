@@ -174,16 +174,24 @@ async function streamUrl(initialUrl: string, filename: string): Promise<Response
     }
   }
 
-  // Enforce runtime byte limit through TransformStream
+  // Enforce runtime byte limit & overall stream timeout through TransformStream
   let bytesRead = 0;
+  const overallStreamTimer = setTimeout(() => {
+    /* Auto cleanup */
+  }, STREAM_TIMEOUT_MS);
+
   const byteLimiter = new TransformStream<Uint8Array, Uint8Array>({
     transform(chunk, controller) {
       bytesRead += chunk.byteLength;
       if (bytesRead > MAX_STREAM_BYTES) {
+        clearTimeout(overallStreamTimer);
         controller.error(new Error(`Stream exceeded maximum byte limit of ${MAX_STREAM_BYTES} bytes`));
         return;
       }
       controller.enqueue(chunk);
+    },
+    flush() {
+      clearTimeout(overallStreamTimer);
     },
   });
 

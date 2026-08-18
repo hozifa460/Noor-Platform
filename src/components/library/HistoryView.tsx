@@ -18,7 +18,7 @@ export function HistoryView() {
   // Group by day
   const groups = new Map<string, typeof historyItems>();
   for (const item of historyItems) {
-    const date = new Date(item.publishedAt || Date.now());
+    const date = item.publishedAt ? new Date(item.publishedAt) : new Date(0);
     const key = date.toLocaleDateString('ar', { weekday: 'long', day: 'numeric', month: 'long' });
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(item);

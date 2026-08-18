@@ -1,13 +1,7 @@
 'use client';
 
-import type { MediaItem } from '@/lib/types';
-import { loadRepositories } from '@/lib/repositories';
-import { fetchJsonWithFallback } from '@/lib/fetcher';
-import { normalizeContentFile } from '@/lib/sheikh';
 import { normalizeArabic } from '@/lib/arabic-normalizer';
 import { scoreArabicSearch } from '@/lib/arabic-search-engine';
-
-const MANIFEST_CACHE_KEY = 'noor_fatwa_manifest_v2';
 
 export interface FatwaIndexItem {
   id: string;
@@ -43,7 +37,7 @@ export const FATWA_CATEGORIES = [
 ];
 
 export const SCHOLARS_LIST = [
-  { id: 'all', name: 'كافة العلماء' },
+  { id: 'all', name: 'كافة العلماء', query: '' },
   { id: 'binbaz', name: 'الشيخ ابن باز', query: 'باز' },
   { id: 'othaymeen', name: 'الشيخ ابن عثيمين', query: 'عثيمين' },
   { id: 'fawzan', name: 'الشيخ صالح الفوزان', query: 'فوزان' },
@@ -52,68 +46,12 @@ export const SCHOLARS_LIST = [
 ];
 
 /**
- * High-performance Inverted Index Manager with Pre-computed Norm Strings & High-Accuracy NLP Engine
+ * Lightweight in-memory index manager without automatic massive JSON fetching.
  */
 class FatwaIndexManager {
   private rawItems: FatwaIndexItem[] = [];
   private internalIndex: InternalIndexedFatwa[] = [];
   private answerCache = new Map<string, string>();
-  private isManifestLoaded = false;
-
-  constructor() {
-    this.initDefaultManifest();
-  }
-
-  private initDefaultManifest() {
-    if (typeof window !== 'undefined') {
-      // 1. Instant local storage retrieval (0ms)
-      try {
-        const cached = localStorage.getItem(MANIFEST_CACHE_KEY);
-        if (cached) {
-          const parsed = JSON.parse(cached) as FatwaIndexItem[];
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            this.mergeItems(parsed);
-            this.isManifestLoaded = true;
-          }
-        }
-      } catch {
-        /* ignore */
-      }
-
-      this.loadStaticManifest();
-    }
-  }
-
-  public async loadStaticManifest(): Promise<void> {
-    try {
-      const res = await fetch('/data/fatwas_manifest.json');
-      if (res.ok) {
-        const data = (await res.json()) as FatwaIndexItem[];
-        if (Array.isArray(data) && data.length > 0) {
-          this.mergeItems(data);
-          this.isManifestLoaded = true;
-
-          // Save to local cache for offline persistence
-          try {
-            if (typeof window !== 'undefined') {
-              localStorage.setItem(MANIFEST_CACHE_KEY, JSON.stringify(data));
-            }
-          } catch {
-            /* ignore quota errors */
-          }
-        }
-      }
-    } catch {
-      /* non-critical fallback */
-    }
-  }
-
-  public async getIndex(): Promise<FatwaIndexItem[]> {
-    if (!this.isManifestLoaded) {
-      await this.loadStaticManifest();
-    }
-    return this.rawItems;
-  }
 
   public get rawList(): FatwaIndexItem[] {
     return this.rawItems;
@@ -138,122 +76,85 @@ class FatwaIndexManager {
     for (let i = 0; i < toAdd.length; i++) {
       const item = toAdd[i];
       const text = `${item.title} ${item.question} ${item.scholar} ${(item.tags || []).join(' ')}`;
-      const normTitle = normalizeArabic(item.title);
-      const normQuestion = normalizeArabic(item.question);
-      const normScholar = normalizeArabic(item.scholar);
-      const normTags = normalizeArabic((item.tags || []).join(' '));
-
       this.internalIndex.push({
         item,
         normText: normalizeArabic(text),
-        normTitle,
-        normQuestion,
-        normScholar,
-        normTags,
+        normTitle: normalizeArabic(item.title),
+        normQuestion: normalizeArabic(item.question),
+        normScholar: normalizeArabic(item.scholar),
+        normTags: normalizeArabic((item.tags || []).join(' ')),
         normCategory: normalizeArabic(item.category || ''),
       });
     }
   }
 
-  /**
-   * Ultra-fast high-accuracy search using field-weighted BM25/TF-IDF and semantic stemming.
-   */
   public searchIndex(
     query: string,
     category = 'all',
     scholar = 'all',
     limit = 60
   ): FatwaIndexItem[] {
-    const q = query.trim();
+    if (!query || !query.trim()) {
+      let res = this.rawItems;
+      if (category !== 'all') {
+        const catInfo = FATWA_CATEGORIES.find((c) => c.id === category);
+        const catName = catInfo?.name || category;
+        const normCat = normalizeArabic(catName);
+        res = res.filter((i) => i.category && normalizeArabic(i.category).includes(normCat));
+      }
+      if (scholar !== 'all') {
+        const schInfo = SCHOLARS_LIST.find((s) => s.id === scholar);
+        const schQuery = schInfo?.query || scholar;
+        const normSch = normalizeArabic(schQuery);
+        res = res.filter((i) => i.scholar && normalizeArabic(i.scholar).includes(normSch));
+      }
+      return res.slice(0, limit);
+    }
 
-    // Pre-calculate category & scholar filters
-    const catDef = category !== 'all' ? FATWA_CATEGORIES.find((c) => c.id === category) : null;
-    const catKeywords = catDef?.keywords ? catDef.keywords.map((k) => normalizeArabic(k)) : [];
-
-    const schDef = scholar !== 'all' ? SCHOLARS_LIST.find((s) => s.id === scholar) : null;
-    const normScholarQuery = schDef?.query ? normalizeArabic(schDef.query) : '';
-
-    const results: { item: FatwaIndexItem; score: number }[] = [];
+    const normQuery = normalizeArabic(query.trim());
+    const scored: { item: FatwaIndexItem; score: number }[] = [];
 
     for (let i = 0; i < this.internalIndex.length; i++) {
       const entry = this.internalIndex[i];
 
-      // 1. Scholar Filter
-      if (normScholarQuery) {
-        if (!entry.normScholar.includes(normScholarQuery)) {
-          continue;
-        }
+      // Category filter
+      if (category !== 'all') {
+        const catInfo = FATWA_CATEGORIES.find((c) => c.id === category);
+        const catName = catInfo?.name || category;
+        const normCat = normalizeArabic(catName);
+        if (!entry.normCategory.includes(normCat)) continue;
       }
 
-      // 2. Category Filter
-      if (catKeywords.length > 0) {
-        const matchesCategory =
-          entry.item.category === category ||
-          catKeywords.some((k) => entry.normText.includes(k));
-        if (!matchesCategory) continue;
+      // Scholar filter
+      if (scholar !== 'all') {
+        const schInfo = SCHOLARS_LIST.find((s) => s.id === scholar);
+        const schQuery = schInfo?.query || scholar;
+        const normSch = normalizeArabic(schQuery);
+        if (!entry.normScholar.includes(normSch)) continue;
       }
 
-      // 3. Relevance Scoring & Precision Filtering
-      let score = 0;
-      if (q) {
-        score = scoreArabicSearch(
-          q,
-          entry.normTitle,
-          entry.normQuestion,
-          entry.normScholar,
-          entry.normTags
-        );
-
-        // Strict Precision Guard: If score is 0, the item is unrelated -> EXCLUDE!
-        if (score <= 0) {
-          continue;
-        }
-      } else {
-        score = 10;
+      const score = scoreArabicSearch(
+        normQuery,
+        entry.normTitle,
+        entry.normQuestion,
+        entry.normScholar,
+        entry.normTags
+      );
+      if (score > 0) {
+        scored.push({ item: entry.item, score });
       }
-
-      results.push({ item: entry.item, score });
     }
 
-    if (q) {
-      results.sort((a, b) => b.score - a.score);
-    }
-
-    return results.slice(0, limit).map((r) => r.item);
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, limit).map((s) => s.item);
   }
 
-  /**
-   * Fetches full fatwa answer on demand if not present in memory.
-   */
-  public async getFullAnswer(item: FatwaIndexItem): Promise<string> {
-    if (item.answer && item.answer.trim()) {
-      return item.answer;
-    }
-
+  public async getAnswer(item: FatwaIndexItem): Promise<string> {
+    if (item.answer) return item.answer;
     if (this.answerCache.has(item.id)) {
-      item.answer = this.answerCache.get(item.id)!;
-      return item.answer;
+      return this.answerCache.get(item.id)!;
     }
-
-    if (item.sourceFile) {
-      try {
-        const repos = loadRepositories();
-        const res = await fetchJsonWithFallback<unknown>(repos, item.sourceFile, 15000);
-        if (res.data) {
-          const { items } = normalizeContentFile(res.data, item.sourceFile, res.sourceId || undefined);
-          const match = items.find((it) => it.id === item.id || it.title === item.title);
-          if (match && match.answer) {
-            item.answer = match.answer;
-            this.answerCache.set(item.id, match.answer);
-            return match.answer;
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to fetch full answer on demand:', err);
-      }
-    }
-
-    return item.answer || 'الجواب متوفر في التسجيل الصوتي أو جارٍ مزامنة النص.';
+    return 'لم يتوفر نص الإجابة.';
   }
 }
 

@@ -56,7 +56,7 @@ function buildLeafItem(
   const rawVideo = pickString(leaf.videoUrl) || pickString(leaf.video) || pickString(leaf.mp4);
   const liveUrl = pickString(leaf.liveUrl) || pickString(leaf.hls) || pickString(leaf.stream);
   let pdfUrl = pickString(leaf.pdfUrl) || pickString(leaf.pdf);
-  let imageUrl = pickString(leaf.imageUrl) || pickString(leaf.image) || pickString(leaf.thumbnail) || pickString(leaf.thumbnailUrl);
+  const imageUrl = pickString(leaf.imageUrl) || pickString(leaf.image) || pickString(leaf.thumbnail) || pickString(leaf.thumbnailUrl);
 
   // Extract PDF attachment from IslamHouse book schema
   if (!pdfUrl && Array.isArray(leaf.attachments)) {

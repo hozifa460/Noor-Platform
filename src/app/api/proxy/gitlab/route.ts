@@ -80,7 +80,35 @@ export async function GET(request: Request) {
       );
     }
 
-    const body = await upstream.text();
+    const MAX_GITLAB_BYTES = 20 * 1024 * 1024; // 20MB max
+    const cl = upstream.headers.get('content-length');
+    if (cl && parseInt(cl, 10) > MAX_GITLAB_BYTES) {
+      return NextResponse.json({ error: 'Payload exceeds size limit' }, { status: 413 });
+    }
+
+    const reader = upstream.body?.getReader();
+    if (!reader) {
+      return NextResponse.json({ error: 'Empty upstream body' }, { status: 502 });
+    }
+
+    const decoder = new TextDecoder();
+    let body = '';
+    let totalBytes = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        totalBytes += value.byteLength;
+        if (totalBytes > MAX_GITLAB_BYTES) {
+          await reader.cancel();
+          return NextResponse.json({ error: 'Payload exceeds size limit' }, { status: 413 });
+        }
+        body += decoder.decode(value, { stream: true });
+      }
+    }
+    body += decoder.decode();
+
     return new NextResponse(body, {
       status: 200,
       headers: {

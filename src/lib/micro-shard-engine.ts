@@ -2,7 +2,7 @@
 
 import { normalizeArabic, tokenizeArabic } from '@/lib/arabic-normalizer';
 import { scoreArabicSearch, extractConceptGroups } from '@/lib/arabic-search-engine';
-import { FATWA_CATEGORIES, type FatwaIndexItem } from '@/lib/fatwa-index';
+import { FATWA_CATEGORIES, SCHOLARS_LIST, type FatwaIndexItem } from '@/lib/fatwa-index';
 import { BUILTIN_SEED_FATWAS } from '@/lib/seed-fatwas';
 
 interface CompactMicroItem {
@@ -138,7 +138,9 @@ class MicroShardEngine {
     const candidates = Array.from(candidateMap.values());
     const results: { item: FatwaIndexItem; score: number }[] = [];
 
-    const normScholar = scholar !== 'all' ? normalizeArabic(scholar) : '';
+    const schInfo = SCHOLARS_LIST.find((s) => s.id === scholar);
+    const schQuery = schInfo?.query || schInfo?.name || (scholar !== 'all' ? scholar : '');
+    const normScholar = schQuery ? normalizeArabic(schQuery) : '';
 
     for (let i = 0; i < candidates.length; i++) {
       const c = candidates[i];

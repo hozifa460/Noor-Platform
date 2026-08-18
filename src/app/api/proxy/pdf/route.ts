@@ -161,7 +161,23 @@ export async function GET(request: Request) {
     }
 
     const headers = buildResponseHeaders(response);
-    return new NextResponse(response.body, {
+
+    const MAX_PDF_PROXY_BYTES = 150 * 1024 * 1024;
+    let bytesRead = 0;
+    const byteLimiter = new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        bytesRead += chunk.byteLength;
+        if (bytesRead > MAX_PDF_PROXY_BYTES) {
+          controller.error(new Error(`PDF proxy exceeded limit of ${MAX_PDF_PROXY_BYTES} bytes`));
+          return;
+        }
+        controller.enqueue(chunk);
+      },
+    });
+
+    const limitedBody = response.body ? response.body.pipeThrough(byteLimiter) : null;
+
+    return new NextResponse(limitedBody, {
       status: response.status,
       headers,
     });

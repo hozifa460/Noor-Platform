@@ -127,7 +127,7 @@ export function extractCleanMatn(rawArabic: string): string {
   for (const regex of speechTransitions) {
     const m = cleaned.match(regex);
     if (m && m[1] && m[1].trim().length >= 15) {
-      let extracted = m[1].trim();
+      const extracted = m[1].trim();
       if (/^(?:سالت|سالنا|سئل|استاذن)/.test(m[0])) {
         const qalMatch = extracted.match(/(?:فقال|قال)\s*[:\s]+(.*)$/);
         if (qalMatch && qalMatch[1] && qalMatch[1].trim().length >= 10) {

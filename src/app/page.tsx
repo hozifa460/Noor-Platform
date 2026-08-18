@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Footer } from '@/components/layout/Footer';
@@ -9,19 +10,6 @@ import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
 import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { HomeView } from '@/components/home/HomeView';
-import { SheikhsListView } from '@/components/sheikh/SheikhsListView';
-import { SheikhProfile } from '@/components/sheikh/SheikhProfile';
-import { SectionView } from '@/components/library/SectionView';
-import { FavoritesView } from '@/components/library/FavoritesView';
-import { HistoryView } from '@/components/library/HistoryView';
-import { DownloadsView } from '@/components/library/DownloadsView';
-import { SettingsView } from '@/components/library/SettingsView';
-import { SearchView } from '@/components/search/SearchView';
-import { BooksLibraryView } from '@/components/books/BooksLibraryView';
-import { FatwaLibraryView } from '@/components/fatwa/FatwaLibraryView';
-import { QuranHubView } from '@/components/quran/QuranHubView';
-import { HadithHubView } from '@/components/hadith/HadithHubView';
-import { RadioHubView } from '@/components/radio/RadioHubView';
 import { FloatingAIButton } from '@/components/ai/FloatingAIButton';
 import { useNavStore, hashToViewState } from '@/stores/nav.store';
 import { usePlayerStore } from '@/stores/player.store';
@@ -31,6 +19,31 @@ import { useSettingsStore } from '@/stores/settings.store';
 import { useTheme } from 'next-themes';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import type { ViewState } from '@/lib/types';
+
+// Dynamic lazy-loaded Hubs for lightning-fast initial load & optimal code-splitting
+const QuranHubView = dynamic(() => import('@/components/quran/QuranHubView').then((m) => m.QuranHubView), {
+  loading: () => <div className="p-12 text-center text-muted-foreground animate-pulse">جاري تحميل المصحف الشريف...</div>,
+});
+const HadithHubView = dynamic(() => import('@/components/hadith/HadithHubView').then((m) => m.HadithHubView), {
+  loading: () => <div className="p-12 text-center text-muted-foreground animate-pulse">جاري تحميل موسوعة الحديث...</div>,
+});
+const BooksLibraryView = dynamic(() => import('@/components/books/BooksLibraryView').then((m) => m.BooksLibraryView), {
+  loading: () => <div className="p-12 text-center text-muted-foreground animate-pulse">جاري تحميل مكتبة الكتب...</div>,
+});
+const FatwaLibraryView = dynamic(() => import('@/components/fatwa/FatwaLibraryView').then((m) => m.FatwaLibraryView), {
+  loading: () => <div className="p-12 text-center text-muted-foreground animate-pulse">جاري تحميل منصة الفتاوى...</div>,
+});
+const RadioHubView = dynamic(() => import('@/components/radio/RadioHubView').then((m) => m.RadioHubView), {
+  loading: () => <div className="p-12 text-center text-muted-foreground animate-pulse">جاري تحميل الإذاعات الإسلامية...</div>,
+});
+const SearchView = dynamic(() => import('@/components/search/SearchView').then((m) => m.SearchView));
+const SheikhsListView = dynamic(() => import('@/components/sheikh/SheikhsListView').then((m) => m.SheikhsListView));
+const SheikhProfile = dynamic(() => import('@/components/sheikh/SheikhProfile').then((m) => m.SheikhProfile));
+const SectionView = dynamic(() => import('@/components/library/SectionView').then((m) => m.SectionView));
+const FavoritesView = dynamic(() => import('@/components/library/FavoritesView').then((m) => m.FavoritesView));
+const HistoryView = dynamic(() => import('@/components/library/HistoryView').then((m) => m.HistoryView));
+const DownloadsView = dynamic(() => import('@/components/library/DownloadsView').then((m) => m.DownloadsView));
+const SettingsView = dynamic(() => import('@/components/library/SettingsView').then((m) => m.SettingsView));
 
 export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);

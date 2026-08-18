@@ -162,7 +162,7 @@ async function loadOpenItiDynamicEBook(bookId: string): Promise<EBookMetaRespons
       chapterStartPage = currentPg;
     };
 
-    for (let rawLine of rawLines) {
+    for (const rawLine of rawLines) {
       let line = rawLine.trim();
       if (!line || line.startsWith('#META#') || line.startsWith('######OpenITI#')) continue;
 

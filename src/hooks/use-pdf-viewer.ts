@@ -195,7 +195,7 @@ export function usePdfViewer(url: string, bookSlug?: string): UsePdfViewerResult
         const pdfjsLib = await loadPdfjs();
         if (cancelled) return;
 
-        let proxyUrl = proxifyPdfUrl(url);
+        const proxyUrl = proxifyPdfUrl(url);
         let loadingTask;
         try {
           loadingTask = pdfjsLib.getDocument(getDocumentParams(proxyUrl));

@@ -2,8 +2,9 @@
 
 import { create } from 'zustand';
 import type { MediaItem } from '@/lib/types';
-import type { FatwaIndexItem } from '@/lib/fatwa-index';
+import { SCHOLARS_LIST, type FatwaIndexItem } from '@/lib/fatwa-index';
 import { microShardEngine } from '@/lib/micro-shard-engine';
+import { normalizeArabic } from '@/lib/arabic-normalizer';
 
 interface FatwaState {
   fatwas: MediaItem[];
@@ -114,9 +115,13 @@ export const useFatwaStore = create<FatwaState>((set, get) => ({
       return fatwas;
     }
 
+    const schInfo = SCHOLARS_LIST.find((s) => s.id === selectedScholar);
+    const schQuery = schInfo?.query || schInfo?.name || (selectedScholar !== 'all' ? selectedScholar : '');
+    const normScholar = schQuery ? normalizeArabic(schQuery) : '';
+
     return fatwas.filter((item) => {
       if (selectedCategory !== 'all' && item.tags?.[0] !== selectedCategory) return false;
-      if (selectedScholar !== 'all' && !item.sheikhName?.includes(selectedScholar)) return false;
+      if (normScholar && !normalizeArabic(item.sheikhName || '').includes(normScholar)) return false;
       return true;
     });
   },

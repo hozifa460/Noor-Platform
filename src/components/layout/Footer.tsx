@@ -9,10 +9,7 @@ export function Footer() {
 
   const formatTime = (ts: number | null) => {
     if (!ts) return 'لم تتم المزامنة بعد';
-    const diff = Math.floor((Date.now() - ts) / 1000);
-    if (diff < 60) return 'منذ ثوانٍ';
-    if (diff < 3600) return `منذ ${Math.floor(diff / 60)} دقيقة`;
-    return `منذ ${Math.floor(diff / 3600)} ساعة`;
+    return new Date(ts).toLocaleDateString('ar-SA');
   };
 
   return (
