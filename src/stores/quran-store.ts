@@ -195,6 +195,8 @@ export const useQuranStore = create<QuranState>((set, get) => ({
 
   loadSurah: async (surahNumber: number) => {
     set({ loadingSurah: true });
+    
+    // 1. Try local data first
     try {
       const res = await fetch(`/data/quran/surahs/${surahNumber}.json`);
       if (res.ok) {
@@ -203,8 +205,51 @@ export const useQuranStore = create<QuranState>((set, get) => ({
         return;
       }
     } catch {
-      /* fallback */
+      /* fallback to CDN */
     }
+
+    // 2. Fallback to high-speed public Quran Cloud CDN
+    try {
+      const cdnRes = await fetch(
+        `https://api.alquran.cloud/v1/surah/${surahNumber}/editions/quran-uthmani,en.sahih`,
+        { cache: 'force-cache' }
+      );
+      if (cdnRes.ok) {
+        const json = await cdnRes.json();
+        if (json.code === 200 && Array.isArray(json.data) && json.data.length >= 2) {
+          const arData = json.data[0];
+          const enData = json.data[1];
+          const ayahs: AyahItem[] = arData.ayahs.map((a: any, idx: number) => ({
+            ayahNo: a.numberInSurah,
+            ayahNoQuran: a.number,
+            textAr: a.text,
+            textEn: enData.ayahs[idx]?.text || '',
+            juz: a.juz,
+            manzil: a.manzil,
+            ruku: a.ruku,
+            hizbQuarter: a.hizbQuarter,
+            isSajdah: Boolean(a.sajda),
+          }));
+
+          const surahMeta = ALL_SURAHS.find((s) => s.number === surahNumber);
+          const constructedDetail: SurahDetail = {
+            surahNo: surahNumber,
+            nameAr: arData.name || surahMeta?.nameAr || `سورة رقم ${surahNumber}`,
+            nameEn: arData.englishName || surahMeta?.nameEn || '',
+            nameRoman: arData.englishNameTranslation || surahMeta?.nameTranslation || '',
+            placeOfRevelation: arData.revelationType || surahMeta?.revelationType || 'Meccan',
+            totalAyahs: arData.numberOfAyahs || ayahs.length,
+            ayahs,
+          };
+
+          set({ surahData: constructedDetail, loadingSurah: false });
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load surah from CDN:', err);
+    }
+
     set({ loadingSurah: false });
   },
 

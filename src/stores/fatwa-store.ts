@@ -136,6 +136,8 @@ export const useFatwaStore = create<FatwaState>((set, get) => ({
 }));
 
 function indexItemToMediaItem(item: FatwaIndexItem): MediaItem {
+  const categoryTag = item.category || 'all';
+  const itemTags = Array.isArray(item.tags) ? item.tags : [];
   return {
     id: item.id,
     title: item.title,
@@ -143,7 +145,7 @@ function indexItemToMediaItem(item: FatwaIndexItem): MediaItem {
     sheikhName: item.scholar,
     section: 'fatwa',
     sourceFile: item.sourceFile,
-    tags: item.category ? [item.category] : [],
+    tags: [categoryTag, ...itemTags],
     audioUrl: item.audioUrl,
     answer: item.answer,
   };

@@ -3,6 +3,7 @@
 import { normalizeArabic, tokenizeArabic } from '@/lib/arabic-normalizer';
 import { scoreArabicSearch, extractConceptGroups } from '@/lib/arabic-search-engine';
 import { FATWA_CATEGORIES, type FatwaIndexItem } from '@/lib/fatwa-index';
+import { BUILTIN_SEED_FATWAS } from '@/lib/seed-fatwas';
 
 interface CompactMicroItem {
   id: string;
@@ -18,8 +19,8 @@ class MicroShardEngine {
   private routerTable: Record<string, string> | null = null;
   private routerPromise: Promise<void> | null = null;
   private shardCache = new Map<string, CompactMicroItem[]>();
-  private showcaseItems: FatwaIndexItem[] = [];
-  private isShowcaseLoaded = false;
+  private showcaseItems: FatwaIndexItem[] = BUILTIN_SEED_FATWAS;
+  private isShowcaseLoaded = true;
 
   private async loadRouter(): Promise<void> {
     if (this.routerTable) return;
@@ -40,7 +41,7 @@ class MicroShardEngine {
   }
 
   public async getShowcase(): Promise<FatwaIndexItem[]> {
-    if (this.isShowcaseLoaded && this.showcaseItems.length > 0) {
+    if (this.showcaseItems.length > 0) {
       return this.showcaseItems;
     }
 
@@ -53,10 +54,10 @@ class MicroShardEngine {
         return this.showcaseItems;
       }
     } catch {
-      /* fallback */
+      /* fallback to builtin */
     }
 
-    return [];
+    return BUILTIN_SEED_FATWAS;
   }
 
   private async fetchShard(hash: string): Promise<CompactMicroItem[]> {
@@ -90,19 +91,18 @@ class MicroShardEngine {
     }
 
     await this.loadRouter();
-    if (!this.routerTable) {
-      return [];
-    }
-
+    
     const concepts = extractConceptGroups(q);
     const hashesToFetch = new Set<string>();
 
-    for (const concept of concepts) {
-      for (const variant of concept.allVariants) {
-        const norm = normalizeArabic(variant).replace(/^ال/, '');
-        const pfx = norm.slice(0, 2);
-        if (pfx.length >= 2 && this.routerTable[pfx]) {
-          hashesToFetch.add(this.routerTable[pfx]);
+    if (this.routerTable) {
+      for (const concept of concepts) {
+        for (const variant of concept.allVariants) {
+          const norm = normalizeArabic(variant).replace(/^ال/, '');
+          const pfx = norm.slice(0, 2);
+          if (pfx.length >= 2 && this.routerTable[pfx]) {
+            hashesToFetch.add(this.routerTable[pfx]);
+          }
         }
       }
     }
@@ -119,6 +119,19 @@ class MicroShardEngine {
         if (!candidateMap.has(item.id)) {
           candidateMap.set(item.id, item);
         }
+      }
+    }
+
+    // If no candidates from remote shards, include seed items
+    if (candidateMap.size === 0) {
+      for (const seed of BUILTIN_SEED_FATWAS) {
+        candidateMap.set(seed.id, {
+          id: seed.id,
+          t: seed.title,
+          s: seed.scholar,
+          c: seed.category || 'all',
+          ans: seed.answer,
+        });
       }
     }
 
