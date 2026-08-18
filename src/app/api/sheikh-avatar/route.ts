@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSheikhMeta } from '@/lib/sheikh-meta';
 import { validateSafeUrl } from '@/lib/security';
-import { enforceRateLimit } from '@/lib/rate-limiter';
+import { enforceRateLimitAsync } from '@/lib/rate-limiter';
 
 /**
  * Sheikh avatar endpoint with SSRF protection and memory caching.
@@ -182,7 +182,7 @@ function generateSvgAvatar(name: string, seed: string): { buffer: Buffer; conten
 
 export async function GET(request: Request) {
   // Rate limiting (120 req/min)
-  const rateLimitResult = enforceRateLimit(request, 'api-sheikh-avatar', 120, 60_000);
+  const rateLimitResult = await enforceRateLimitAsync(request, 'api-sheikh-avatar', 120, 60_000);
   if (!rateLimitResult.allowed && rateLimitResult.response) {
     return rateLimitResult.response;
   }

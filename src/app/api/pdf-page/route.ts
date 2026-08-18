@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getOrDownloadPdf, renderPdfPageAsync } from '@/lib/pdf-service';
 import { validateSafeUrl } from '@/lib/security';
-import { enforceRateLimit } from '@/lib/rate-limiter';
+import { enforceRateLimitAsync } from '@/lib/rate-limiter';
 
 /**
  * Secure PDF Page Renderer API.
@@ -11,7 +11,7 @@ const MAX_WIDTH = 1600;
 
 export async function GET(request: Request) {
   // Rate limiting (60 pages per minute per IP)
-  const rateLimitResult = enforceRateLimit(request, 'api-pdf-page', 60, 60_000);
+  const rateLimitResult = await enforceRateLimitAsync(request, 'api-pdf-page', 60, 60_000);
   if (!rateLimitResult.allowed && rateLimitResult.response) {
     return rateLimitResult.response;
   }

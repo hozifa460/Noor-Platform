@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
-import { enforceRateLimit } from '@/lib/rate-limiter';
+import { enforceRateLimitAsync } from '@/lib/rate-limiter';
 
 /**
  * YouTube Date Lookup API with input validation and cross-platform caching.
@@ -72,7 +72,7 @@ async function fetchPublishDate(videoId: string): Promise<string | null> {
 
 export async function GET(request: Request) {
   // Rate limit: 120 req/min
-  const rateLimitResult = enforceRateLimit(request, 'api-youtube-date', 120, 60_000);
+  const rateLimitResult = await enforceRateLimitAsync(request, 'api-youtube-date', 120, 60_000);
   if (!rateLimitResult.allowed && rateLimitResult.response) {
     return rateLimitResult.response;
   }

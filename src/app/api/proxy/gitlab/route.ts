@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { validateSafeUrl } from '@/lib/security';
-import { enforceRateLimit } from '@/lib/rate-limiter';
+import { enforceRateLimitAsync } from '@/lib/rate-limiter';
 
 /**
  * Hardened proxy endpoint for GitLab raw files with multi-hop SSRF validation.
@@ -10,7 +10,7 @@ const MAX_REDIRECTS = 5;
 
 export async function GET(request: Request) {
   // Rate limit: 120 req/min
-  const rateLimitResult = enforceRateLimit(request, 'api-proxy-gitlab', 120, 60_000);
+  const rateLimitResult = await enforceRateLimitAsync(request, 'api-proxy-gitlab', 120, 60_000);
   if (!rateLimitResult.allowed && rateLimitResult.response) {
     return rateLimitResult.response;
   }

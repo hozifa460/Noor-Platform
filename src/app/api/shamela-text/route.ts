@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { enforceRateLimit } from '@/lib/rate-limiter';
+import { enforceRateLimitAsync } from '@/lib/rate-limiter';
 
 /**
  * Maktaba Shamela 4 Text & Streaming API Proxy with Memory-Safe LRU Cache & Rate Limiting
@@ -64,7 +64,7 @@ function setCachedLines(url: string, lines: string[], estimatedBytes: number) {
 
 export async function GET(req: NextRequest) {
   // Rate limiting (120 req/min)
-  const rateLimitResult = enforceRateLimit(req, 'api-shamela-text', 120, 60_000);
+  const rateLimitResult = await enforceRateLimitAsync(req, 'api-shamela-text', 120, 60_000);
   if (!rateLimitResult.allowed && rateLimitResult.response) {
     return rateLimitResult.response;
   }

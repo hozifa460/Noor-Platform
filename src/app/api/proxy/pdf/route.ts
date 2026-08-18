@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { validateSafeUrl } from '@/lib/security';
-import { enforceRateLimit } from '@/lib/rate-limiter';
+import { enforceRateLimitAsync } from '@/lib/rate-limiter';
 
 /**
  * CORS-proxy endpoint for PDF files with strict SSRF & Redirect validation.
@@ -139,7 +139,7 @@ function buildResponseHeaders(upstream: Response): Record<string, string> {
 
 export async function GET(request: Request) {
   // Rate limiting (60 req/min)
-  const rateLimitResult = enforceRateLimit(request, 'api-proxy-pdf', 60, 60_000);
+  const rateLimitResult = await enforceRateLimitAsync(request, 'api-proxy-pdf', 60, 60_000);
   if (!rateLimitResult.allowed && rateLimitResult.response) {
     return rateLimitResult.response;
   }
@@ -175,7 +175,7 @@ export async function GET(request: Request) {
 }
 
 export async function HEAD(request: Request) {
-  const rateLimitResult = enforceRateLimit(request, 'api-proxy-pdf-head', 100, 60_000);
+  const rateLimitResult = await enforceRateLimitAsync(request, 'api-proxy-pdf-head', 100, 60_000);
   if (!rateLimitResult.allowed && rateLimitResult.response) {
     return rateLimitResult.response;
   }

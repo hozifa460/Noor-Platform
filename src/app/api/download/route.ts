@@ -3,7 +3,7 @@ import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import { validateSafeUrl, sanitizeFilename } from '@/lib/security';
-import { enforceRateLimit } from '@/lib/rate-limiter';
+import { enforceRateLimitAsync } from '@/lib/rate-limiter';
 
 /**
  * Noor Platform — Secure Media Download API Route
@@ -221,7 +221,7 @@ function buildFilename(customName: string | null, format: string, targetUrl: str
 }
 
 export async function GET(req: NextRequest) {
-  const rateLimitResult = enforceRateLimit(req, 'api-download', 20, 60_000);
+  const rateLimitResult = await enforceRateLimitAsync(req, 'api-download', 20, 60_000);
   if (!rateLimitResult.allowed && rateLimitResult.response) {
     return rateLimitResult.response;
   }
