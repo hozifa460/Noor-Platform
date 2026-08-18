@@ -18,7 +18,6 @@ const eslintConfig = [
       "skills/**",
       ".agents/**",
       ".gemini/**",
-      "scripts/**",
       "public/**/*.mjs",
       "public/**/*.js"
     ],
@@ -44,6 +43,12 @@ const eslintConfig = [
       "no-unreachable": "error",
       "no-fallthrough": "error",
       "no-redeclare": "error",
+    },
+  },
+  {
+    files: ["scripts/**/*.{js,mjs}"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": "off",
     },
   },
 ];

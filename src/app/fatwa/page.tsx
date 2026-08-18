@@ -1,16 +1,20 @@
-'use client';
-
-import dynamic from 'next/dynamic';
+import type { Metadata } from 'next';
 import { AppShell } from '@/components/layout/AppShell';
+import { FatwaLibraryView } from '@/components/fatwa/FatwaLibraryView';
 
-const ViewComponent = dynamic(() => import('@/components/fatwa/FatwaLibraryView').then(m => m.FatwaLibraryView), {
-  ssr: false,
-});
+export const metadata: Metadata = {
+  title: 'موسوعة الفتاوى الشرعية — فتاوى كبار العلماء | منصة نور',
+  description: 'موسوعة الفتاوى الإسلامية الموثقة لكبار أئمة الإسلام والعلماء المعاصرين مصنفة ومفهرسة بدقة عالية.',
+  openGraph: {
+    title: 'موسوعة الفتاوى الشرعية — فتاوى كبار العلماء | منصة نور',
+    description: 'موسوعة الفتاوى الإسلامية الموثقة لكبار أئمة الإسلام والعلماء المعاصرين مصنفة ومفهرسة بدقة عالية.',
+  },
+};
 
 export default function FatwaPage() {
   return (
     <AppShell>
-      <ViewComponent />
+      <FatwaLibraryView />
     </AppShell>
   );
 }

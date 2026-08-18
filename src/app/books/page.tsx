@@ -1,16 +1,20 @@
-'use client';
-
-import dynamic from 'next/dynamic';
+import type { Metadata } from 'next';
 import { AppShell } from '@/components/layout/AppShell';
+import { BooksLibraryView } from '@/components/books/BooksLibraryView';
 
-const ViewComponent = dynamic(() => import('@/components/books/BooksLibraryView').then(m => m.BooksLibraryView), {
-  ssr: false,
-});
+export const metadata: Metadata = {
+  title: 'المكتبة الإسلامية الرقمية — المكتبة الشاملة والمصاحف | منصة نور',
+  description: 'أكبر مكتبة إسلامية رقمية تضم أكثر من 8,500 كتاب محقق وموافق للمطبوع في التفسير والحديث والفقه والعقيدة.',
+  openGraph: {
+    title: 'المكتبة الإسلامية الرقمية — المكتبة الشاملة والمصاحف | منصة نور',
+    description: 'أكبر مكتبة إسلامية رقمية تضم أكثر من 8,500 كتاب محقق وموافق للمطبوع في التفسير والحديث والفقه والعقيدة.',
+  },
+};
 
 export default function BooksPage() {
   return (
     <AppShell>
-      <ViewComponent />
+      <BooksLibraryView />
     </AppShell>
   );
 }
