@@ -44,8 +44,10 @@ const securityHeaders = [
   },
 ];
 
+const isVercel = Boolean(process.env.VERCEL);
+
 const nextConfig: NextConfig = {
-  output: "standalone",
+  ...(isVercel ? {} : { output: 'standalone' as const }),
   typescript: {
     ignoreBuildErrors: false,
   },
