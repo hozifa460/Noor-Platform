@@ -155,75 +155,88 @@ export async function GET(request: Request) {
     const headers = buildResponseHeaders(response);
 
     const MAX_PDF_PROXY_BYTES = 150 * 1024 * 1024;
-    let bytesRead = 0;
-    let streamTimer: NodeJS.Timeout | null = null;
-    const headerBuffer: number[] = [];
     const isStartOfFile = response.status === 200 || (range ? /bytes=0-/.test(range) : true);
-    let magicChecked = !isStartOfFile; // Only check magic bytes when streaming from offset 0
 
-    const byteLimiter = new TransformStream<Uint8Array, Uint8Array>({
+    const reader = response.body?.getReader();
+    if (!reader) {
+      return NextResponse.json({ error: 'No response body from upstream' }, { status: 502 });
+    }
+
+    const initialChunks: Uint8Array[] = [];
+    let headerBytesCount = 0;
+
+    // Guaranteed pre-response verification of %PDF- magic bytes (0x25, 0x50, 0x44, 0x46, 0x2D)
+    if (isStartOfFile) {
+      while (headerBytesCount < 5) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          initialChunks.push(value);
+          headerBytesCount += value.byteLength;
+        }
+      }
+
+      const headerCombined = new Uint8Array(headerBytesCount);
+      let offset = 0;
+      for (const c of initialChunks) {
+        headerCombined.set(c, offset);
+        offset += c.byteLength;
+      }
+
+      const isPdfMagic =
+        headerBytesCount >= 5 &&
+        headerCombined[0] === 0x25 && // %
+        headerCombined[1] === 0x50 && // P
+        headerCombined[2] === 0x44 && // D
+        headerCombined[3] === 0x46 && // F
+        headerCombined[4] === 0x2d;   // -
+
+      if (!isPdfMagic) {
+        try {
+          await reader.cancel();
+        } catch {}
+        return NextResponse.json(
+          { error: 'Unsupported media type: target is not a valid PDF document (%PDF- header missing)' },
+          { status: 415 }
+        );
+      }
+    }
+
+    let totalBytesStreamed = 0;
+    const stream = new ReadableStream<Uint8Array>({
       start(controller) {
-        streamTimer = setTimeout(() => {
-          try {
-            controller.error(new Error('PDF stream timeout exceeded'));
-          } catch {
-            /* ignore */
-          }
-        }, UPSTREAM_TIMEOUT_MS);
+        for (const c of initialChunks) {
+          totalBytesStreamed += c.byteLength;
+          controller.enqueue(c);
+        }
       },
-      transform(chunk, controller) {
-        bytesRead += chunk.byteLength;
-        if (bytesRead > MAX_PDF_PROXY_BYTES) {
-          if (streamTimer) clearTimeout(streamTimer);
-          controller.error(new Error(`PDF proxy exceeded limit of ${MAX_PDF_PROXY_BYTES} bytes`));
-          return;
-        }
-
-        // Verify PDF magic bytes (%PDF- => 0x25, 0x50, 0x44, 0x46, 0x2d) across multiple chunks if needed
-        if (!magicChecked) {
-          for (let i = 0; i < chunk.byteLength && headerBuffer.length < 5; i++) {
-            headerBuffer.push(chunk[i]);
+      async pull(controller) {
+        try {
+          const { done, value } = await reader.read();
+          if (done) {
+            controller.close();
+            return;
           }
-          if (headerBuffer.length >= 5) {
-            magicChecked = true;
-            const isPdfMagic =
-              headerBuffer[0] === 0x25 && // %
-              headerBuffer[1] === 0x50 && // P
-              headerBuffer[2] === 0x44 && // D
-              headerBuffer[3] === 0x46 && // F
-              headerBuffer[4] === 0x2d;   // -
-            if (!isPdfMagic) {
-              if (streamTimer) clearTimeout(streamTimer);
-              controller.error(new Error('Unsupported media type: upstream file is not a valid PDF (%PDF- header missing)'));
-              return;
-            }
+          totalBytesStreamed += value.byteLength;
+          if (totalBytesStreamed > MAX_PDF_PROXY_BYTES) {
+            controller.error(new Error(`PDF proxy exceeded limit of ${MAX_PDF_PROXY_BYTES} bytes`));
+            return;
           }
+          controller.enqueue(value);
+        } catch (err) {
+          controller.error(err);
         }
-
-        controller.enqueue(chunk);
       },
-      flush(controller) {
-        if (streamTimer) clearTimeout(streamTimer);
-        if (!magicChecked && headerBuffer.length < 5) {
-          controller.error(new Error('Unsupported media type: upstream file is not a valid PDF (file too short)'));
-        }
+      cancel() {
+        reader.cancel();
       },
     });
 
-    const limitedBody = response.body ? response.body.pipeThrough(byteLimiter) : null;
-
-    return new NextResponse(limitedBody, {
+    return new NextResponse(stream, {
       status: response.status,
       headers,
     });
   } catch (err: unknown) {
-    const errMsg = (err as Error)?.message || '';
-    if (errMsg.includes('not a valid PDF')) {
-      return NextResponse.json(
-        { error: 'Unsupported media type: target is not a valid PDF document' },
-        { status: 415 }
-      );
-    }
     console.error('[PDF Proxy Error]', err);
     return NextResponse.json(
       { error: 'Failed to fetch PDF document' },

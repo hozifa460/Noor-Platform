@@ -176,10 +176,14 @@ async function runSecurityTests() {
   });
   assert(getClientIp(mockReq3) === '203.0.113.195', 'Extracts first valid IP from X-Forwarded-For');
 
-  const mockReqInvalid = new Request('http://localhost', {
-    headers: { 'x-forwarded-for': 'invalid-ip-string' },
+  // Test 8C: Production standalone environment without TRUSTED_PROXY flag ignores headers
+  delete process.env.TRUSTED_PROXY;
+  delete process.env.VERCEL;
+  process.env.NODE_ENV = 'production';
+  const prodUntrustedReq = new Request('http://localhost', {
+    headers: { 'x-forwarded-for': '1.2.3.4', 'x-real-ip': '5.6.7.8' },
   });
-  assert(getClientIp(mockReqInvalid) === '127.0.0.1', 'Defaults safely to fallback IP on malformed header');
+  assert(getClientIp(prodUntrustedReq) === '127.0.0.1', 'Safely ignores spoofed IP headers in production standalone mode without TRUSTED_PROXY');
 
   // 9. PDF Multi-chunk Magic Byte Verification
   console.log('\n--- Test Suite 9: PDF Multi-chunk Magic Byte Verification ---');

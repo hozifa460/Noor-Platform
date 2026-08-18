@@ -135,13 +135,12 @@ async function checkDistributedRateLimit(
 
 /**
  * Determines if the current runtime is deployed behind a trusted reverse proxy / edge network.
- * Headers like CF-Connecting-IP and X-Forwarded-For are only trusted when verified.
+ * Headers like CF-Connecting-IP and X-Forwarded-For are only trusted when explicitly verified.
  */
 export function isTrustedProxyEnvironment(): boolean {
   if (process.env.TRUSTED_PROXY === 'true') return true;
   if (process.env.VERCEL === '1' || process.env.CF_PAGES === '1') return true;
-  if (process.env.TRUSTED_PROXY === 'false' || process.env.BEHIND_PROXY === 'false') return false;
-  return process.env.NODE_ENV === 'production';
+  return false;
 }
 
 const IPV4_REGEX = /^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/;

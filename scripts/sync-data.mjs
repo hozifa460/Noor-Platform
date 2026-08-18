@@ -46,7 +46,10 @@ async function downloadFile(url, destPath, description, minBytes = 100, expected
           console.log(`  ✓ OK: ${description} (Verified SHA-256: ${hash.slice(0, 12)}...)`);
           return true;
         } else {
-          console.warn(`  ⚠️ SHA-256 mismatch for local ${description}, re-verifying from source...`);
+          console.warn(`  ⚠️ SHA-256 mismatch for local ${description}, purging corrupt file and re-verifying from source...`);
+          try {
+            fs.unlinkSync(destPath);
+          } catch {}
         }
       } else {
         console.log(`  ✓ OK: ${description} (${(buffer.length / 1024).toFixed(1)} KB)`);
@@ -67,7 +70,7 @@ async function downloadFile(url, destPath, description, minBytes = 100, expected
       if (expectedSha256) {
         const hash = computeSha256(buffer);
         if (hash !== expectedSha256) {
-          console.warn(`  ⚠️ Upstream SHA-256 mismatch for ${description}! Expected: ${expectedSha256}, Got: ${hash}`);
+          console.error(`  ❌ FATAL: Upstream SHA-256 mismatch for ${description}! Expected: ${expectedSha256}, Got: ${hash}`);
           return false;
         }
       }
@@ -85,8 +88,6 @@ async function downloadFile(url, destPath, description, minBytes = 100, expected
 }
 
 async function runSync() {
-  let allOk = true;
-
   // 1. HadeethEnc Sharh dataset with immutable pinned SHA-256
   const HADEETHENC_EXPECTED_SHA256 = '22544100bba867707ae591771681012b5ab7e92179486563d21ae0c52d0bfea3';
   const hadithSharhPath = path.join(DATA_DIR, 'hadith', 'hadeethenc_sharh.json');
@@ -114,6 +115,18 @@ async function runSync() {
       }
     ];
     fs.writeFileSync(hadithSharhPath, JSON.stringify(seed, null, 2));
+  }
+
+  // Verify that any present full-size dataset matches the cryptographic SHA-256
+  if (fs.existsSync(hadithSharhPath)) {
+    const finalBuffer = fs.readFileSync(hadithSharhPath);
+    if (finalBuffer.length > 10000) {
+      const finalHash = computeSha256(finalBuffer);
+      if (finalHash !== HADEETHENC_EXPECTED_SHA256) {
+        console.error(`\n❌ FATAL: ${hadithSharhPath} failed cryptographic SHA-256 integrity verification!`);
+        process.exit(1);
+      }
+    }
   }
 
   // 2. Radio Catalog
