@@ -112,11 +112,11 @@ export async function loadMp3QuranReciters(): Promise<Mp3Reciter[]> {
     const res = await fetch('https://mp3quran.net/api/v3/reciters?language=ar');
     if (res.ok) {
       const data = await res.json();
-      const reciters = data.reciters.map((r: any) => ({
+      const reciters = data.reciters.map((r: { id: number, name: string, letter: string, moshaf: { id: number, name: string, server: string, surah_total: number, surah_list: string }[] }) => ({
         id: r.id,
         name: r.name,
         letter: r.letter,
-        moshaf: (r.moshaf || []).map((m: any) => ({
+        moshaf: (r.moshaf || []).map((m: { id: number, name: string, server: string, surah_total: number, surah_list: string }) => ({
           id: m.id,
           name: m.name,
           server: m.server.endsWith('/') ? m.server : `${m.server}/`,

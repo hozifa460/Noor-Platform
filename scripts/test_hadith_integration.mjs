@@ -98,7 +98,13 @@ console.log('\n--- Test Suite 3: HadeethEnc Sharh & Benefits Dataset ---');
 await test('Loads HadeethEnc Sharh dataset', async () => {
   const sharhList = await loadHadeethEncSharh();
   assert.ok(Array.isArray(sharhList));
-  assert.ok(sharhList.length > 0, `Expected non-empty sharh dataset, got ${sharhList.length}`);
+  if (hadithFileExists('hadeethenc_sharh.json')) {
+    // Full dataset available — enforce strict count
+    assert.ok(sharhList.length >= 3500, `Expected >= 3500 items in full dataset, got ${sharhList.length}`);
+  } else {
+    // CI/seed fallback — just ensure non-empty
+    assert.ok(sharhList.length > 0, `Expected non-empty sharh dataset, got ${sharhList.length}`);
+  }
 });
 
 await test('Matches explanation for famous Hadith (إنما الأعمال بالنيات)', async () => {

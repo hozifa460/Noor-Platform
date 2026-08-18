@@ -37,7 +37,7 @@ export function BookCard({ book, viewMode = 'grid' }: BookCardProps) {
     book.id.startsWith('openiti-') || (book.tags || []).includes('openiti');
 
   const isShamela =
-    book.id.startsWith('shamela-') || (book.tags || []).includes('شاملة') || Boolean((book as any).shamelaPath);
+    book.id.startsWith('shamela-') || (book.tags || []).includes('شاملة') || Boolean((book as unknown as Record<string, unknown>).shamelaPath);
 
   const handleRead = () => {
     openPlayer(book);
@@ -128,13 +128,13 @@ export function BookCard({ book, viewMode = 'grid' }: BookCardProps) {
             {book.title}
           </h3>
 
-          {(book as any).matchReason && (
+          {((book as unknown as Record<string, unknown>).matchReason as string) && (
             <div className="mt-1 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[11px] font-bold border border-amber-500/20 shadow-sm animate-in fade-in duration-200">
-              <span>{(book as any).matchReason}</span>
+              <span>{((book as unknown as Record<string, unknown>).matchReason as string)}</span>
             </div>
           )}
 
-          {book.description && !(book as any).matchReason && (
+          {book.description && !(book as unknown as Record<string, unknown>).matchReason && (
             <p className="text-xs text-muted-foreground line-clamp-1 mt-1 leading-relaxed">
               {book.description}
             </p>
@@ -278,13 +278,13 @@ export function BookCard({ book, viewMode = 'grid' }: BookCardProps) {
             </p>
           )}
 
-          {(book as any).matchReason && (
+          {((book as unknown as Record<string, unknown>).matchReason as string) && (
             <div className="mb-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[10px] font-bold border border-amber-500/20 line-clamp-1">
-              <span>{(book as any).matchReason}</span>
+              <span>{((book as unknown as Record<string, unknown>).matchReason as string)}</span>
             </div>
           )}
 
-          {book.description && !(book as any).matchReason && (
+          {book.description && !(book as unknown as Record<string, unknown>).matchReason && (
             <p className="text-xs text-muted-foreground/80 line-clamp-2 leading-relaxed mb-3">
               {book.description}
             </p>

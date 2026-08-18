@@ -219,7 +219,7 @@ export const useQuranStore = create<QuranState>((set, get) => ({
         if (json.code === 200 && Array.isArray(json.data) && json.data.length >= 2) {
           const arData = json.data[0];
           const enData = json.data[1];
-          const ayahs: AyahItem[] = arData.ayahs.map((a: any, idx: number) => ({
+          const ayahs: AyahItem[] = arData.ayahs.map((a: { numberInSurah: number, number: number, text: string, juz: number, manzil: number, ruku: number, hizbQuarter: number, sajda: boolean | string | object }, idx: number) => ({
             ayahNo: a.numberInSurah,
             ayahNoQuran: a.number,
             textAr: a.text,

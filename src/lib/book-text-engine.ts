@@ -74,7 +74,7 @@ async function loadOpenItiDynamicEBook(bookId: string): Promise<EBookMetaRespons
     const res = await fetch('/data/ebooks/openiti_arabic_catalog.json');
     if (res.ok) {
       const list = await res.json();
-      bookItem = list.find((b: any) => b.id === bookId || b.id === `openiti-${cleanId}`);
+      bookItem = list.find((b: { id: string, shamelaId?: string | number, title?: string, sheikhName?: string, pdfUrl?: string, date?: string, century?: number, islamicArt?: string, description?: string }) => b.id === bookId || b.id === `openiti-${cleanId}`);
     }
   } catch {}
 
@@ -267,7 +267,7 @@ async function loadOpenItiDynamicEBook(bookId: string): Promise<EBookMetaRespons
       title,
       author,
       category: 'history',
-      islamicArt: (bookItem?.islamicArt as any) || 'general',
+      islamicArt: (bookItem?.islamicArt as import("./book-types").IslamicArtCategory) || 'general',
       century: bookItem?.century || 3,
       description: bookItem?.description || `مصنف ${title} للمؤلف ${author}`,
       totalVolumes: currentVol || 1,
@@ -301,7 +301,7 @@ function cleanTitleFallback(t: string): string {
 async function loadShamelaEBook(bookId: string): Promise<EBookMetaResponse | null> {
   const cleanId = bookId.replace(/^shamela-/, '');
 
-  let bookItem: any = null;
+  let bookItem: { id?: string, shamelaId?: string | number, shamelaPath?: string, title?: string, sheikhName?: string, date?: string, shamelaCategoryName?: string, category?: string, islamicArt?: string, century?: number, description?: string, volumeCount?: number, totalPages?: number, betakaText?: string } | null = null;
   try {
     if (typeof window === 'undefined') {
       const fs = await import('fs');
@@ -309,13 +309,13 @@ async function loadShamelaEBook(bookId: string): Promise<EBookMetaResponse | nul
       const p = path.join(process.cwd(), 'public', 'data', 'ebooks', 'shamela_arabic_catalog.json');
       if (fs.existsSync(p)) {
         const list = JSON.parse(fs.readFileSync(p, 'utf-8'));
-        bookItem = list.find((b: any) => b.id === bookId || String(b.shamelaId) === cleanId);
+        bookItem = list.find((b: { id: string, shamelaId?: string | number, title?: string, sheikhName?: string, pdfUrl?: string, date?: string, century?: number, islamicArt?: string, description?: string }) => b.id === bookId || String(b.shamelaId) === cleanId);
       }
     } else {
       const res = await fetch('/data/ebooks/shamela_arabic_catalog.json');
       if (res.ok) {
         const list = await res.json();
-        bookItem = list.find((b: any) => b.id === bookId || String(b.shamelaId) === cleanId);
+        bookItem = list.find((b: { id: string, shamelaId?: string | number, title?: string, sheikhName?: string, pdfUrl?: string, date?: string, century?: number, islamicArt?: string, description?: string }) => b.id === bookId || String(b.shamelaId) === cleanId);
       }
     }
   } catch {}
@@ -343,7 +343,7 @@ async function loadShamelaEBook(bookId: string): Promise<EBookMetaResponse | nul
       fetch(getUrl('pages.jsonl')).catch(() => null),
     ]);
 
-    let rawMeta: any = {};
+    let rawMeta: { title_ar?: string, main_author_name_ar?: string, main_author_death_hijri?: string, category_name_ar?: string, category?: string, islamicArt?: string } = {};
     if (metaRes && metaRes.ok) {
       try { rawMeta = await metaRes.json(); } catch {}
     }
@@ -390,8 +390,8 @@ async function loadShamelaEBook(bookId: string): Promise<EBookMetaResponse | nul
         for (let pIdx = 0; pIdx < slice.length; pIdx++) {
           try {
             const page = JSON.parse(slice[pIdx]);
-            const volNum = parseInt(page.part, 10) || 1;
-            const pageNum = parseInt(page.page_num, 10) || (i + pIdx + 1);
+            const volNum = parseInt(String(page.part || '1'), 10) || 1;
+            const pageNum = parseInt(String(page.page_num || '0'), 10) || (i + pIdx + 1);
             if (pIdx === 0) startPage = pageNum;
             endPage = pageNum;
             if (volNum > maxVolumeObserved) maxVolumeObserved = volNum;
@@ -459,8 +459,8 @@ async function loadShamelaEBook(bookId: string): Promise<EBookMetaResponse | nul
       title,
       author,
       authorDeath: deathHijri ? `${deathHijri} هـ` : undefined,
-      category: bookItem?.category || 'history',
-      islamicArt: bookItem?.islamicArt || 'general',
+      category: (bookItem?.category || 'history') as import('./book-types').EBookCategory,
+      islamicArt: (bookItem?.islamicArt || 'general') as import('./book-types').IslamicArtCategory,
       century: bookItem?.century || (deathHijri ? Math.ceil(parseInt(deathHijri, 10) / 100) : 3),
       description: bookItem?.description || `مصنف ${title} في ${categoryName} للإمام ${author}`,
       totalVolumes: bookItem?.volumeCount || maxVolumeObserved || 1,
@@ -545,7 +545,7 @@ async function fetchShamelaChapterSlice(
       ? Math.min(nextTocEntry.pageNumber - 1, targetStartPage + 30)
       : targetStartPage + 20;
 
-    let pagesArray: any[] = [];
+    let pagesArray: { page_num?: string, part?: string, body?: string, footnotes?: string }[] = [];
 
     // 1. Client-Side: Fetch via Edge Proxy with pageStart & pageCount query
     if (typeof window !== 'undefined' && window.location?.origin) {
@@ -597,8 +597,8 @@ async function fetchShamelaChapterSlice(
     const paragraphs: SectionParagraph[] = [];
     for (let i = 0; i < pagesArray.length; i++) {
       const page = pagesArray[i];
-      const pageNum = parseInt(page.page_num, 10) || (targetStartPage + i);
-      const volNum = parseInt(page.part, 10) || 1;
+      const pageNum = parseInt(String(page.page_num || '0'), 10) || (targetStartPage + i);
+      const volNum = parseInt(String(page.part || '1'), 10) || 1;
       const bodyText = (page.body || '').trim();
       const footnotesText = (page.footnotes || '').trim();
 

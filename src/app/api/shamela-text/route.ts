@@ -138,7 +138,7 @@ export async function GET(req: NextRequest) {
         setCachedLines(targetUrl, lines, memoryFootprint);
       }
 
-      const matchedPages: any[] = [];
+      const matchedPages: Record<string, unknown>[] = [];
 
       for (let i = 0; i < lines.length; i++) {
         try {

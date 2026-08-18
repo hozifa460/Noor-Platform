@@ -615,7 +615,7 @@ export const useBooksStore = create<BooksState>((set, get) => ({
       return books;
     }
 
-    const filtered = books.filter((book: any) => {
+    const filtered = books.filter((book: MediaItem) => {
       // 1. Language Filter
       if (selectedLanguage !== 'all' && book.language && book.language !== selectedLanguage) {
         return false;
@@ -717,9 +717,9 @@ function dedupeBooks(items: MediaItem[]): MediaItem[] {
       const normAuthor = normalizeArabic(it.sheikhName);
       const normDesc = normalizeArabic(it.description);
       const normTags = (it.tags || []).map(normalizeArabic).join(' ');
-      (it as any)._normTitle = normTitle;
-      (it as any)._normAuthor = normAuthor;
-      (it as any)._normSearchText = `${normTitle} ${normAuthor} ${normDesc} ${normTags}`;
+      (it as unknown as MediaItem & Record<string, unknown>)._normTitle = normTitle;
+      (it as unknown as MediaItem & Record<string, unknown>)._normAuthor = normAuthor;
+      (it as unknown as MediaItem & Record<string, unknown>)._normSearchText = `${normTitle} ${normAuthor} ${normDesc} ${normTags}`;
       out.push(it);
     }
   }

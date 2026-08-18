@@ -316,7 +316,7 @@ function buildSharhInvertedIndex(list: HadeethEncSharhItem[]): void {
 /**
  * Parses raw micro-index payload
  */
-function parseMicroIndexPayload(raw: any): MicroIndexEntry[] {
+function parseMicroIndexPayload(raw: { books?: unknown; grades?: unknown; items?: unknown }): MicroIndexEntry[] {
   if (!raw) return [];
 
   if (raw && raw.books && raw.grades && Array.isArray(raw.items)) {
@@ -480,7 +480,7 @@ export function searchHadithsInBook(
   chapterId?: number
 ): HadithItem[] {
   let list = hadiths;
-  if (chapterId !== undefined && chapterId !== null && (chapterId as any) !== 'all') {
+  if (chapterId !== undefined && chapterId !== null && (chapterId as unknown) !== "all") {
     list = list.filter((h) => h.chapterId === chapterId);
   }
 

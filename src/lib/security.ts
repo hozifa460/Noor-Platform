@@ -206,11 +206,11 @@ export async function validateSafeUrl(
       }
 
       return { safe: true, url: parsed, resolvedIp: ip };
-    } catch (dnsErr: any) {
-      return { safe: false, error: `DNS resolution failed for ${hostname}: ${dnsErr.message || 'Host not found'}` };
+    } catch (dnsErr: unknown) {
+      return { safe: false, error: `DNS resolution failed for ${hostname}: ${(dnsErr as Error).message || 'Host not found'}` };
     }
-  } catch (err: any) {
-    return { safe: false, error: `URL parsing error: ${err.message || 'Malformed URL'}` };
+  } catch (err: unknown) {
+    return { safe: false, error: `URL parsing error: ${(err as Error).message || 'Malformed URL'}` };
   }
 }
 

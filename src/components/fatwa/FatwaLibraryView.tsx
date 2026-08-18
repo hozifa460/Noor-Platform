@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export function FatwaLibraryView() {
-  const fatwas = useFatwaStore((s) => s.fatwas);
+  const _fatwas = useFatwaStore((s) => s.fatwas);
   const searching = useFatwaStore((s) => s.searching);
   const selectedCategory = useFatwaStore((s) => s.selectedCategory);
   const selectedScholar = useFatwaStore((s) => s.selectedScholar);
@@ -107,7 +107,7 @@ export function FatwaLibraryView() {
 
   const filteredFatwas = useMemo(() => {
     return getFilteredFatwas();
-  }, [getFilteredFatwas, fatwas, selectedCategory, selectedScholar, searchQuery]);
+  }, [getFilteredFatwas]);
 
   const displayedFatwas = useMemo(() => {
     return filteredFatwas.slice(0, visibleCount);

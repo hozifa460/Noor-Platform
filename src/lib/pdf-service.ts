@@ -230,10 +230,10 @@ export async function renderPdfPageAsync(
   try {
     // Non-blocking async execution with direct argument array (no shell interpolation)
     await execFileAsync('pdftoppm', args, { timeout: 25_000 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     // Clean up if created
     await fs.unlink(expectedOutputPng).catch(() => {});
-    throw new Error(`PDF page rendering failed (pdftoppm): ${err.stderr || err.message}`);
+    throw new Error(`PDF page rendering failed (pdftoppm): ${(err as Error & { stderr?: string }).stderr || (err as Error & { message: string }).message}`);
   }
 
   try {
@@ -275,7 +275,7 @@ export async function getPdfInfoAsync(
       width: sizeMatch ? parseFloat(sizeMatch[1]) : 595,
       height: sizeMatch ? parseFloat(sizeMatch[2]) : 842,
     };
-  } catch (err: any) {
-    throw new Error(`Failed to extract PDF metadata (pdfinfo): ${err.stderr || err.message}`);
+  } catch (err: unknown) {
+    throw new Error(`Failed to extract PDF metadata (pdfinfo): ${(err as Error & { stderr?: string }).stderr || (err as Error & { message: string }).message}`);
   }
 }

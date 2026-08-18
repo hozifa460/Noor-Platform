@@ -178,7 +178,7 @@ export function EBookTextReader({
   const [highlights, setHighlights] = useState<BookHighlight[]>([]);
 
   // Fullscreen
-  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [isFullscreen, _setIsFullscreen] = useState<boolean>(false);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   // 1. Initial Load: Metadata & Saved Progress

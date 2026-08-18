@@ -219,13 +219,13 @@ export function usePdfViewer(url: string, bookSlug?: string): UsePdfViewerResult
       } catch (err) {
         if (cancelled) return;
         console.error('[usePdfViewer] Failed to load PDF:', err);
-        let msg = err instanceof Error ? err.message : String(err);
+        let msg = err instanceof Error ? (err as Error).message : String(err);
         let isLibError = false;
 
         // Check if this is a PDF.js library loading error (not a PDF file error).
         if (
           err instanceof Error &&
-          (err.name === 'PdfjsLoadError' ||
+          ((err as Error).name === 'PdfjsLoadError' ||
             msg.includes('Failed to load PDF.js') ||
             msg.includes('Loading chunk') ||
             msg.includes('network error') ||
@@ -362,16 +362,16 @@ export function usePdfViewer(url: string, bookSlug?: string): UsePdfViewerResult
       const renderTask = page.render({
         canvasContext: ctx,
         viewport,
-      } as any);
+      } as Parameters<typeof page.render>[0]);
       extCanvas._activeRenderTask = renderTask;
 
       try {
         await renderTask.promise;
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (
-          err?.name === 'RenderingCancelledException' ||
-          err?.message?.includes('cancelled') ||
-          err?.message?.includes('Cannot use the same canvas')
+          (err as Error)?.name === 'RenderingCancelledException' ||
+          (err as Error)?.message?.includes('cancelled') ||
+          (err as Error)?.message?.includes('Cannot use the same canvas')
         ) {
           return;
         }

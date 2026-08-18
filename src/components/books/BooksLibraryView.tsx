@@ -72,7 +72,7 @@ export function BooksLibraryView() {
 
   const filteredBooks = useMemo(
     () => getFilteredBooks(),
-    [books, selectedCategory, selectedLanguage, searchQuery, getFilteredBooks],
+    [getFilteredBooks],
   );
   const displayedBooks = filteredBooks.slice(0, visibleCount);
 
@@ -104,7 +104,7 @@ export function BooksLibraryView() {
     }
 
     // 2. Classical Heritage Book Item
-    const existing = books.find((b) => b.id === fc.id || (fc.shamelaId && (b as any).shamelaId === fc.shamelaId));
+    const existing = books.find((b) => b.id === fc.id || (fc.shamelaId && (b as unknown as Record<string, unknown>).shamelaId === fc.shamelaId));
     if (existing) {
       openPlayer(existing);
       return;

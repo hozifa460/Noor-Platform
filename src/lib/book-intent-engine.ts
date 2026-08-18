@@ -511,7 +511,7 @@ export function searchBooksWithIntent(
   const discLen = matchedDisciplines.length;
 
   for (let i = 0; i < books.length; i++) {
-    const book = books[i] as any;
+    const book = books[i] as unknown as MediaItem & { language?: string, tags?: string[], matchReason?: string, shamelaPath?: string, _normTitle?: string, _normAuthor?: string };
 
     // 1. Language Filter
     if (selectedLanguage !== 'all' && book.language && book.language !== selectedLanguage) {
