@@ -157,10 +157,9 @@ export async function GET(request: Request) {
     const MAX_PDF_PROXY_BYTES = 150 * 1024 * 1024;
     let bytesRead = 0;
     let streamTimer: NodeJS.Timeout | null = null;
-    let isFirstChunk = true;
-
-    // Check if this is the start of the file (status 200 or range starting at 0)
-    const isStartOfFile = response.status === 200 || (range && /bytes=0-/.test(range));
+    const headerBuffer: number[] = [];
+    const isStartOfFile = response.status === 200 || (range ? /bytes=0-/.test(range) : true);
+    let magicChecked = !isStartOfFile; // Only check magic bytes when streaming from offset 0
 
     const byteLimiter = new TransformStream<Uint8Array, Uint8Array>({
       start(controller) {
@@ -180,16 +179,19 @@ export async function GET(request: Request) {
           return;
         }
 
-        // Verify PDF magic bytes on first chunk (%PDF- => 0x25, 0x50, 0x44, 0x46, 0x2d)
-        if (isFirstChunk && isStartOfFile) {
-          isFirstChunk = false;
-          if (chunk.byteLength >= 5) {
+        // Verify PDF magic bytes (%PDF- => 0x25, 0x50, 0x44, 0x46, 0x2d) across multiple chunks if needed
+        if (!magicChecked) {
+          for (let i = 0; i < chunk.byteLength && headerBuffer.length < 5; i++) {
+            headerBuffer.push(chunk[i]);
+          }
+          if (headerBuffer.length >= 5) {
+            magicChecked = true;
             const isPdfMagic =
-              chunk[0] === 0x25 && // %
-              chunk[1] === 0x50 && // P
-              chunk[2] === 0x44 && // D
-              chunk[3] === 0x46 && // F
-              chunk[4] === 0x2d;   // -
+              headerBuffer[0] === 0x25 && // %
+              headerBuffer[1] === 0x50 && // P
+              headerBuffer[2] === 0x44 && // D
+              headerBuffer[3] === 0x46 && // F
+              headerBuffer[4] === 0x2d;   // -
             if (!isPdfMagic) {
               if (streamTimer) clearTimeout(streamTimer);
               controller.error(new Error('Unsupported media type: upstream file is not a valid PDF (%PDF- header missing)'));
@@ -200,8 +202,11 @@ export async function GET(request: Request) {
 
         controller.enqueue(chunk);
       },
-      flush() {
+      flush(controller) {
         if (streamTimer) clearTimeout(streamTimer);
+        if (!magicChecked && headerBuffer.length < 5) {
+          controller.error(new Error('Unsupported media type: upstream file is not a valid PDF (file too short)'));
+        }
       },
     });
 

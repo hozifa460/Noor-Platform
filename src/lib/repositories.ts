@@ -48,14 +48,27 @@ export const DEFAULT_REPOSITORIES: RepositorySource[] = [
 /** Local storage key for user-edited repository config. */
 export const REPOS_STORAGE_KEY = 'isp.repositories';
 
+const TRUSTED_REPOSITORY_OWNERS = new Set([
+  'hozifa1',
+  'AuthenticIlm',
+  'OpenITI',
+  'hozifa460',
+  'hazozahz-islamway',
+]);
+
 /** Validates whether a repository source configuration is safe and conforms to allowlist rules. */
 function isValidRepository(r: unknown): r is RepositorySource {
   if (!r || typeof r !== 'object') return false;
   const repo = r as Record<string, unknown>;
   const allowedProviders = ['huggingface', 'github', 'gitlab'];
   if (!allowedProviders.includes(String(repo.provider))) return false;
-  if (!/^[a-zA-Z0-9_\-\.]+$/.test(String(repo.owner || ''))) return false;
-  if (!/^[a-zA-Z0-9_\-\.]+$/.test(String(repo.repo || ''))) return false;
+
+  const owner = String(repo.owner || '').trim();
+  const repoName = String(repo.repo || '').trim();
+
+  // Enforce approved owner allowlist to prevent arbitrary repository persistence poisoning
+  if (!TRUSTED_REPOSITORY_OWNERS.has(owner)) return false;
+  if (!/^[a-zA-Z0-9_\-\.]+$/.test(repoName)) return false;
   if (repo.branch && !/^[a-zA-Z0-9_\-\./]+$/.test(String(repo.branch))) return false;
   if (repo.path && !/^[a-zA-Z0-9_\-\./]+$/.test(String(repo.path))) return false;
   return true;

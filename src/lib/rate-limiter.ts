@@ -133,6 +133,17 @@ async function checkDistributedRateLimit(
   }
 }
 
+/**
+ * Determines if the current runtime is deployed behind a trusted reverse proxy / edge network.
+ * Headers like CF-Connecting-IP and X-Forwarded-For are only trusted when verified.
+ */
+export function isTrustedProxyEnvironment(): boolean {
+  if (process.env.TRUSTED_PROXY === 'true') return true;
+  if (process.env.VERCEL === '1' || process.env.CF_PAGES === '1') return true;
+  if (process.env.TRUSTED_PROXY === 'false' || process.env.BEHIND_PROXY === 'false') return false;
+  return process.env.NODE_ENV === 'production';
+}
+
 const IPV4_REGEX = /^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/;
 const IPV6_REGEX = /^[0-9a-fA-F:]+$/;
 
@@ -141,26 +152,29 @@ function isValidIp(ip: string): boolean {
 }
 
 /**
- * Extracts client IP from standard Next.js / Proxy request headers with format validation.
+ * Extracts client IP from request headers with trusted proxy validation and strict sanitization.
  */
 export function getClientIp(request: Request): string {
-  const cfConnectingIp = request.headers.get('cf-connecting-ip');
-  if (cfConnectingIp && isValidIp(cfConnectingIp.trim())) {
-    return cfConnectingIp.trim().replace(/[^0-9a-fA-F.:]/g, '');
-  }
+  if (isTrustedProxyEnvironment()) {
+    const cfConnectingIp = request.headers.get('cf-connecting-ip');
+    if (cfConnectingIp && isValidIp(cfConnectingIp.trim())) {
+      return cfConnectingIp.trim().replace(/[^0-9a-fA-F.:]/g, '');
+    }
 
-  const realIp = request.headers.get('x-real-ip');
-  if (realIp && isValidIp(realIp.trim())) {
-    return realIp.trim().replace(/[^0-9a-fA-F.:]/g, '');
-  }
+    const realIp = request.headers.get('x-real-ip');
+    if (realIp && isValidIp(realIp.trim())) {
+      return realIp.trim().replace(/[^0-9a-fA-F.:]/g, '');
+    }
 
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) {
-    const parts = forwarded.split(',').map((p) => p.trim()).filter((p) => isValidIp(p));
-    if (parts.length > 0) {
-      return parts[0].replace(/[^0-9a-fA-F.:]/g, '');
+    const forwarded = request.headers.get('x-forwarded-for');
+    if (forwarded) {
+      const parts = forwarded.split(',').map((p) => p.trim()).filter((p) => isValidIp(p));
+      if (parts.length > 0) {
+        return parts[0].replace(/[^0-9a-fA-F.:]/g, '');
+      }
     }
   }
+
   return '127.0.0.1';
 }
 
@@ -219,6 +233,18 @@ export async function enforceRateLimitAsync(
 
   // Try distributed check first if configured
   const distResult = await checkDistributedRateLimit(key, limit, windowMs);
+
+  if (!distResult && process.env.NODE_ENV === 'production' && process.env.REQUIRE_DISTRIBUTED_RATELIMIT === 'true') {
+    console.error('[rate-limiter] FATAL: Distributed Redis/KV rate limiter is required in production but unavailable!');
+    return {
+      allowed: false,
+      response: NextResponse.json(
+        { error: 'Service Unavailable', message: 'Distributed rate limiter is required but unreachable.' },
+        { status: 503 }
+      ),
+    };
+  }
+
   const result = distResult || rateLimiter.check(key, limit, windowMs);
 
   if (!result.allowed) {

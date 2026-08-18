@@ -7,6 +7,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 
 const DATA_DIR = path.join(process.cwd(), 'public', 'data');
 
@@ -31,12 +32,26 @@ for (const dir of REQUIRED_STRUCTURE) {
   }
 }
 
-async function downloadFile(url, destPath, description, minBytes = 100) {
+function computeSha256(buffer) {
+  return crypto.createHash('sha256').update(buffer).digest('hex');
+}
+
+async function downloadFile(url, destPath, description, minBytes = 100, expectedSha256 = null) {
   if (fs.existsSync(destPath)) {
-    const stats = fs.statSync(destPath);
-    if (stats.size >= minBytes) {
-      console.log(`  ✓ OK: ${description} (${(stats.size / 1024).toFixed(1)} KB)`);
-      return true;
+    const buffer = fs.readFileSync(destPath);
+    if (buffer.length >= minBytes) {
+      if (expectedSha256) {
+        const hash = computeSha256(buffer);
+        if (hash === expectedSha256) {
+          console.log(`  ✓ OK: ${description} (Verified SHA-256: ${hash.slice(0, 12)}...)`);
+          return true;
+        } else {
+          console.warn(`  ⚠️ SHA-256 mismatch for local ${description}, re-verifying from source...`);
+        }
+      } else {
+        console.log(`  ✓ OK: ${description} (${(buffer.length / 1024).toFixed(1)} KB)`);
+        return true;
+      }
     }
   }
 
@@ -49,8 +64,15 @@ async function downloadFile(url, destPath, description, minBytes = 100) {
 
     if (res.ok) {
       const buffer = Buffer.from(await res.arrayBuffer());
+      if (expectedSha256) {
+        const hash = computeSha256(buffer);
+        if (hash !== expectedSha256) {
+          console.warn(`  ⚠️ Upstream SHA-256 mismatch for ${description}! Expected: ${expectedSha256}, Got: ${hash}`);
+          return false;
+        }
+      }
       fs.writeFileSync(destPath, buffer);
-      console.log(`  ✅ Successfully synced ${description} (${(buffer.length / 1024).toFixed(1)} KB)`);
+      console.log(`  ✅ Successfully synced ${description} (${(buffer.length / 1024).toFixed(1)} KB, SHA-256 verified)`);
       return true;
     } else {
       console.warn(`  ⚠️ Upstream returned ${res.status} for ${description}`);
@@ -65,13 +87,15 @@ async function downloadFile(url, destPath, description, minBytes = 100) {
 async function runSync() {
   let allOk = true;
 
-  // 1. HadeethEnc Sharh dataset
+  // 1. HadeethEnc Sharh dataset with immutable pinned SHA-256
+  const HADEETHENC_EXPECTED_SHA256 = '22544100bba867707ae591771681012b5ab7e92179486563d21ae0c52d0bfea3';
   const hadithSharhPath = path.join(DATA_DIR, 'hadith', 'hadeethenc_sharh.json');
   const hadithOk = await downloadFile(
     'https://huggingface.co/datasets/hozifa1/quran_and_sunnah/resolve/main/sunnahset/HadeethEnc_Sharh/hadeethenc_sharh.json',
     hadithSharhPath,
     'HadeethEnc Sharh Dataset',
-    10000
+    10000,
+    HADEETHENC_EXPECTED_SHA256
   );
 
   // If download failed and file doesn't exist, create fallback seed

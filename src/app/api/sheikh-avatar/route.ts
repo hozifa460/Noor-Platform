@@ -126,9 +126,21 @@ async function fetchImageAsBuffer(url: string): Promise<{ buffer: Buffer; conten
 
     if (!res || !res.ok) return null;
 
-    const contentType = res.headers.get('content-type') || 'image/jpeg';
-    if (!contentType.toLowerCase().startsWith('image/')) {
-      return null; // Reject non-image payloads
+    const ALLOWED_REMOTE_IMAGE_TYPES = new Set([
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+    ]);
+
+    const rawContentType = (res.headers.get('content-type') || 'image/jpeg')
+      .toLowerCase()
+      .split(';')[0]
+      .trim();
+
+    if (!ALLOWED_REMOTE_IMAGE_TYPES.has(rawContentType)) {
+      return null; // Strictly reject remote SVG, HTML, XML, or unknown MIME types
     }
 
     const contentLength = res.headers.get('content-length');
@@ -142,7 +154,7 @@ async function fetchImageAsBuffer(url: string): Promise<{ buffer: Buffer; conten
     }
 
     const buffer = Buffer.from(arrayBuf);
-    return { buffer, contentType };
+    return { buffer, contentType: rawContentType };
   } catch {
     return null;
   }
