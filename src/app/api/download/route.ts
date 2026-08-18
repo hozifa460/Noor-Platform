@@ -176,22 +176,29 @@ async function streamUrl(initialUrl: string, filename: string): Promise<Response
 
   // Enforce runtime byte limit & overall stream timeout through TransformStream
   let bytesRead = 0;
-  const overallStreamTimer = setTimeout(() => {
-    /* Auto cleanup */
-  }, STREAM_TIMEOUT_MS);
+  let streamTimer: NodeJS.Timeout | null = null;
 
   const byteLimiter = new TransformStream<Uint8Array, Uint8Array>({
+    start(controller) {
+      streamTimer = setTimeout(() => {
+        try {
+          controller.error(new Error('Download stream timeout exceeded'));
+        } catch {
+          /* ignore */
+        }
+      }, STREAM_TIMEOUT_MS);
+    },
     transform(chunk, controller) {
       bytesRead += chunk.byteLength;
       if (bytesRead > MAX_STREAM_BYTES) {
-        clearTimeout(overallStreamTimer);
+        if (streamTimer) clearTimeout(streamTimer);
         controller.error(new Error(`Stream exceeded maximum byte limit of ${MAX_STREAM_BYTES} bytes`));
         return;
       }
       controller.enqueue(chunk);
     },
     flush() {
-      clearTimeout(overallStreamTimer);
+      if (streamTimer) clearTimeout(streamTimer);
     },
   });
 

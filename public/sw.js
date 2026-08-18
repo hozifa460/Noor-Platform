@@ -84,16 +84,21 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 5. Static JSON under 2MB (stale-while-revalidate)
+  // 5. Static JSON under 2MB (stale-while-revalidate with LRU size limit)
   if (url.pathname.endsWith('.json') && !url.pathname.includes('manifest')) {
     event.respondWith(
       caches.open(CONTENT_CACHE).then(async (cache) => {
         const cached = await cache.match(req);
         const fetchPromise = fetch(req)
-          .then((networkRes) => {
+          .then(async (networkRes) => {
             if (networkRes.ok) {
               const cl = networkRes.headers.get('content-length');
-              if (!cl || parseInt(cl, 10) < 2 * 1024 * 1024) {
+              // Only cache files under 2MB
+              if (cl && parseInt(cl, 10) < 2 * 1024 * 1024) {
+                const keys = await cache.keys();
+                if (keys.length >= 100) {
+                  await cache.delete(keys[0]);
+                }
                 cache.put(req, networkRes.clone());
               }
             }

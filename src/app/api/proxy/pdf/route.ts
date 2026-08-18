@@ -164,14 +164,29 @@ export async function GET(request: Request) {
 
     const MAX_PDF_PROXY_BYTES = 150 * 1024 * 1024;
     let bytesRead = 0;
+    let streamTimer: NodeJS.Timeout | null = null;
+
     const byteLimiter = new TransformStream<Uint8Array, Uint8Array>({
+      start(controller) {
+        streamTimer = setTimeout(() => {
+          try {
+            controller.error(new Error('PDF stream timeout exceeded'));
+          } catch {
+            /* ignore */
+          }
+        }, UPSTREAM_TIMEOUT_MS);
+      },
       transform(chunk, controller) {
         bytesRead += chunk.byteLength;
         if (bytesRead > MAX_PDF_PROXY_BYTES) {
+          if (streamTimer) clearTimeout(streamTimer);
           controller.error(new Error(`PDF proxy exceeded limit of ${MAX_PDF_PROXY_BYTES} bytes`));
           return;
         }
         controller.enqueue(chunk);
+      },
+      flush() {
+        if (streamTimer) clearTimeout(streamTimer);
       },
     });
 

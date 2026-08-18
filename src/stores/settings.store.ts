@@ -53,7 +53,9 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'isp.settings',
+      version: 1,
       storage: createJSONStorage(() => localStorage),
+      migrate: (persistedState) => persistedState as SettingsState,
     },
   ),
 );

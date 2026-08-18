@@ -12,12 +12,26 @@ const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 const MAX_AVATAR_CACHE_ITEMS = 500;
 
 function pruneCache() {
-  if (AVATAR_CACHE.size > MAX_AVATAR_CACHE_ITEMS) {
-    const now = Date.now();
-    for (const [key, val] of AVATAR_CACHE.entries()) {
-      if (now - val.ts > CACHE_TTL) {
-        AVATAR_CACHE.delete(key);
+  const now = Date.now();
+  for (const [key, val] of AVATAR_CACHE.entries()) {
+    if (now - val.ts > CACHE_TTL) {
+      AVATAR_CACHE.delete(key);
+    }
+  }
+
+  while (AVATAR_CACHE.size >= MAX_AVATAR_CACHE_ITEMS) {
+    let oldestKey = '';
+    let oldestTs = Infinity;
+    for (const [k, v] of AVATAR_CACHE.entries()) {
+      if (v.ts < oldestTs) {
+        oldestTs = v.ts;
+        oldestKey = k;
       }
+    }
+    if (oldestKey) {
+      AVATAR_CACHE.delete(oldestKey);
+    } else {
+      break;
     }
   }
 }
@@ -197,8 +211,8 @@ export async function GET(request: Request) {
 
   pruneCache();
 
-  const CACHE_VERSION = 'v4';
-  const cacheKey = `${id}:${CACHE_VERSION}`;
+  const CACHE_VERSION = 'v5';
+  const cacheKey = `${id}:${name}:${CACHE_VERSION}`;
   const cached = AVATAR_CACHE.get(cacheKey);
   if (cached && Date.now() - cached.ts < CACHE_TTL) {
     return new NextResponse(new Uint8Array(cached.buffer), {

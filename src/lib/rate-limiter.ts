@@ -133,19 +133,26 @@ async function checkDistributedRateLimit(
   }
 }
 
+const IPV4_REGEX = /^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/;
+const IPV6_REGEX = /^[0-9a-fA-F:]+$/;
+
+function isValidIp(ip: string): boolean {
+  return IPV4_REGEX.test(ip) || (ip.includes(':') && IPV6_REGEX.test(ip));
+}
+
 /**
- * Extracts client IP from standard Next.js / Proxy request headers.
+ * Extracts client IP from standard Next.js / Proxy request headers with format validation.
  */
 export function getClientIp(request: Request): string {
-  const realIp = request.headers.get('x-real-ip');
-  if (realIp) return realIp.trim();
-
   const cfConnectingIp = request.headers.get('cf-connecting-ip');
-  if (cfConnectingIp) return cfConnectingIp.trim();
+  if (cfConnectingIp && isValidIp(cfConnectingIp.trim())) return cfConnectingIp.trim();
+
+  const realIp = request.headers.get('x-real-ip');
+  if (realIp && isValidIp(realIp.trim())) return realIp.trim();
 
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) {
-    const parts = forwarded.split(',').map((p) => p.trim()).filter(Boolean);
+    const parts = forwarded.split(',').map((p) => p.trim()).filter((p) => isValidIp(p));
     if (parts.length > 0) return parts[0];
   }
   return '127.0.0.1';

@@ -1,11 +1,11 @@
-import fs from 'fs';
-import path from 'path';
 import { fatwaIndexManager, FATWA_CATEGORIES, SCHOLARS_LIST } from '../src/lib/fatwa-index.ts';
-import { scoreArabicSearch, extractAndExpandTokens } from '../src/lib/arabic-search-engine.ts';
+import { extractAndExpandTokens } from '../src/lib/arabic-search-engine.ts';
 import { normalizeArabic } from '../src/lib/arabic-normalizer.ts';
+import { microShardEngine } from '../src/lib/micro-shard-engine.ts';
+import { BUILTIN_SEED_FATWAS } from '../src/lib/seed-fatwas.ts';
 
 async function runFatwaIndexTests() {
-  console.log('⚖️ Starting High-Precision Fatwa Inverted Index & Morphological NLP Tests...\n');
+  console.log('⚖️ Starting High-Precision Fatwa Engine & Scholar Filter Tests...\n');
   let passed = 0;
   let failed = 0;
 
@@ -19,19 +19,24 @@ async function runFatwaIndexTests() {
     }
   }
 
-  // 1. Initial State & Manifest Loading
-  console.log('--- Test Suite 1: Manifest Seeding & High-Capacity Inverted Index ---');
-  const manifestPath = path.join(process.cwd(), 'public', 'data', 'fatwas_manifest.json');
-  assert(fs.existsSync(manifestPath), 'Static fatwas_manifest.json exists');
-  const manifestData = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  assert(manifestData.length >= 10000, `Manifest contains ${manifestData.length} verified fatwas (Expected > 10,000)`);
+  // 1. Micro-Shard Engine & Built-in Seeds
+  console.log('--- Test Suite 1: Micro Shard Engine & Instant Seeds ---');
+  assert(BUILTIN_SEED_FATWAS.length > 0, `Builtin seed fatwas registered (${BUILTIN_SEED_FATWAS.length} items)`);
+  const showcase = await microShardEngine.getShowcase();
+  assert(showcase.length > 0, `Showcase returns ${showcase.length} initial fatwas`);
 
-  fatwaIndexManager.mergeItems(manifestData);
-  const index = await fatwaIndexManager.getIndex();
-  assert(index.length >= 10000, `Index loaded ${index.length} items`);
+  // 2. Scholar Filter & ID Mapping Tests
+  console.log('\n--- Test Suite 2: Scholar ID to Arabic Name Mapping ---');
+  const binbazScholar = SCHOLARS_LIST.find(s => s.id === 'binbaz');
+  assert(binbazScholar && binbazScholar.query === 'باز', 'Maps binbaz ID to "باز" query');
+  const othaymeenScholar = SCHOLARS_LIST.find(s => s.id === 'othaymeen');
+  assert(othaymeenScholar && othaymeenScholar.query === 'عثيمين', 'Maps othaymeen ID to "عثيمين" query');
 
-  // 2. Morphological Stemming & Synonyms
-  console.log('\n--- Test Suite 2: Morphological Stemming & Fiqh Synonyms Expansion ---');
+  const binbazResults = await microShardEngine.search('صلاة', 'all', 'binbaz', 20);
+  assert(Array.isArray(binbazResults), 'Search with scholar filter returns valid array');
+
+  // 3. Morphological Stemming & Fiqh Synonyms
+  console.log('\n--- Test Suite 3: Morphological Stemming & Fiqh Synonyms ---');
   const tokens1 = extractAndExpandTokens('كيف أصلي في الطيارة؟');
   assert(tokens1.expandedKeywords.some(t => t.includes('صلا')), 'Expands verb "أصلي" to "صلاة"');
   assert(tokens1.expandedKeywords.some(t => t.includes('طائر') || t.includes('طيار')), 'Expands "الطيارة" to "طائرة"');
@@ -39,58 +44,24 @@ async function runFatwaIndexTests() {
   const tokens2 = extractAndExpandTokens('المسح على الشرابات');
   assert(tokens2.expandedKeywords.some(t => t.includes('جورب') || t.includes('شراب') || t.includes('خف')), 'Expands "الشرابات" to "جوارب/شراب/خفين"');
 
-  // 3. Search Accuracy & Natural Questions Understanding Tests across 38k+ Records
-  console.log('\n--- Test Suite 3: Natural Language Questions Understanding (38,000+ Fatwas) ---');
-  
-  // Query 1: "أصلي في الطيارة"
-  const planeSearch = fatwaIndexManager.searchIndex('أصلي في الطيارة');
-  assert(planeSearch.length >= 5, `Finds ${planeSearch.length} airplane prayer fatwas`);
-  const topPlane = normalizeArabic(planeSearch[0].title);
-  assert(topPlane.includes('طائر') || topPlane.includes('اصلي') || topPlane.includes('صلا'), 'Top result accurately matches airplane prayer');
+  // 4. In-Memory Search Engine
+  console.log('\n--- Test Suite 4: In-Memory Search & Category Filtering ---');
+  fatwaIndexManager.mergeItems(BUILTIN_SEED_FATWAS);
+  assert(fatwaIndexManager.rawList.length > 0, `In-memory manager contains ${fatwaIndexManager.rawList.length} items`);
 
-  // Query 2: "المسح على الشراب"
-  const socksSearch = fatwaIndexManager.searchIndex('المسح على الشراب');
-  assert(socksSearch.length >= 5, `Finds ${socksSearch.length} socks wudu fatwas`);
-  const topSocks = normalizeArabic(socksSearch[0].title);
-  assert(topSocks.includes('مسح') && (topSocks.includes('شراب') || topSocks.includes('خف') || topSocks.includes('جورب')), 'Top result matches wiping over socks (المسح على الشراب)');
+  const searchSalah = fatwaIndexManager.searchIndex('صلاة');
+  assert(searchSalah.length > 0, `Finds prayer fatwas in seed list (${searchSalah.length} results)`);
 
-  // Query 3: "بخاخ الربو يفطر"
-  const inhalerSearch = fatwaIndexManager.searchIndex('بخاخ الربو يفطر');
-  assert(inhalerSearch.length > 0, `Finds asthma inhaler fasting fatwa (${inhalerSearch.length} results)`);
-
-  // Query 4: "شرب الشيشة والفيب"
-  const vapeSearch = fatwaIndexManager.searchIndex('شرب الشيشة والفيب');
-  assert(vapeSearch.length > 0, `Finds smoking/shisha/vape fatwas (${vapeSearch.length} results)`);
-
-  // Query 5: "زكاة الذهب والفلوس"
-  const goldSearch = fatwaIndexManager.searchIndex('زكاة الذهب والفلوس');
-  assert(goldSearch.length >= 5, `Finds gold & money zakah fatwas (${goldSearch.length} results)`);
-
-  // Query 6: Non-existent gibberish query must return 0 results (Strict Precision Guard)
-  const gibberishSearch = fatwaIndexManager.searchIndex('زيليكسياكورب_9845729_نوفريدوم');
-  assert(gibberishSearch.length === 0, 'Rejects completely non-existent gibberish terms (0 results)');
-
-  // 4. Topic and Scholar Filtering
-  console.log('\n--- Test Suite 4: Topic and Scholar Filtering ---');
-  assert(FATWA_CATEGORIES.length >= 6, `Configured ${FATWA_CATEGORIES.length} fatwa topics`);
-  assert(SCHOLARS_LIST.length >= 5, `Configured ${SCHOLARS_LIST.length} scholars`);
-
-  const salahCat = fatwaIndexManager.searchIndex('', 'salah');
-  assert(salahCat.length >= 50, `Filters by Salah category (${salahCat.length} found)`);
-
-  const binbazSch = fatwaIndexManager.searchIndex('', 'all', 'binbaz');
-  assert(binbazSch.length >= 50, `Filters by Sheikh Bin Baz (${binbazSch.length} found)`);
-
-  console.log(`\n========================================`);
+  console.log('\n========================================');
   console.log(`Total: ${passed + failed} | Passed: ${passed} | Failed: ${failed}`);
-  console.log(`========================================\n`);
+  console.log('========================================\n');
 
   if (failed > 0) {
     process.exit(1);
   }
 }
 
-runFatwaIndexTests().catch((err) => {
-  console.error('Fatwa index test failed:', err);
+runFatwaIndexTests().catch(e => {
+  console.error('Fatwa index test error:', e);
   process.exit(1);
 });

@@ -34,7 +34,10 @@ jobs:
       - name: TypeScript Typecheck
         run: npm run typecheck
 
-      - name: Run Test Suite
+      - name: Sync Dataset Directories & Catalogs
+        run: npm run data:sync
+
+      - name: Run Comprehensive Test Suite
         run: npm test
 
       - name: Security Dependency Audit
