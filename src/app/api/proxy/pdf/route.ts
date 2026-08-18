@@ -114,20 +114,12 @@ async function fetchUpstream(
 
 function buildResponseHeaders(upstream: Response): Record<string, string> {
   const headers: Record<string, string> = {
+    'Content-Type': 'application/pdf',
     'Cache-Control': 'public, max-age=86400',
     'Accept-Ranges': 'bytes',
-    'Content-Disposition': 'inline',
+    'Content-Disposition': 'inline; filename="document.pdf"',
     'X-Content-Type-Options': 'nosniff',
   };
-
-  const ct = upstream.headers.get('content-type');
-  if (ct && ct.includes('pdf')) {
-    headers['Content-Type'] = ct;
-  } else if (ct && ct !== 'text/html') {
-    headers['Content-Type'] = ct;
-  } else {
-    headers['Content-Type'] = 'application/pdf';
-  }
 
   const cl = upstream.headers.get('content-length');
   if (cl) headers['Content-Length'] = cl;
@@ -165,6 +157,10 @@ export async function GET(request: Request) {
     const MAX_PDF_PROXY_BYTES = 150 * 1024 * 1024;
     let bytesRead = 0;
     let streamTimer: NodeJS.Timeout | null = null;
+    let isFirstChunk = true;
+
+    // Check if this is the start of the file (status 200 or range starting at 0)
+    const isStartOfFile = response.status === 200 || (range && /bytes=0-/.test(range));
 
     const byteLimiter = new TransformStream<Uint8Array, Uint8Array>({
       start(controller) {
@@ -183,6 +179,25 @@ export async function GET(request: Request) {
           controller.error(new Error(`PDF proxy exceeded limit of ${MAX_PDF_PROXY_BYTES} bytes`));
           return;
         }
+
+        // Verify PDF magic bytes on first chunk (%PDF- => 0x25, 0x50, 0x44, 0x46, 0x2d)
+        if (isFirstChunk && isStartOfFile) {
+          isFirstChunk = false;
+          if (chunk.byteLength >= 5) {
+            const isPdfMagic =
+              chunk[0] === 0x25 && // %
+              chunk[1] === 0x50 && // P
+              chunk[2] === 0x44 && // D
+              chunk[3] === 0x46 && // F
+              chunk[4] === 0x2d;   // -
+            if (!isPdfMagic) {
+              if (streamTimer) clearTimeout(streamTimer);
+              controller.error(new Error('Unsupported media type: upstream file is not a valid PDF (%PDF- header missing)'));
+              return;
+            }
+          }
+        }
+
         controller.enqueue(chunk);
       },
       flush() {
@@ -196,7 +211,14 @@ export async function GET(request: Request) {
       status: response.status,
       headers,
     });
-  } catch (err) {
+  } catch (err: unknown) {
+    const errMsg = (err as Error)?.message || '';
+    if (errMsg.includes('not a valid PDF')) {
+      return NextResponse.json(
+        { error: 'Unsupported media type: target is not a valid PDF document' },
+        { status: 415 }
+      );
+    }
     console.error('[PDF Proxy Error]', err);
     return NextResponse.json(
       { error: 'Failed to fetch PDF document' },

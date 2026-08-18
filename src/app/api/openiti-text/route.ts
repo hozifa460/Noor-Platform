@@ -55,30 +55,21 @@ export async function GET(req: NextRequest) {
           return NextResponse.json({ error: 'Text size exceeds limit' }, { status: 413 });
         }
 
-        const reader = res.body?.getReader();
-        if (!reader) {
-          return NextResponse.json({ error: 'Empty upstream body' }, { status: 502 });
-        }
-
-        const decoder = new TextDecoder();
-        let fullText = '';
-        let totalBytes = 0;
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (value) {
-            totalBytes += value.byteLength;
-            if (totalBytes > MAX_OPENITI_BYTES) {
-              await reader.cancel();
-              return NextResponse.json({ error: 'Text size exceeds limit' }, { status: 413 });
+        let bytesRead = 0;
+        const byteLimiter = new TransformStream<Uint8Array, Uint8Array>({
+          transform(chunk, controller) {
+            bytesRead += chunk.byteLength;
+            if (bytesRead > MAX_OPENITI_BYTES) {
+              controller.error(new Error(`OpenITI payload exceeds limit of ${MAX_OPENITI_BYTES} bytes`));
+              return;
             }
-            fullText += decoder.decode(value, { stream: true });
-          }
-        }
-        fullText += decoder.decode();
+            controller.enqueue(chunk);
+          },
+        });
 
-        return new NextResponse(fullText, {
+        const limitedBody = res.body ? res.body.pipeThrough(byteLimiter) : null;
+
+        return new NextResponse(limitedBody, {
           status: 200,
           headers: {
             'Content-Type': 'text/plain; charset=utf-8',

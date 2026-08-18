@@ -148,14 +148,31 @@ async function fetchImageAsBuffer(url: string): Promise<{ buffer: Buffer; conten
   }
 }
 
+/** Escapes special XML characters to prevent SVG injection and XSS. */
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
 /** Generates an SVG avatar with the sheikh's initials and Islamic aesthetic. */
 function generateSvgAvatar(name: string, seed: string): { buffer: Buffer; contentType: string } {
-  const words = name
-    .replace(/^(الشيخ|الدكتور|د\.?|القارئ|العلامة|فضيلة الشيخ)\s+/i, '')
+  // Strip honorifics and extract first 2 words
+  const cleanName = name.replace(/^(الشيخ|الدكتور|د\.?|القارئ|العلامة|فضيلة الشيخ)\s+/i, '');
+  const words = cleanName
     .split(/\s+/)
-    .filter((w) => w.length > 1)
+    .filter((w) => w.length > 0)
     .slice(0, 2);
-  const initials = words.map((w) => w.charAt(0)).join('') || '؟';
+
+  // Extract initials and strictly filter to alphanumeric / Arabic letters only
+  let rawInitials = words.map((w) => w.charAt(0)).join('') || '؟';
+  rawInitials = rawInitials.replace(/[^\p{L}\p{N}]/gu, '');
+  if (!rawInitials) rawInitials = '؟';
+
+  const safeInitials = escapeXml(rawInitials);
 
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
@@ -184,13 +201,13 @@ function generateSvgAvatar(name: string, seed: string): { buffer: Buffer; conten
   <circle cx="200" cy="200" r="120" fill="white" opacity="0.05"/>
   <text x="200" y="200" font-family="sans-serif" font-size="120" font-weight="bold"
         fill="white" text-anchor="middle" dominant-baseline="central" opacity="0.95">
-    ${initials}
+    ${safeInitials}
   </text>
 </svg>`;
 
   return {
     buffer: Buffer.from(svg, 'utf-8'),
-    contentType: 'image/svg+xml',
+    contentType: 'image/svg+xml; charset=utf-8',
   };
 }
 
@@ -271,6 +288,7 @@ export async function GET(request: Request) {
       'Content-Type': svgResult.contentType,
       'Cache-Control': 'public, max-age=86400',
       'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'",
     },
   });
 }

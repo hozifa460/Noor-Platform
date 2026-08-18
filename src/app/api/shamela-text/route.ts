@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import path from 'path';
 import { enforceRateLimitAsync } from '@/lib/rate-limiter';
 
 /**
@@ -69,13 +70,26 @@ export async function GET(req: NextRequest) {
     return rateLimitResult.response;
   }
 
-  const relPath = req.nextUrl.searchParams.get('path');
-  if (!relPath) {
+  const rawRelPath = req.nextUrl.searchParams.get('path');
+  if (!rawRelPath) {
     return NextResponse.json({ error: 'Missing path param' }, { status: 400 });
   }
 
-  // Security: Clean and prevent directory traversal
-  const cleanPath = relPath.replace(/\.\./g, '').replace(/^\/+/, '');
+  // Security: Strict allowlist on path characters and traversal prevention
+  if (!/^[a-zA-Z0-9/_.\-]+$/.test(rawRelPath)) {
+    return NextResponse.json({ error: 'Invalid characters in path parameter' }, { status: 400 });
+  }
+
+  if (rawRelPath.includes('..') || rawRelPath.startsWith('/') || rawRelPath.startsWith('\\')) {
+    return NextResponse.json({ error: 'Directory traversal detected' }, { status: 403 });
+  }
+
+  // Canonical POSIX normalization
+  const cleanPath = path.posix.normalize('/' + rawRelPath).replace(/^\/+/, '');
+  if (cleanPath.includes('..') || cleanPath.startsWith('/')) {
+    return NextResponse.json({ error: 'Directory traversal detected' }, { status: 403 });
+  }
+
   const targetUrl = `${BASE_HF_RESOLVE}${cleanPath}`;
 
   const pageStartParam = req.nextUrl.searchParams.get('pageStart');
@@ -203,8 +217,16 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Enforce safe, non-active Content-Type to prevent active script execution
+    let safeContentType = 'application/octet-stream';
+    if (cleanPath.endsWith('.json') || cleanPath.endsWith('.jsonl')) {
+      safeContentType = 'application/json; charset=utf-8';
+    } else if (cleanPath.endsWith('.txt') || cleanPath.endsWith('.md')) {
+      safeContentType = 'text/plain; charset=utf-8';
+    }
+
     const responseHeaders = new Headers();
-    responseHeaders.set('Content-Type', res.headers.get('content-type') || 'application/octet-stream');
+    responseHeaders.set('Content-Type', safeContentType);
     responseHeaders.set('Cache-Control', `public, max-age=${CACHE_TTL}, s-maxage=${CACHE_TTL}`);
     responseHeaders.set('X-Content-Type-Options', 'nosniff');
 

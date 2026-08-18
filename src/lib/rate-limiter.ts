@@ -145,15 +145,21 @@ function isValidIp(ip: string): boolean {
  */
 export function getClientIp(request: Request): string {
   const cfConnectingIp = request.headers.get('cf-connecting-ip');
-  if (cfConnectingIp && isValidIp(cfConnectingIp.trim())) return cfConnectingIp.trim();
+  if (cfConnectingIp && isValidIp(cfConnectingIp.trim())) {
+    return cfConnectingIp.trim().replace(/[^0-9a-fA-F.:]/g, '');
+  }
 
   const realIp = request.headers.get('x-real-ip');
-  if (realIp && isValidIp(realIp.trim())) return realIp.trim();
+  if (realIp && isValidIp(realIp.trim())) {
+    return realIp.trim().replace(/[^0-9a-fA-F.:]/g, '');
+  }
 
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) {
     const parts = forwarded.split(',').map((p) => p.trim()).filter((p) => isValidIp(p));
-    if (parts.length > 0) return parts[0];
+    if (parts.length > 0) {
+      return parts[0].replace(/[^0-9a-fA-F.:]/g, '');
+    }
   }
   return '127.0.0.1';
 }

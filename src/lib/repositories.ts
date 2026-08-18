@@ -48,23 +48,40 @@ export const DEFAULT_REPOSITORIES: RepositorySource[] = [
 /** Local storage key for user-edited repository config. */
 export const REPOS_STORAGE_KEY = 'isp.repositories';
 
+/** Validates whether a repository source configuration is safe and conforms to allowlist rules. */
+function isValidRepository(r: unknown): r is RepositorySource {
+  if (!r || typeof r !== 'object') return false;
+  const repo = r as Record<string, unknown>;
+  const allowedProviders = ['huggingface', 'github', 'gitlab'];
+  if (!allowedProviders.includes(String(repo.provider))) return false;
+  if (!/^[a-zA-Z0-9_\-\.]+$/.test(String(repo.owner || ''))) return false;
+  if (!/^[a-zA-Z0-9_\-\.]+$/.test(String(repo.repo || ''))) return false;
+  if (repo.branch && !/^[a-zA-Z0-9_\-\./]+$/.test(String(repo.branch))) return false;
+  if (repo.path && !/^[a-zA-Z0-9_\-\./]+$/.test(String(repo.path))) return false;
+  return true;
+}
+
 /** Load repositories from localStorage (user may edit) or fallback to defaults. */
 export function loadRepositories(): RepositorySource[] {
   if (typeof window === 'undefined') return DEFAULT_REPOSITORIES;
   try {
     const raw = window.localStorage.getItem(REPOS_STORAGE_KEY);
     if (!raw) return DEFAULT_REPOSITORIES;
-    const parsed = JSON.parse(raw) as RepositorySource[];
+    const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_REPOSITORIES;
 
+    // Filter and keep only valid, sanitized repository entries
+    const validRepos = parsed.filter(isValidRepository);
+    if (validRepos.length === 0) return DEFAULT_REPOSITORIES;
+
     // Migrate old github/gitlab defaults to Hugging Face if user had old stored defaults
-    const hasOldDefault = parsed.some((r) => r.owner === 'hozifa460' || r.owner === 'hazozahz-islamway');
+    const hasOldDefault = validRepos.some((r) => r.owner === 'hozifa460' || r.owner === 'hazozahz-islamway');
     if (hasOldDefault) {
       saveRepositories(DEFAULT_REPOSITORIES);
       return DEFAULT_REPOSITORIES;
     }
 
-    return parsed;
+    return validRepos;
   } catch {
     return DEFAULT_REPOSITORIES;
   }

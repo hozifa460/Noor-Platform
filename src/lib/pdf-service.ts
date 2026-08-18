@@ -2,6 +2,7 @@ import { execFile } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
+import crypto from 'crypto';
 import { promisify } from 'util';
 import { validateSafeUrl } from './security';
 
@@ -11,6 +12,67 @@ const CACHE_DIR = path.join(os.tmpdir(), 'noor-pdf-cache');
 const MAX_CACHE_BYTES = 300 * 1024 * 1024; // 300 MB maximum total cache size
 const MAX_PDF_DOWNLOAD_BYTES = 100 * 1024 * 1024; // 100 MB maximum single PDF size
 const PDF_TIMEOUT_MS = 30_000;
+
+/**
+ * Concurrency Semaphore to prevent process table / CPU resource exhaustion from native PDF processors.
+ */
+class Semaphore {
+  private current = 0;
+  private max: number;
+  private queue: Array<() => void> = [];
+
+  constructor(max: number) {
+    this.max = max;
+  }
+
+  async acquire(timeoutMs = 15_000): Promise<() => void> {
+    if (this.current < this.max) {
+      this.current++;
+      let released = false;
+      return () => {
+        if (!released) {
+          released = true;
+          this.current--;
+          this.next();
+        }
+      };
+    }
+
+    return new Promise<() => void>((resolve, reject) => {
+      const onAcquire = () => {
+        clearTimeout(timer);
+        this.current++;
+        let released = false;
+        resolve(() => {
+          if (!released) {
+            released = true;
+            this.current--;
+            this.next();
+          }
+        });
+      };
+
+      const timer = setTimeout(() => {
+        const idx = this.queue.indexOf(onAcquire);
+        if (idx !== -1) {
+          this.queue.splice(idx, 1);
+        }
+        reject(new Error('PDF processing concurrency limit exceeded: server is busy'));
+      }, timeoutMs);
+
+      this.queue.push(onAcquire);
+    });
+  }
+
+  private next() {
+    if (this.queue.length > 0 && this.current < this.max) {
+      const nextFn = this.queue.shift();
+      if (nextFn) nextFn();
+    }
+  }
+}
+
+const PDF_PROCESS_SEMAPHORE = new Semaphore(4);
 
 /**
  * Ensures the cache directory exists.
@@ -71,7 +133,7 @@ async function evictCacheIfNeeded(): Promise<void> {
 const inFlightDownloads = new Map<string, Promise<string>>();
 
 /**
- * Securely downloads and caches a PDF file with concurrency locking.
+ * Securely downloads and caches a PDF file with concurrency locking and SHA-256 cache keying.
  */
 export async function getOrDownloadPdf(url: string): Promise<string> {
   const existing = inFlightDownloads.get(url);
@@ -96,7 +158,8 @@ async function performGetOrDownloadPdf(url: string): Promise<string> {
   }
 
   await ensureCacheDir();
-  const cacheKey = Buffer.from(url).toString('base64url').slice(0, 64);
+  // Use cryptographic SHA-256 hash to prevent prefix collision attacks
+  const cacheKey = crypto.createHash('sha256').update(url).digest('hex');
   const cachedPath = path.join(CACHE_DIR, `${cacheKey}.pdf`);
 
   // Check if already in cache and not zero-byte
@@ -202,13 +265,15 @@ async function performGetOrDownloadPdf(url: string): Promise<string> {
 }
 
 /**
- * Asynchronously renders a single PDF page to PNG using pdftoppm without blocking the event loop.
+ * Asynchronously renders a single PDF page to PNG using pdftoppm with global concurrency limits.
  */
 export async function renderPdfPageAsync(
   pdfPath: string,
   page: number,
   width: number
 ): Promise<Buffer> {
+  const release = await PDF_PROCESS_SEMAPHORE.acquire();
+
   const tempPrefix = `pdf-page-${page}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const outputPathNoExt = path.join(os.tmpdir(), tempPrefix);
   const expectedOutputPng = `${outputPathNoExt}.png`;
@@ -229,11 +294,13 @@ export async function renderPdfPageAsync(
 
   try {
     // Non-blocking async execution with direct argument array (no shell interpolation)
-    await execFileAsync('pdftoppm', args, { timeout: 25_000 });
+    await execFileAsync('pdftoppm', args, { timeout: 25_000, maxBuffer: 10 * 1024 * 1024 });
   } catch (err: unknown) {
     // Clean up if created
     await fs.unlink(expectedOutputPng).catch(() => {});
     throw new Error(`PDF page rendering failed (pdftoppm): ${(err as Error & { stderr?: string }).stderr || (err as Error & { message: string }).message}`);
+  } finally {
+    release();
   }
 
   try {
@@ -256,13 +323,15 @@ export async function renderPdfPageAsync(
 }
 
 /**
- * Asynchronously extracts PDF metadata (page count, dimensions) using pdfinfo.
+ * Asynchronously extracts PDF metadata (page count, dimensions) using pdfinfo with global concurrency limits.
  */
 export async function getPdfInfoAsync(
   pdfPath: string
 ): Promise<{ numPages: number; width: number; height: number }> {
+  const release = await PDF_PROCESS_SEMAPHORE.acquire();
+
   try {
-    const { stdout } = await execFileAsync('pdfinfo', [pdfPath], { timeout: 15_000 });
+    const { stdout } = await execFileAsync('pdfinfo', [pdfPath], { timeout: 15_000, maxBuffer: 1024 * 1024 });
     const pagesMatch = stdout.match(/Pages:\s+(\d+)/);
     const sizeMatch = stdout.match(/Page size:\s+([\d.]+)\s+x\s+([\d.]+)/);
 
@@ -277,5 +346,7 @@ export async function getPdfInfoAsync(
     };
   } catch (err: unknown) {
     throw new Error(`Failed to extract PDF metadata (pdfinfo): ${(err as Error & { stderr?: string }).stderr || (err as Error & { message: string }).message}`);
+  } finally {
+    release();
   }
 }

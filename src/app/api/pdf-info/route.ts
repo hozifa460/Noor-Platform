@@ -41,7 +41,17 @@ export async function GET(request: Request) {
         'X-Content-Type-Options': 'nosniff',
       },
     });
-  } catch (err) {
+  } catch (err: unknown) {
+    const errMsg = (err as Error)?.message || '';
+    if (errMsg.includes('concurrency limit exceeded')) {
+      return NextResponse.json(
+        { error: 'Server busy: PDF processing limit reached, please retry' },
+        {
+          status: 503,
+          headers: { 'Retry-After': '3' },
+        }
+      );
+    }
     console.error('[pdf-info] Error:', err);
     return NextResponse.json(
       { error: 'Failed to retrieve PDF metadata' },

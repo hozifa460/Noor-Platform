@@ -96,6 +96,76 @@ async function runSecurityTests() {
   assert(!blockedRes.allowed, 'Rate limiter blocks request #4 exceeding limit');
   assert(blockedRes.remaining === 0, 'Reports remaining = 0 when blocked');
 
+  // 5. SVG / XML Injection & Sheikh Avatar Hardening
+  console.log('\n--- Test Suite 5: SVG & XML Injection Prevention ---');
+  function escapeXml(value) {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
+
+  const maliciousName = '<script>alert("XSS")</script>&<foreignObject>';
+  const escaped = escapeXml(maliciousName);
+  assert(!escaped.includes('<script>'), 'Escapes opening script tag');
+  assert(!escaped.includes('</script>'), 'Escapes closing script tag');
+  assert(escaped.includes('&lt;script&gt;'), 'Converts tags to XML entities');
+  assert(!escaped.includes('"XSS"'), 'Escapes double quotes');
+  assert(escaped.includes('&amp;'), 'Escapes ampersands');
+
+  // 6. PDF Cache Key SHA-256 Collision Resistance
+  console.log('\n--- Test Suite 6: PDF Cache Key Cryptographic SHA-256 Hashing ---');
+  const crypto = await import('crypto');
+  const urlA = 'https://archive.org/download/islamic_library_vol1_part1_sectionA/book_standard_edition_v1.pdf';
+  const urlB = 'https://archive.org/download/islamic_library_vol1_part1_sectionA/book_standard_edition_v2.pdf';
+  const keyA = crypto.createHash('sha256').update(urlA).digest('hex');
+  const keyB = crypto.createHash('sha256').update(urlB).digest('hex');
+  assert(keyA.length === 64, 'Generates full 64-character hex SHA-256 digest');
+  assert(keyB.length === 64, 'Generates full 64-character hex SHA-256 digest');
+  assert(keyA !== keyB, 'Distinct URLs with identical long prefixes produce distinct cache keys');
+
+  // 7. Shamela Path Canonical Validation & Traversal Prevention
+  console.log('\n--- Test Suite 7: Shamela Path Allowlist & Traversal Prevention ---');
+  const pathModule = await import('path');
+  function validateShamelaPath(rawRelPath) {
+    if (!rawRelPath || !/^[a-zA-Z0-9/_.\-]+$/.test(rawRelPath)) return false;
+    if (rawRelPath.includes('..') || rawRelPath.startsWith('/') || rawRelPath.startsWith('\\')) return false;
+    const cleanPath = pathModule.posix.normalize('/' + rawRelPath).replace(/^\/+/, '');
+    if (cleanPath.includes('..') || cleanPath.startsWith('/')) return false;
+    return true;
+  }
+  assert(validateShamelaPath('books/123/pages.jsonl') === true, 'Allows valid canonical book path');
+  assert(validateShamelaPath('../../../etc/passwd') === false, 'Rejects directory traversal with ..');
+  assert(validateShamelaPath('books/123/..%2f..%2fsecret') === false, 'Rejects URL-encoded traversal characters');
+  assert(validateShamelaPath('books/123/pages.jsonl\x00.pdf') === false, 'Rejects null-byte injection');
+  assert(validateShamelaPath('books/123;rm -rf /') === false, 'Rejects shell metacharacters');
+  assert(validateShamelaPath('/absolute/path/file.txt') === false, 'Rejects absolute path prefix');
+
+  // 8. Client IP Sanitization & Injection Prevention
+  console.log('\n--- Test Suite 8: Client IP Sanitization & Key Delimiter Protection ---');
+  const { getClientIp } = await import('../src/lib/rate-limiter.ts');
+  const mockReq1 = new Request('http://localhost', {
+    headers: { 'cf-connecting-ip': '198.51.100.42' },
+  });
+  assert(getClientIp(mockReq1) === '198.51.100.42', 'Extracts valid Cloudflare client IP');
+
+  const mockReq2 = new Request('http://localhost', {
+    headers: { 'x-real-ip': '203.0.113.195' },
+  });
+  assert(getClientIp(mockReq2) === '203.0.113.195', 'Extracts valid X-Real-IP');
+
+  const mockReq3 = new Request('http://localhost', {
+    headers: { 'x-forwarded-for': '203.0.113.195, 10.0.0.1' },
+  });
+  assert(getClientIp(mockReq3) === '203.0.113.195', 'Extracts first valid IP from X-Forwarded-For');
+
+  const mockReqInvalid = new Request('http://localhost', {
+    headers: { 'x-forwarded-for': 'invalid-ip-string' },
+  });
+  assert(getClientIp(mockReqInvalid) === '127.0.0.1', 'Defaults safely to fallback IP on malformed header');
+
   console.log(`\n========================================`);
   console.log(`Total: ${passed + failed} | Passed: ${passed} | Failed: ${failed}`);
   console.log(`========================================\n`);

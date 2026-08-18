@@ -86,38 +86,40 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Payload exceeds size limit' }, { status: 413 });
     }
 
-    const reader = upstream.body?.getReader();
-    if (!reader) {
-      return NextResponse.json({ error: 'Empty upstream body' }, { status: 502 });
+    // Determine strict, non-active Content-Type to prevent Same-Origin XSS
+    const upstreamCt = (upstream.headers.get('content-type') || '').toLowerCase();
+    let safeContentType = 'text/plain; charset=utf-8';
+    if (target.endsWith('.json') || upstreamCt.includes('application/json')) {
+      safeContentType = 'application/json; charset=utf-8';
     }
 
-    const decoder = new TextDecoder();
-    let body = '';
-    let totalBytes = 0;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) {
-        totalBytes += value.byteLength;
-        if (totalBytes > MAX_GITLAB_BYTES) {
-          await reader.cancel();
-          return NextResponse.json({ error: 'Payload exceeds size limit' }, { status: 413 });
+    let bytesRead = 0;
+    const byteLimiter = new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        bytesRead += chunk.byteLength;
+        if (bytesRead > MAX_GITLAB_BYTES) {
+          controller.error(new Error(`GitLab payload exceeds size limit of ${MAX_GITLAB_BYTES} bytes`));
+          return;
         }
-        body += decoder.decode(value, { stream: true });
-      }
-    }
-    body += decoder.decode();
+        controller.enqueue(chunk);
+      },
+    });
 
-    return new NextResponse(body, {
+    const limitedBody = upstream.body ? upstream.body.pipeThrough(byteLimiter) : null;
+
+    return new NextResponse(limitedBody, {
       status: 200,
       headers: {
-        'Content-Type': upstream.headers.get('content-type') || 'application/json; charset=utf-8',
+        'Content-Type': safeContentType,
         'Cache-Control': 'public, max-age=300',
         'X-Content-Type-Options': 'nosniff',
       },
     });
-  } catch (err) {
+  } catch (err: unknown) {
+    const errMsg = (err as Error)?.message || '';
+    if (errMsg.includes('exceeds size limit')) {
+      return NextResponse.json({ error: 'Payload exceeds size limit' }, { status: 413 });
+    }
     console.error('[GitLab Proxy Error]', err);
     return NextResponse.json(
       { error: 'Failed to fetch upstream resource' },
