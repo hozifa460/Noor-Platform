@@ -70,8 +70,11 @@ async function downloadFile(url, destPath, description, minBytes = 100, expected
       if (expectedSha256) {
         const hash = computeSha256(buffer);
         if (hash !== expectedSha256) {
-          console.error(`  ❌ FATAL: Upstream SHA-256 mismatch for ${description}! Expected: ${expectedSha256}, Got: ${hash}`);
-          return false;
+          console.error(`\n❌ FATAL INTEGRITY ERROR: Upstream SHA-256 mismatch for ${description}!`);
+          console.error(`   Expected SHA-256: ${expectedSha256}`);
+          console.error(`   Actual SHA-256:   ${hash}`);
+          console.error(`   Refusing to proceed: potential data corruption or unauthorized upstream change.\n`);
+          process.exit(1);
         }
       }
       fs.writeFileSync(destPath, buffer);
