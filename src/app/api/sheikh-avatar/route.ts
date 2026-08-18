@@ -28,17 +28,36 @@ async function fetchYouTubeAvatarUrl(channelId: string): Promise<string | null> 
   if (!/^[a-zA-Z0-9_-]{15,35}$/.test(channelId)) return null;
 
   try {
-    const url = `https://www.youtube.com/channel/${encodeURIComponent(channelId)}`;
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; Noor-Platform/1.0)',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(8000),
-    });
+    let currentUrl = `https://www.youtube.com/channel/${encodeURIComponent(channelId)}`;
+    let res: Response | null = null;
+    const visited = new Set<string>();
 
-    if (!res.ok) return null;
+    for (let hop = 0; hop < 3; hop++) {
+      if (visited.has(currentUrl)) return null;
+      visited.add(currentUrl);
+
+      const validation = await validateSafeUrl(currentUrl, { enforceWhitelist: true });
+      if (!validation.safe) return null;
+
+      res = await fetch(currentUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; Noor-Platform/2.0)',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        redirect: 'manual',
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get('location');
+        if (!location) return null;
+        currentUrl = new URL(location, currentUrl).href;
+        continue;
+      }
+      break;
+    }
+
+    if (!res || !res.ok) return null;
     const html = await res.text();
 
     const patterns = [
@@ -59,23 +78,39 @@ async function fetchYouTubeAvatarUrl(channelId: string): Promise<string | null> 
   }
 }
 
-/** Fetches an image URL safely with SSRF protection and returns it as a Buffer + content type. */
+/** Fetches an image URL safely with multi-hop SSRF protection and returns it as a Buffer + content type. */
 async function fetchImageAsBuffer(url: string): Promise<{ buffer: Buffer; contentType: string } | null> {
-  const validation = await validateSafeUrl(url, { enforceWhitelist: true });
-  if (!validation.safe) {
-    return null;
-  }
+  let currentUrl = url;
+  let res: Response | null = null;
+  const visited = new Set<string>();
 
   try {
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; Noor-Platform/1.0)',
-        'Accept': 'image/*,*/*;q=0.8',
-      },
-      signal: AbortSignal.timeout(8000),
-    });
+    for (let hop = 0; hop < 5; hop++) {
+      if (visited.has(currentUrl)) return null;
+      visited.add(currentUrl);
 
-    if (!res.ok) return null;
+      const validation = await validateSafeUrl(currentUrl, { enforceWhitelist: true });
+      if (!validation.safe) return null;
+
+      res = await fetch(currentUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; Noor-Platform/2.0)',
+          'Accept': 'image/*,*/*;q=0.8',
+        },
+        redirect: 'manual',
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get('location');
+        if (!location) return null;
+        currentUrl = new URL(location, currentUrl).href;
+        continue;
+      }
+      break;
+    }
+
+    if (!res || !res.ok) return null;
 
     const contentType = res.headers.get('content-type') || 'image/jpeg';
     if (!contentType.toLowerCase().startsWith('image/')) {

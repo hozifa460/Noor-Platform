@@ -151,13 +151,35 @@ export async function getOrDownloadPdf(url: string): Promise<string> {
     }
   }
 
-  const buffer = Buffer.from(await response.arrayBuffer());
-  if (buffer.length > MAX_PDF_DOWNLOAD_BYTES) {
-    throw new Error(`Downloaded PDF size (${Math.round(buffer.length / 1024 / 1024)}MB) exceeds safety limit`);
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('Response body is empty');
   }
 
-  await fs.writeFile(cachedPath, buffer);
-  return cachedPath;
+  const tempPath = `${cachedPath}.tmp-${Date.now()}`;
+  const fileHandle = await fs.open(tempPath, 'w');
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        totalBytes += value.byteLength;
+        if (totalBytes > MAX_PDF_DOWNLOAD_BYTES) {
+          throw new Error(`PDF exceeds maximum allowed file size of ${MAX_PDF_DOWNLOAD_BYTES / (1024 * 1024)}MB`);
+        }
+        await fileHandle.write(value);
+      }
+    }
+    await fileHandle.close();
+    await fs.rename(tempPath, cachedPath);
+    return cachedPath;
+  } catch (err) {
+    try { await fileHandle.close(); } catch {}
+    try { await fs.unlink(tempPath); } catch {}
+    throw err;
+  }
 }
 
 /**

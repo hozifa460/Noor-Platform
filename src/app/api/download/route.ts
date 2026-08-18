@@ -229,7 +229,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const target = searchParams.get('url');
   const format = (searchParams.get('format') === 'audio' ? 'audio' : 'video') as 'audio' | 'video';
-  const customName = searchParams.get('name');
+  const customName = searchParams.get('name') || searchParams.get('filename');
 
   if (!target) {
     return NextResponse.json({ error: 'Missing url parameter' }, { status: 400 });

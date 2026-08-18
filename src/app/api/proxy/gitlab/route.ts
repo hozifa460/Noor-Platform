@@ -3,9 +3,10 @@ import { validateSafeUrl } from '@/lib/security';
 import { enforceRateLimit } from '@/lib/rate-limiter';
 
 /**
- * CORS-proxy endpoint for GitLab raw files with SSRF and path validation.
+ * Hardened proxy endpoint for GitLab raw files with multi-hop SSRF validation.
  */
 const GITLAB_RAW_REGEX = /^https:\/\/gitlab\.com\/[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+\/-\/raw\/[a-zA-Z0-9_.-]+\/.+$/;
+const MAX_REDIRECTS = 5;
 
 export async function GET(request: Request) {
   // Rate limit: 120 req/min
@@ -28,29 +29,54 @@ export async function GET(request: Request) {
     );
   }
 
-  // SSRF & Private IP validation
-  const validation = await validateSafeUrl(target, { enforceWhitelist: true });
-  if (!validation.safe) {
-    return NextResponse.json(
-      { error: 'Forbidden', message: validation.error },
-      { status: 403 }
-    );
-  }
+  let currentUrl = target;
+  let upstream: Response | null = null;
+  const visited = new Set<string>();
 
   try {
-    const upstream = await fetch(target, {
-      headers: {
-        'Accept': 'application/json, text/plain, */*',
-        'User-Agent': 'Mozilla/5.0 (compatible; Noor-Platform/1.0)',
-      },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(15_000),
-    });
+    for (let hop = 0; hop < MAX_REDIRECTS; hop++) {
+      if (visited.has(currentUrl)) {
+        return NextResponse.json({ error: 'Redirect loop detected' }, { status: 508 });
+      }
+      visited.add(currentUrl);
 
-    if (!upstream.ok) {
+      // Validate URL on EACH hop to protect against SSRF
+      const validation = await validateSafeUrl(currentUrl, { enforceWhitelist: true });
+      if (!validation.safe) {
+        return NextResponse.json(
+          { error: 'Forbidden destination host' },
+          { status: 403 }
+        );
+      }
+
+      upstream = await fetch(currentUrl, {
+        headers: {
+          'Accept': 'application/json, text/plain, */*',
+          'User-Agent': 'Mozilla/5.0 (compatible; Noor-Platform/2.0)',
+        },
+        redirect: 'manual',
+        signal: AbortSignal.timeout(15_000),
+      });
+
+      if (upstream.status >= 300 && upstream.status < 400) {
+        const location = upstream.headers.get('location');
+        if (!location) {
+          return NextResponse.json(
+            { error: `Redirect ${upstream.status} missing Location header` },
+            { status: 502 }
+          );
+        }
+        currentUrl = new URL(location, currentUrl).href;
+        continue;
+      }
+
+      break;
+    }
+
+    if (!upstream || !upstream.ok) {
       return NextResponse.json(
-        { error: `Upstream returned status ${upstream.status}`, url: target },
-        { status: upstream.status >= 400 && upstream.status < 600 ? upstream.status : 502 }
+        { error: 'Upstream resource unavailable' },
+        { status: upstream ? (upstream.status >= 400 && upstream.status < 600 ? upstream.status : 502) : 502 }
       );
     }
 
@@ -60,13 +86,13 @@ export async function GET(request: Request) {
       headers: {
         'Content-Type': upstream.headers.get('content-type') || 'application/json; charset=utf-8',
         'Cache-Control': 'public, max-age=300',
-        'Access-Control-Allow-Origin': '*',
         'X-Content-Type-Options': 'nosniff',
       },
     });
-  } catch (err: any) {
+  } catch (err) {
+    console.error('[GitLab Proxy Error]', err);
     return NextResponse.json(
-      { error: 'Failed to fetch from GitLab', message: err instanceof Error ? err.message : String(err) },
+      { error: 'Failed to fetch upstream resource' },
       { status: 502 }
     );
   }

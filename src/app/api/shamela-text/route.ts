@@ -1,21 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { enforceRateLimit } from '@/lib/rate-limiter';
 
 /**
- * Maktaba Shamela 4 Text & Streaming API Proxy with High-Speed Server-Side Memory Cache
- * 
- * Supports:
- * 1. Full resource proxying (metadata, toc.jsonl)
- * 2. In-memory parsed book lines cache (< 5ms response time for subsequent page requests)
- * 3. On-demand page slice extraction via ?pageStart=X&pageCount=Y
- * 4. Range-requests for streaming
+ * Maktaba Shamela 4 Text & Streaming API Proxy with Memory-Safe LRU Cache & Rate Limiting
  */
 
 const BASE_HF_RESOLVE = 'https://huggingface.co/datasets/AuthenticIlm/Shamela4_Full_DB/resolve/main/';
 const CACHE_TTL = 60 * 60 * 24 * 7; // 7 days edge cache
+const MAX_BOOK_BYTES = 35 * 1024 * 1024; // 35MB max file size
 
-// In-memory LRU cache for active books (stores split lines to avoid re-fetching 20MB-50MB text files)
+// Bounded in-memory LRU cache (capped to 6 books max)
 const BOOK_LINES_CACHE = new Map<string, { lines: string[]; timestamp: number }>();
-const MAX_CACHED_BOOKS = 25;
+const MAX_CACHED_BOOKS = 6;
 
 function getCachedLines(url: string): string[] | null {
   const entry = BOOK_LINES_CACHE.get(url);
@@ -26,7 +22,6 @@ function getCachedLines(url: string): string[] | null {
 
 function setCachedLines(url: string, lines: string[]) {
   if (BOOK_LINES_CACHE.size >= MAX_CACHED_BOOKS) {
-    // Evict oldest
     let oldestKey = '';
     let oldestTime = Infinity;
     for (const [k, v] of BOOK_LINES_CACHE.entries()) {
@@ -41,6 +36,12 @@ function setCachedLines(url: string, lines: string[]) {
 }
 
 export async function GET(req: NextRequest) {
+  // Rate limiting (120 req/min)
+  const rateLimitResult = enforceRateLimit(req, 'api-shamela-text', 120, 60_000);
+  if (!rateLimitResult.allowed && rateLimitResult.response) {
+    return rateLimitResult.response;
+  }
+
   const relPath = req.nextUrl.searchParams.get('path');
   if (!relPath) {
     return NextResponse.json({ error: 'Missing path param' }, { status: 400 });
@@ -69,12 +70,21 @@ export async function GET(req: NextRequest) {
             'Accept': '*/*',
           },
           next: { revalidate: CACHE_TTL },
+          signal: AbortSignal.timeout(15_000),
         });
 
         if (!res.ok) {
           return NextResponse.json(
             { error: `Remote storage returned HTTP ${res.status}` },
             { status: res.status }
+          );
+        }
+
+        const cl = res.headers.get('content-length');
+        if (cl && parseInt(cl, 10) > MAX_BOOK_BYTES) {
+          return NextResponse.json(
+            { error: 'Book size exceeds processing limit' },
+            { status: 413 }
           );
         }
 
@@ -93,12 +103,12 @@ export async function GET(req: NextRequest) {
             matchedPages.push(page);
           }
           if (pageNum > pageEnd && matchedPages.length > 0) {
-            break; // Finished collecting target slice
+            break;
           }
         } catch {}
       }
 
-      // If exact page numbers weren't matched (e.g. index offset), fallback to slice by line index
+      // Fallback to line slice if page_num not indexed
       if (matchedPages.length === 0 && lines.length > 0) {
         const lineIdxStart = Math.min(lines.length - 1, Math.max(0, pageStart - 1));
         const lineSlice = lines.slice(lineIdxStart, lineIdxStart + pageCount);
@@ -118,7 +128,7 @@ export async function GET(req: NextRequest) {
           headers: {
             'Content-Type': 'application/json; charset=utf-8',
             'Cache-Control': `public, max-age=${CACHE_TTL}, s-maxage=${CACHE_TTL}`,
-            'Access-Control-Allow-Origin': '*',
+            'X-Content-Type-Options': 'nosniff',
           },
         }
       );
@@ -138,6 +148,7 @@ export async function GET(req: NextRequest) {
     const res = await fetch(targetUrl, {
       headers: fetchHeaders,
       next: { revalidate: CACHE_TTL },
+      signal: AbortSignal.timeout(15_000),
     });
 
     if (!res.ok && res.status !== 206) {
@@ -150,7 +161,7 @@ export async function GET(req: NextRequest) {
     const responseHeaders = new Headers();
     responseHeaders.set('Content-Type', res.headers.get('content-type') || 'application/octet-stream');
     responseHeaders.set('Cache-Control', `public, max-age=${CACHE_TTL}, s-maxage=${CACHE_TTL}`);
-    responseHeaders.set('Access-Control-Allow-Origin', '*');
+    responseHeaders.set('X-Content-Type-Options', 'nosniff');
 
     if (res.headers.has('content-range')) {
       responseHeaders.set('Content-Range', res.headers.get('content-range')!);
@@ -166,9 +177,10 @@ export async function GET(req: NextRequest) {
       status: res.status,
       headers: responseHeaders,
     });
-  } catch (err: any) {
+  } catch (err) {
+    console.error('[Shamela Text API Error]', err);
     return NextResponse.json(
-      { error: 'Internal proxy exception', message: err?.message || 'Unknown' },
+      { error: 'Failed to retrieve book content' },
       { status: 500 }
     );
   }

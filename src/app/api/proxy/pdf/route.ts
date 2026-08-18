@@ -114,10 +114,6 @@ async function fetchUpstream(
 
 function buildResponseHeaders(upstream: Response): Record<string, string> {
   const headers: Record<string, string> = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-    'Access-Control-Allow-Headers': 'Range, Content-Type',
-    'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
     'Cache-Control': 'public, max-age=86400',
     'Accept-Ranges': 'bytes',
     'Content-Disposition': 'inline',
@@ -169,12 +165,10 @@ export async function GET(request: Request) {
       status: response.status,
       headers,
     });
-  } catch (err: any) {
+  } catch (err) {
+    console.error('[PDF Proxy Error]', err);
     return NextResponse.json(
-      {
-        error: 'Failed to fetch upstream PDF',
-        message: err instanceof Error ? err.message : String(err),
-      },
+      { error: 'Failed to fetch PDF document' },
       { status: 502 }
     );
   }
