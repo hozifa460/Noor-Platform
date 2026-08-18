@@ -9,9 +9,16 @@ const BASE_HF_RESOLVE = 'https://huggingface.co/datasets/AuthenticIlm/Shamela4_F
 const CACHE_TTL = 60 * 60 * 24 * 7; // 7 days edge cache
 const MAX_BOOK_BYTES = 35 * 1024 * 1024; // 35MB max file size
 
-// Bounded in-memory LRU cache (capped to 6 books max)
-const BOOK_LINES_CACHE = new Map<string, { lines: string[]; timestamp: number }>();
-const MAX_CACHED_BOOKS = 6;
+// Byte-bounded in-memory LRU cache (capped to 50MB total RAM limit)
+interface CachedBookEntry {
+  lines: string[];
+  bytes: number;
+  timestamp: number;
+}
+
+const BOOK_LINES_CACHE = new Map<string, CachedBookEntry>();
+const MAX_CACHED_BOOKS = 8;
+const MAX_CACHE_TOTAL_BYTES = 50 * 1024 * 1024; // 50MB hard ceiling
 
 function getCachedLines(url: string): string[] | null {
   const entry = BOOK_LINES_CACHE.get(url);
@@ -20,8 +27,19 @@ function getCachedLines(url: string): string[] | null {
   return entry.lines;
 }
 
-function setCachedLines(url: string, lines: string[]) {
-  if (BOOK_LINES_CACHE.size >= MAX_CACHED_BOOKS) {
+function getTotalCacheBytes(): number {
+  let total = 0;
+  for (const entry of BOOK_LINES_CACHE.values()) {
+    total += entry.bytes;
+  }
+  return total;
+}
+
+function setCachedLines(url: string, lines: string[], estimatedBytes: number) {
+  while (
+    BOOK_LINES_CACHE.size >= MAX_CACHED_BOOKS ||
+    (BOOK_LINES_CACHE.size > 0 && getTotalCacheBytes() + estimatedBytes > MAX_CACHE_TOTAL_BYTES)
+  ) {
     let oldestKey = '';
     let oldestTime = Infinity;
     for (const [k, v] of BOOK_LINES_CACHE.entries()) {
@@ -30,9 +48,13 @@ function setCachedLines(url: string, lines: string[]) {
         oldestKey = k;
       }
     }
-    if (oldestKey) BOOK_LINES_CACHE.delete(oldestKey);
+    if (oldestKey) {
+      BOOK_LINES_CACHE.delete(oldestKey);
+    } else {
+      break;
+    }
   }
-  BOOK_LINES_CACHE.set(url, { lines, timestamp: Date.now() });
+  BOOK_LINES_CACHE.set(url, { lines, bytes: estimatedBytes, timestamp: Date.now() });
 }
 
 export async function GET(req: NextRequest) {
@@ -106,7 +128,7 @@ export async function GET(req: NextRequest) {
         }
         fullText += decoder.decode();
         lines = fullText.split('\n').filter(Boolean);
-        setCachedLines(targetUrl, lines);
+        setCachedLines(targetUrl, lines, totalBytes || fullText.length);
       }
 
       const matchedPages: any[] = [];

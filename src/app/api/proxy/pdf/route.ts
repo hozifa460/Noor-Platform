@@ -203,15 +203,3 @@ export async function HEAD(request: Request) {
     return new NextResponse(null, { status: 502 });
   }
 }
-
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 204,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-      'Access-Control-Allow-Headers': 'Range, Content-Type',
-      'Access-Control-Max-Age': '86400',
-    },
-  });
-}
