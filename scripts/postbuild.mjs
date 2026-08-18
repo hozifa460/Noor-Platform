@@ -147,16 +147,16 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@9e8d4cf89d4a852a44f51e0653ba36ef55b766a5 # v3.26.0
+        uses: github/codeql-action/init@v3
         with:
           languages: \${{ matrix.language }}
           queries: security-extended,security-and-quality
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@9e8d4cf89d4a852a44f51e0653ba36ef55b766a5 # v3.26.0
+        uses: github/codeql-action/analyze@v3
         with:
           category: "/language:\${{ matrix.language }}"
 `;
