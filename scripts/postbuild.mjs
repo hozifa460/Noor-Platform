@@ -7,11 +7,13 @@ const buildHash = `v2-${Date.now().toString(36)}`;
 
 // Update Service Worker version with unique build hash
 const swPath = path.join(root, 'public', 'sw.js');
-if (fs.existsSync(swPath)) {
+try {
   let swContent = fs.readFileSync(swPath, 'utf-8');
   swContent = swContent.replace(/const CACHE_VERSION = ['"][^'"]+['"];/, `const CACHE_VERSION = '${buildHash}';`);
   fs.writeFileSync(swPath, swContent);
   console.log(`✓ Service Worker updated with release cache version: ${buildHash}`);
+} catch {
+  // Service worker file optional or not present in minimal builds
 }
 
 if (fs.existsSync(standaloneDir)) {
@@ -497,5 +499,127 @@ runBenchmarks().catch(console.error);
   console.log('✓ Governance, Operations & Observability workflows verified successfully.');
 }
 
+function ensureRoutePages() {
+  const routes = [
+    {
+      dir: 'quran',
+      name: 'Quran',
+      title: 'القرآن الكريم — تلاوات وتفاسير ومصاحف القراءات العشر | منصة نور',
+      desc: 'تصفح واستمع للقرآن الكريم كاملاً بأصوات كبار القراء وبروايات القراءات العشر المتواترة مع أمهات كتب التفسير.',
+      componentImport: "import { QuranHubView } from '@/components/quran/QuranHubView';",
+      component: '<QuranHubView />',
+    },
+    {
+      dir: 'hadith',
+      name: 'Hadith',
+      title: 'الموسوعة الحديثية الشاملة — كتب السنة وشروحها | منصة نور',
+      desc: 'بحث متقدم وتخريج فوري لأحاديث النبي ﷺ من كتب الصحاح والسنن والمسانيد مع بيان الأحكام والشروح المعتمدة.',
+      componentImport: "import { HadithHubView } from '@/components/hadith/HadithHubView';",
+      component: '<HadithHubView />',
+    },
+    {
+      dir: 'books',
+      name: 'Books',
+      title: 'المكتبة الإسلامية الرقمية — المكتبة الشاملة والمصاحف | منصة نور',
+      desc: 'أكبر مكتبة إسلامية رقمية تضم أكثر من 8,500 كتاب محقق وموافق للمطبوع في التفسير والحديث والفقه والعقيدة.',
+      componentImport: "import { BooksLibraryView } from '@/components/books/BooksLibraryView';",
+      component: '<BooksLibraryView />',
+    },
+    {
+      dir: 'fatwa',
+      name: 'Fatwa',
+      title: 'موسوعة الفتاوى الشرعية — فتاوى كبار العلماء | منصة نور',
+      desc: 'موسوعة الفتاوى الإسلامية الموثقة لكبار أئمة الإسلام والعلماء المعاصرين مصنفة ومفهرسة بدقة عالية.',
+      componentImport: "import { FatwaLibraryView } from '@/components/fatwa/FatwaLibraryView';",
+      component: '<FatwaLibraryView />',
+    },
+    {
+      dir: 'radio',
+      name: 'Radio',
+      title: 'الإذاعات الإسلامية المباشرة — تلاوات وقراءات 24/7 | منصة نور',
+      desc: 'استمع إلى أكثر من 150 إذاعة إسلامية وقرآنية تبث على مدار الساعة بأصوات مشاهير القراء وترجمات المعاني.',
+      componentImport: "import { RadioHubView } from '@/components/radio/RadioHubView';",
+      component: '<RadioHubView />',
+    },
+    {
+      dir: 'search',
+      name: 'Search',
+      title: 'البحث الشامل في العلوم الإسلامية | منصة نور',
+      desc: 'محرك بحث إسلامي فوري يبحث في آيات القرآن الكريم والأحاديث النبوية وكتب التراث والفتاوى.',
+      componentImport: "import { SearchView } from '@/components/search/SearchView';",
+      component: '<SearchView />',
+    },
+    {
+      dir: 'sheikhs',
+      name: 'Sheikhs',
+      title: 'موسوعة المشايخ والعلماء والقراء | منصة نور',
+      desc: 'دليل شامل لكبار قراء العالم الإسلامي وعلماء أهل السنة والجماعة ومكتباتهم الصوتية والمرئية.',
+      componentImport: "import { SheikhsListView } from '@/components/sheikh/SheikhsListView';",
+      component: '<SheikhsListView />',
+    },
+    {
+      dir: 'settings',
+      name: 'Settings',
+      title: 'الإعدادات والتخصيص | منصة نور',
+      desc: 'تخصيص المظهر، خطوط المصحف، وضع القراءة، وإدارة التخزين المؤقت في منصة نور.',
+      componentImport: "import { SettingsView } from '@/components/library/SettingsView';",
+      component: '<SettingsView />',
+    },
+    {
+      dir: 'favorites',
+      name: 'Favorites',
+      title: 'المفضلة والمحفوظات | منصة نور',
+      desc: 'المحتوى القرآني والحديثي والكتب المحفوظة للوصول السريع.',
+      componentImport: "import { FavoritesView } from '@/components/library/FavoritesView';",
+      component: '<FavoritesView />',
+    },
+    {
+      dir: 'history',
+      name: 'History',
+      title: 'سجل المشاهدة والاستماع | منصة نور',
+      desc: 'سجل التلاوات والمحاضرات والكتب التي تصفحتها مؤخراً.',
+      componentImport: "import { HistoryView } from '@/components/library/HistoryView';",
+      component: '<HistoryView />',
+    },
+    {
+      dir: 'downloads',
+      name: 'Downloads',
+      title: 'المكتبة المحملة والأوفلاين | منصة نور',
+      desc: 'الكتب والتلاوات المحفوظة على جهازك للقراءة والاستماع بدون إنترنت.',
+      componentImport: "import { DownloadsView } from '@/components/library/DownloadsView';",
+      component: '<DownloadsView />',
+    }
+  ];
+
+  for (const r of routes) {
+    const routeDir = path.join(root, 'src', 'app', r.dir);
+    if (!fs.existsSync(routeDir)) {
+      fs.mkdirSync(routeDir, { recursive: true });
+    }
+
+    const pageContent = `'use client';
+
+import dynamic from 'next/dynamic';
+import { AppShell } from '@/components/layout/AppShell';
+
+const ViewComponent = dynamic(() => ${r.componentImport.replace(/import { (\w+) } from '([^']+)';/, "import('$2').then(m => m.$1)")}, {
+  ssr: false,
+});
+
+export default function ${r.name}Page() {
+  return (
+    <AppShell>
+      <ViewComponent />
+    </AppShell>
+  );
+}
+`;
+    fs.writeFileSync(path.join(routeDir, 'page.tsx'), pageContent);
+  }
+  console.log('✓ All Next.js App Router route pages generated successfully.');
+}
+
 ensureGovernanceFiles();
+ensureRoutePages();
+
 
