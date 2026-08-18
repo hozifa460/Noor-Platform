@@ -38,14 +38,14 @@ export function PageRenderer({
   isActive,
 }: PageRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [rendered, setRendered] = useState(false);
-  const [error, setError] = useState(false);
+  const [renderedPageKey, setRenderedPageKey] = useState<string | null>(null);
+  const [errorPageKey, setErrorPageKey] = useState<string | null>(null);
+  const currentKey = `${pageNum}-${zoom}`;
+  const rendered = renderedPageKey === currentKey;
+  const error = errorPageKey === currentKey;
 
   useEffect(() => {
     let cancelled = false;
-
-    setRendered(false);
-    setError(false);
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -54,7 +54,7 @@ export function PageRenderer({
       try {
         await renderPage(pageNum, canvas, zoom);
         if (cancelled) return;
-        setRendered(true);
+        setRenderedPageKey(currentKey);
       } catch (err: any) {
         const isCancelled =
           cancelled ||
@@ -63,7 +63,7 @@ export function PageRenderer({
           err?.message?.includes('Cannot use the same canvas');
         if (isCancelled) return;
         console.error('[PageRenderer] Failed to render page', pageNum, err);
-        setError(true);
+        setErrorPageKey(currentKey);
       }
     })();
 

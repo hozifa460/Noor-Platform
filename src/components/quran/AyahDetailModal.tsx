@@ -73,26 +73,26 @@ export function AyahDetailModal({
   const [activeTab, setActiveTab] = useState<'tafsir' | 'asbab' | 'translation' | 'memorize'>('tafsir');
   const [selectedTafsirId, setSelectedTafsirId] = useState<number>(16); // Default: التفسير الميسر
   const [tafsirContent, setTafsirContent] = useState<string>('');
-  const [loadingTafsir, setLoadingTafsir] = useState<boolean>(false);
+  const [loadedTafsirKey, setLoadedTafsirKey] = useState<string | null>(null);
+  const tafsirKey = `${selectedTafsirId}-${surah.number}-${ayah.ayahNo}`;
+  const loadingTafsir = loadedTafsirKey !== tafsirKey;
   
   const [selectedTranslation, setSelectedTranslation] = useState<QuranTranslationMeta>(QURAN_TRANSLATIONS[0]);
   const [translationText, setTranslationText] = useState<string>('');
   const [translationFootnotes, setTranslationFootnotes] = useState<string | undefined>(undefined);
-  const [loadingTranslation, setLoadingTranslation] = useState<boolean>(false);
+  const [loadedTranslationKey, setLoadedTranslationKey] = useState<string | null>(null);
+  const translationKey = `${selectedTranslation.code}-${surah.number}-${ayah.ayahNo}`;
+  const loadingTranslation = loadedTranslationKey !== translationKey;
 
   const [copied, setCopied] = useState<boolean>(false);
 
   // Available verse reciters for this specific Qira'ah
   const availableAyahReciters = getAyahRecitersForQiraah(activeQiraah.id);
-  const [selectedAyahReciter, setSelectedAyahReciter] = useState<ReciterMeta>(
-    availableAyahReciters[0] || activeReciter
-  );
-
-  // Update selected reciter when Qira'ah changes
-  useEffect(() => {
-    const list = getAyahRecitersForQiraah(activeQiraah.id);
-    setSelectedAyahReciter(list[0] || QURAN_RECITERS[0]);
-  }, [activeQiraah.id]);
+  const [customReciter, setCustomReciter] = useState<ReciterMeta | null>(null);
+  const selectedAyahReciter =
+    (customReciter && availableAyahReciters.some((r) => r.id === customReciter.id) && customReciter) ||
+    availableAyahReciters[0] ||
+    activeReciter;
 
   // Memorization & Audio Loop State
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -109,49 +109,47 @@ export function AyahDetailModal({
   // Fetch Tafsir on change
   useEffect(() => {
     let isMounted = true;
-    setLoadingTafsir(true);
     fetchAyahTafsir(selectedTafsirId, surah.number, ayah.ayahNo)
       .then((res) => {
         if (isMounted) {
           setTafsirContent(res.text);
-          setLoadingTafsir(false);
+          setLoadedTafsirKey(tafsirKey);
         }
       })
       .catch(() => {
         if (isMounted) {
           setTafsirContent('تعذر جلب التفسير.');
-          setLoadingTafsir(false);
+          setLoadedTafsirKey(tafsirKey);
         }
       });
 
     return () => {
       isMounted = false;
     };
-  }, [selectedTafsirId, surah.number, ayah.ayahNo]);
+  }, [selectedTafsirId, surah.number, ayah.ayahNo, tafsirKey]);
 
   // Fetch Translation on language or ayah change
   useEffect(() => {
     let isMounted = true;
-    setLoadingTranslation(true);
     getAyahTranslation(selectedTranslation.code, surah.number, ayah.ayahNo)
       .then((res) => {
         if (isMounted) {
           setTranslationText(res.text);
           setTranslationFootnotes(res.footnotes);
-          setLoadingTranslation(false);
+          setLoadedTranslationKey(translationKey);
         }
       })
       .catch(() => {
         if (isMounted) {
           setTranslationText(ayah.textEn || 'Translation unavailable.');
-          setLoadingTranslation(false);
+          setLoadedTranslationKey(translationKey);
         }
       });
 
     return () => {
       isMounted = false;
     };
-  }, [selectedTranslation.code, surah.number, ayah.ayahNo, ayah.textEn]);
+  }, [selectedTranslation.code, surah.number, ayah.ayahNo, ayah.textEn, translationKey]);
 
   // Audio Playback
   useEffect(() => {
@@ -447,7 +445,7 @@ export function AyahDetailModal({
                 onChange={(e) => {
                   const r = availableAyahReciters.find((x) => x.id === e.target.value);
                   if (r) {
-                    setSelectedAyahReciter(r);
+                    setCustomReciter(r);
                     setActiveReciter(r);
                     setIsPlaying(false);
                     toast.success(`تم اختيار القارئ: ${r.name}`);

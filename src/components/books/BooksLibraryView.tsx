@@ -60,10 +60,16 @@ export function BooksLibraryView() {
     return () => clearTimeout(timer);
   }, [localSearch, setSearchQuery]);
 
-  // Reset pagination on filter change
-  useEffect(() => {
+  // Reset pagination on filter change (standard React pattern)
+  const [prevFilter, setPrevFilter] = useState({ selectedCategory, selectedLanguage, searchQuery });
+  if (
+    prevFilter.selectedCategory !== selectedCategory ||
+    prevFilter.selectedLanguage !== selectedLanguage ||
+    prevFilter.searchQuery !== searchQuery
+  ) {
+    setPrevFilter({ selectedCategory, selectedLanguage, searchQuery });
     setVisibleCount(36);
-  }, [selectedCategory, selectedLanguage, searchQuery]);
+  }
 
   const filteredBooks = useMemo(
     () => getFilteredBooks(),

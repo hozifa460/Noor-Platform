@@ -26,26 +26,30 @@ export function HadithCard({
   const [copied, setCopied] = useState(false);
   const [showEnglish, setShowEnglish] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [resolvedArabic, setResolvedArabic] = useState<string>(hadith.arabic);
+  const [extraResolved, setExtraResolved] = useState<string | null>(null);
+  const resolvedArabic = extraResolved || hadith.arabic;
 
   const gradeInfo = getHadithGrade(book.id, hadith.idInBook);
 
   // Asynchronously resolve the FULL authentic text if card received a short preview
   useEffect(() => {
-    setResolvedArabic(hadith.arabic);
+    let isMounted = true;
     if (hadith.arabic.length < 80) {
       loadHadithBook(book.fileName).then((bookData) => {
-        if (bookData && bookData.hadiths) {
+        if (isMounted && bookData && bookData.hadiths) {
           const fullItem = bookData.hadiths.find(
             (h) => h.idInBook === hadith.idInBook || h.id === hadith.id
           );
           if (fullItem && fullItem.arabic && fullItem.arabic.length > hadith.arabic.length) {
-            setResolvedArabic(fullItem.arabic);
+            setExtraResolved(fullItem.arabic);
           }
         }
       }).catch(() => {});
     }
-  }, [hadith.arabic, hadith.idInBook, book.fileName]);
+    return () => {
+      isMounted = false;
+    };
+  }, [hadith.arabic, hadith.idInBook, hadith.id, book.fileName]);
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();

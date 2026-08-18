@@ -19,7 +19,9 @@ export function SinglePageView({ viewer }: SinglePageViewProps) {
   const { pdfDoc, currentPage, numPages, zoom, renderPage, nextPage, prevPage } =
     viewer;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [pageRendering, setPageRendering] = useState(true);
+  const [renderedPageKey, setRenderedPageKey] = useState<string | null>(null);
+  const currentKey = `${currentPage}-${zoom}`;
+  const pageRendering = Boolean(pdfDoc) && renderedPageKey !== currentKey;
 
   useEffect(() => {
     if (!pdfDoc) return;
@@ -27,13 +29,11 @@ export function SinglePageView({ viewer }: SinglePageViewProps) {
     if (!canvas) return;
     let cancelled = false;
 
-    setPageRendering(true);
-
     (async () => {
       try {
         await renderPage(currentPage, canvas, zoom);
         if (cancelled) return;
-        setPageRendering(false);
+        setRenderedPageKey(currentKey);
 
         // Prefetch next 2 pages.
         for (const p of [currentPage + 1, currentPage + 2]) {
@@ -53,7 +53,7 @@ export function SinglePageView({ viewer }: SinglePageViewProps) {
         if (!isCancelled) {
           console.error('[SinglePageView] Failed to render page', currentPage, err);
         }
-        setPageRendering(false);
+        setRenderedPageKey(currentKey);
       }
     })();
 

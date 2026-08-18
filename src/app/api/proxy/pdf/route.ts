@@ -90,6 +90,18 @@ async function fetchUpstream(
       };
     }
 
+    const cl = response.headers.get('content-length');
+    if (cl && parseInt(cl, 10) > 150 * 1024 * 1024) {
+      return {
+        response: null,
+        finalUrl: currentUrl,
+        error: NextResponse.json(
+          { error: 'PDF file exceeds maximum allowed proxy size (150MB)' },
+          { status: 413 }
+        ),
+      };
+    }
+
     return { response, finalUrl: currentUrl };
   }
 

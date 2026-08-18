@@ -72,19 +72,27 @@ async function fetchImageAsBuffer(url: string): Promise<{ buffer: Buffer; conten
         'User-Agent': 'Mozilla/5.0 (compatible; Noor-Platform/1.0)',
         'Accept': 'image/*,*/*;q=0.8',
       },
-      redirect: 'follow',
       signal: AbortSignal.timeout(8000),
     });
 
     if (!res.ok) return null;
 
-    const contentLength = res.headers.get('content-length');
-    if (contentLength && parseInt(contentLength, 10) > 5 * 1024 * 1024) {
-      return null; // Don't cache images larger than 5MB
+    const contentType = res.headers.get('content-type') || 'image/jpeg';
+    if (!contentType.toLowerCase().startsWith('image/')) {
+      return null; // Reject non-image payloads
     }
 
-    const buffer = Buffer.from(await res.arrayBuffer());
-    const contentType = res.headers.get('content-type') || 'image/jpeg';
+    const contentLength = res.headers.get('content-length');
+    if (contentLength && parseInt(contentLength, 10) > 5 * 1024 * 1024) {
+      return null; // Reject images larger than 5MB
+    }
+
+    const arrayBuf = await res.arrayBuffer();
+    if (arrayBuf.byteLength > 5 * 1024 * 1024) {
+      return null; // Enforce hard 5MB memory limit
+    }
+
+    const buffer = Buffer.from(arrayBuf);
     return { buffer, contentType };
   } catch {
     return null;

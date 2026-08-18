@@ -62,16 +62,35 @@ export const SUPPORTED_TAFSIRS: TafsirMeta[] = [
 const tafsirCache = new Map<string, string>();
 
 /**
- * Strips unwanted markup or normalizes HTML tags from tafsir API responses
+ * Strictly sanitizes markup and strips unsafe HTML/attributes from tafsir API responses to prevent XSS.
  */
-function cleanTafsirHtml(html: string): string {
-  if (!html) return '';
-  return html
+function cleanTafsirHtml(raw: string): string {
+  if (!raw || typeof raw !== 'string') return '';
+  
+  // 1. Remove dangerous executable tags and inline scripts
+  let sanitized = raw
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
+    .replace(/<embed\b[^>]*>/gi, '')
+    .replace(/<link\b[^>]*>/gi, '');
+
+  // 2. Strip all event handlers (onload, onerror, onclick, etc.) and javascript: protocols
+  sanitized = sanitized
+    .replace(/\s*on\w+\s*=\s*(['\"]).*?\1/gi, '')
+    .replace(/\s*on\w+\s*=\s*[^>\s]+/gi, '')
+    .replace(/javascript:[^"']*/gi, '');
+
+  // 3. Normalize safe styling classes
+  sanitized = sanitized
     .replace(/<span class="arabic[^"]*">/gi, '<span class="text-primary font-bold font-amiri text-lg">')
     .replace(/<span class="green[^"]*">/gi, '<span class="text-emerald-600 font-bold">')
     .replace(/<span class="brown[^"]*">/gi, '<span class="text-amber-700 dark:text-amber-400 font-bold">')
     .replace(/<p[^>]*>/gi, '<p class="mb-3 leading-relaxed">')
     .trim();
+
+  return sanitized;
 }
 
 /**

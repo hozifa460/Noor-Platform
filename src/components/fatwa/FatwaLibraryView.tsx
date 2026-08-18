@@ -52,10 +52,16 @@ export function FatwaLibraryView() {
     startLoading();
   }, [startLoading]);
 
-  // Reset pagination on filter or search changes
-  useEffect(() => {
+  // Reset pagination on filter or search changes (standard React pattern)
+  const [prevFilter, setPrevFilter] = useState({ selectedCategory, selectedScholar, searchQuery });
+  if (
+    prevFilter.selectedCategory !== selectedCategory ||
+    prevFilter.selectedScholar !== selectedScholar ||
+    prevFilter.searchQuery !== searchQuery
+  ) {
+    setPrevFilter({ selectedCategory, selectedScholar, searchQuery });
     setVisibleCount(30);
-  }, [selectedCategory, selectedScholar, searchQuery]);
+  }
 
   // Infinite scroll
   useEffect(() => {

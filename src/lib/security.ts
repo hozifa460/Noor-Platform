@@ -128,9 +128,9 @@ export function isPrivateIp(ip: string): boolean {
 export function isAllowedHostname(hostname: string): boolean {
   if (!hostname || typeof hostname !== 'string') return false;
   const clean = hostname.toLowerCase().trim();
-  // Reject explicit IP-based hosts in general matching
+  // Reject IP literals completely
   if (net.isIP(clean)) {
-    return !isPrivateIp(clean);
+    return false;
   }
   return ALLOWED_MEDIA_HOSTS.some((pattern) => pattern.test(clean));
 }
@@ -170,17 +170,20 @@ export async function validateSafeUrl(
 
     const hostname = parsed.hostname.toLowerCase();
 
-    // Check whitelist if enforced
-    if (options.enforceWhitelist && !isAllowedHostname(hostname)) {
-      return { safe: false, error: `Host "${hostname}" is not in the permitted media sources list` };
-    }
-
-    // If hostname is directly an IP address
+    // Reject direct IP addresses if whitelist is enforced
     if (net.isIP(hostname)) {
+      if (options.enforceWhitelist) {
+        return { safe: false, error: 'Direct IP literals are not allowed in whitelist mode' };
+      }
       if (isPrivateIp(hostname)) {
         return { safe: false, error: 'Access to private or local IP addresses is prohibited (SSRF protection)' };
       }
       return { safe: true, url: parsed, resolvedIp: hostname };
+    }
+
+    // Check whitelist if enforced
+    if (options.enforceWhitelist && !isAllowedHostname(hostname)) {
+      return { safe: false, error: `Host "${hostname}" is not in the permitted media sources list` };
     }
 
     // Block common localhost aliases
