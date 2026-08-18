@@ -64,4 +64,7 @@ public/data/
 !public/data/ebooks/catalog.json
 !public/data/micro_shards/prefix_router.json
 !public/data/micro_shards/showcase.json
+!public/data/hadith/nawawi40.json
+!public/data/quran/mp3quran_reciters.json
+!public/data/quran/riwayaat_reciters_map.json
 Noor_Platform_Audit_Report.pdf
