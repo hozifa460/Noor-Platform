@@ -1,29 +1,79 @@
-<?xml version="1.0" encoding="utf-8"?>
-<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-	 viewBox="0 0 30 30" style="enable-background:new 0 0 30 30;" xml:space="preserve">
-<defs>
-  <style type="text/css">
-    .st194{fill:#2D2D2D;stroke:#FFFFFF;stroke-width:0.6317;stroke-miterlimit:10;}
-    .st23{fill:#FFFFFF;}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#064e3b" />
+      <stop offset="50%" stop-color="#047857" />
+      <stop offset="100%" stop-color="#022c22" />
+    </linearGradient>
 
-    .z-breathe {
-      animation: breathe 2.5s ease-in-out infinite;
-    }
+    <!-- Gold Gradient -->
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="40%" stop-color="#f59e0b" />
+      <stop offset="80%" stop-color="#d97706" />
+      <stop offset="100%" stop-color="#b45309" />
+    </linearGradient>
 
-    @keyframes breathe {
-      0%, 100% { opacity: 0.7; }
-      50% { opacity: 1; }
-    }
-  </style>
-</defs>
+    <!-- Glow Effect -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
 
-<g>
-  <path class="st194" d="M24.51,28.51H5.49c-2.21,0-4-1.79-4-4V5.49c0-2.21,1.79-4,4-4h19.03c2.21,0,4,1.79,4,4v19.03
-    C28.51,26.72,26.72,28.51,24.51,28.51z"/>
-  <g class="z-breathe">
-    <path class="st23" d="M15.47,7.1l-1.3,1.85c-0.2,0.29-0.54,0.47-0.9,0.47h-7.1V7.09C6.16,7.1,15.47,7.1,15.47,7.1z"/>
-    <polygon class="st23" points="24.3,7.1 13.14,22.91 5.7,22.91 16.86,7.1"/>
-    <path class="st23" d="M14.53,22.91l1.31-1.86c0.2-0.29,0.54-0.47,0.9-0.47h7.09v2.33H14.53z"/>
+  <!-- Base Rounded Shield -->
+  <rect width="512" height="512" rx="110" fill="url(#bgGrad)" stroke="url(#goldGrad)" stroke-width="6" />
+
+  <!-- Background Islamic Radiant Sunburst Rays -->
+  <g opacity="0.12" stroke="#fef08a" stroke-width="2">
+    <line x1="256" y1="256" x2="256" y2="40" />
+    <line x1="256" y1="256" x2="256" y2="472" />
+    <line x1="256" y1="256" x2="40" y2="256" />
+    <line x1="256" y1="256" x2="472" y2="256" />
+    <line x1="256" y1="256" x2="103" y2="103" />
+    <line x1="256" y1="256" x2="409" y2="409" />
+    <line x1="256" y1="256" x2="103" y2="409" />
+    <line x1="256" y1="256" x2="409" y2="103" />
+    <line x1="256" y1="256" x2="150" y2="60" />
+    <line x1="256" y1="256" x2="362" y2="452" />
+    <line x1="256" y1="256" x2="60" y2="150" />
+    <line x1="256" y1="256" x2="452" y2="362" />
   </g>
-</g>
+
+  <!-- Outer Islamic Geometric 8-Pointed Star Medallion -->
+  <g transform="translate(256, 215) scale(0.9)" filter="url(#glow)">
+    <!-- Crescent & Star at Top Peak -->
+    <path d="M -5,-155 A 28 28 0 1 1 25,-120 A 22 22 0 1 0 -5,-155 Z" fill="url(#goldGrad)" />
+    <polygon points="12,-145 16,-135 26,-135 18,-128 21,-118 12,-124 3,-118 6,-128 -2,-135 8,-135" fill="url(#goldGrad)" />
+
+    <!-- Central Grand Dome -->
+    <path d="M -90,40 C -90,-60 0,-115 0,-115 C 0,-115 90,-60 90,40 Z" fill="url(#goldGrad)" />
+    
+    <!-- Dome Inner Architectural Cutout Arch -->
+    <path d="M -60,40 C -60,-35 0,-75 0,-75 C 0,-75 60,-35 60,40 Z" fill="#064e3b" opacity="0.85" />
+    
+    <!-- Radiant Noor Lantern / Light inside Arch -->
+    <circle cx="0" cy="-20" r="16" fill="#fef08a" filter="url(#glow)" />
+    <path d="M -12,-8 L 12,-8 L 8,16 L -8,16 Z" fill="url(#goldGrad)" />
+    <line x1="0" y1="-75" x2="0" y2="-20" stroke="url(#goldGrad)" stroke-width="3" />
+
+    <!-- Left Minaret -->
+    <rect x="-135" y="-60" width="22" height="100" rx="4" fill="url(#goldGrad)" />
+    <path d="M -140,-60 L -110,-60 L -124,-88 Z" fill="url(#goldGrad)" />
+    <circle cx="-124" cy="-92" r="5" fill="url(#goldGrad)" />
+
+    <!-- Right Minaret -->
+    <rect x="113" y="-60" width="22" height="100" rx="4" fill="url(#goldGrad)" />
+    <path d="M 108,-60 L 138,-60 L 124,-88 Z" fill="url(#goldGrad)" />
+    <circle cx="124" cy="-92" r="5" fill="url(#goldGrad)" />
+
+    <!-- Colonnade & Base Archway -->
+    <rect x="-145" y="40" width="290" height="16" rx="4" fill="url(#goldGrad)" />
+    <rect x="-130" y="56" width="260" height="20" rx="3" fill="url(#goldGrad)" opacity="0.9" />
+  </g>
+
+  <!-- Typography "نــور | NOOR" -->
+  <text x="256" y="380" font-family="'Amiri', 'Traditional Arabic', serif" font-size="52" font-weight="bold" fill="url(#goldGrad)" text-anchor="middle" filter="url(#glow)">نُـــور</text>
+  <text x="256" y="425" font-family="'Montserrat', 'Arial', sans-serif" font-size="18" font-weight="700" letter-spacing="8" fill="#a7f3d0" text-anchor="middle">NOOR PLATFORM</text>
 </svg>
