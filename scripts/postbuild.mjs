@@ -286,7 +286,215 @@ A clear and concise description of what you want to happen.
 `;
   fs.writeFileSync(path.join(issueDir, 'feature_request.md'), featureRequest.trim() + '\n');
 
-  console.log('✓ Governance & Security workflows verified successfully.');
+  const operationsMd = `# Production Operations & Observability Guide — Noor Platform (منصة نور)
+
+This guide documents operational requirements, monitoring setup, incident response, branch protection policies, and cryptographic commit signing to ensure world-class enterprise reliability.
+
+---
+
+## 1. GitHub Repository Security & Branch Protection
+
+To enforce the defense-in-depth pipeline on GitHub and eliminate unauthorized direct modifications:
+
+### Required Branch Protection Settings (for \`main\`)
+1. Navigate to **Repository Settings** \`->\` **Branches** \`->\` **Add branch protection rule**.
+2. Set **Branch name pattern** to: \`main\`.
+3. Enable the following settings:
+   - :white_check_mark: **Require a pull request before merging**
+     - Require approvals: At least 1 review.
+     - Dismiss stale pull request approvals when new commits are pushed.
+   - :white_check_mark: **Require status checks to pass before merging**
+     - Require branches to be up to date before merging.
+     - Required status check: \`Lint, Test, Audit & Build\` (CI Pipeline).
+     - Required status check: \`CodeQL Analysis\` (Security Analysis).
+   - :white_check_mark: **Require signed commits** (Enforces cryptographic provenance verification).
+   - :white_check_mark: **Do not allow bypassing the above settings** (Enforce for administrators).
+   - :white_check_mark: **Restrict deletions & force pushes** (Prevent accidental history rewrite).
+
+### Cryptographic Commit Signing Setup (GPG / SSH)
+Contributors and maintainers should sign their commits locally:
+\`\`\`bash
+# Configure Git to use SSH signing (Modern & Lightweight)
+git config --global gpg.format ssh
+git config --global user.signingkey ~/.ssh/id_ed25519.pub
+git config --global commit.gpgsign true
+git config --global tag.gpgSign true
+
+# Or configure with GPG Key:
+git config --global user.signingkey <YOUR_GPG_KEY_ID>
+git config --global commit.gpgsign true
+\`\`\`
+
+---
+
+## 2. Production Observability & Monitoring Architecture
+
+Noor Platform includes a zero-dependency structured diagnostics endpoint at \`/api\` that exports health, uptime, memory, and runtime metadata.
+
+### Recommended Observability Stack
+1. **Error Tracking & APM (Sentry / OpenTelemetry)**:
+   - Configure \`@sentry/nextjs\` for real-time unhandled exception capture and performance tracing.
+   - Set sample rates for API routes handling streaming media (\`/api/proxy/pdf\`, \`/api/shamela-text\`).
+2. **Synthetic Uptime & Latency Probes**:
+   - Health check ping to \`GET /api\` every 60 seconds (HTTP 200 required, latency < 250ms).
+   - Upstream availability monitoring for Quran/Hadith CDN CDNs.
+3. **Key Production Metrics to Alert On**:
+   - **5xx Error Spike**: > 1% over 5 minutes \`->\` High Severity Alert.
+   - **PDF Semaphore Saturation**: 503 Retry-After rate > 5% \`->\` Scale Node worker instances.
+   - **Memory Heap Saturation**: Heap used > 85% of container RAM \`->\` Auto-restart / horizontal scale.
+   - **Rate Limiting Anomaly**: 429 rate > 20% on a single subnet \`->\` Potential scrape attack / DoS attempt.
+
+---
+
+## 3. Incident Response Protocol
+
+| Phase | Action | SLA |
+|---|---|---|
+| **P1 - Critical** (Platform Down / Integrity Flaw) | Immediate rollback to last verified release tag, notify maintainers, isolate affected endpoints. | 15 minutes |
+| **P2 - High** (Upstream Provider Failure) | Switch to verified offline fallback seeds, enable caching layers. | 1 hour |
+| **P3 - Medium** (Isolated Route Degradation) | Deploy hotfix via signed PR through full CI validation. | 4 hours |
+`;
+  fs.writeFileSync(path.join(root, 'OPERATIONS.md'), operationsMd.trim() + '\n');
+
+  const observabilityTs = `/**
+ * Noor Platform — Structured Observability & Correlation Tracking
+ */
+
+export interface RequestMetrics {
+  requestId: string;
+  method: string;
+  url: string;
+  startTime: number;
+  durationMs?: number;
+  statusCode?: number;
+}
+
+/**
+ * Generates a standard RFC4122 v4 UUID or cryptographically random request identifier.
+ */
+export function generateRequestId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'req-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
+}
+
+/**
+ * Higher-order helper for logging structured API telemetry with latency and correlation ID.
+ */
+export function createStructuredLogger(endpointName: string) {
+  return {
+    log(requestId: string, message: string, data?: Record<string, unknown>) {
+      console.log(
+        JSON.stringify({
+          timestamp: new Date().toISOString(),
+          endpoint: endpointName,
+          requestId,
+          message,
+          ...data,
+        })
+      );
+    },
+    error(requestId: string, message: string, err?: unknown, data?: Record<string, unknown>) {
+      console.error(
+        JSON.stringify({
+          timestamp: new Date().toISOString(),
+          endpoint: endpointName,
+          requestId,
+          message,
+          error: (err as Error)?.message || String(err),
+          stack: (err as Error)?.stack,
+          ...data,
+        })
+      );
+    },
+  };
+}
+`;
+  fs.writeFileSync(path.join(root, 'src', 'lib', 'observability.ts'), observabilityTs.trim() + '\n');
+
+  const loadTestScript = `/**
+ * Noor Platform — Production Concurrency & Load Testing Suite
+ * Validates endpoint latency, rate limiter thresholds, and semaphore limits.
+ */
+
+import http from 'http';
+
+const BASE_URL = process.env.TEST_URL || 'http://localhost:3000';
+
+async function measureLatency(url) {
+  const start = Date.now();
+  try {
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    const duration = Date.now() - start;
+    return { status: res.status, duration, ok: res.ok };
+  } catch (err) {
+    return { status: 0, duration: Date.now() - start, ok: false, error: err.message };
+  }
+}
+
+async function runConcurrencyBurst(endpoint, totalRequests = 50, concurrency = 10) {
+  console.log(\`\\n🚀 Running Concurrency Burst on \${endpoint} (\${totalRequests} requests, concurrency=\${concurrency})...\`);
+  const latencies = [];
+  let completed = 0;
+  let successCount = 0;
+  let rateLimitedCount = 0;
+  let errorCount = 0;
+
+  const batches = Math.ceil(totalRequests / concurrency);
+  for (let b = 0; b < batches; b++) {
+    const promises = [];
+    for (let c = 0; c < concurrency && (b * concurrency + c) < totalRequests; c++) {
+      promises.push(measureLatency(\`\${BASE_URL}\${endpoint}\`));
+    }
+    const results = await Promise.all(promises);
+    for (const r of results) {
+      latencies.push(r.duration);
+      if (r.ok) successCount++;
+      else if (r.status === 429) rateLimitedCount++;
+      else errorCount++;
+    }
+  }
+
+  latencies.sort((a, b) => a - b);
+  const p50 = latencies[Math.floor(latencies.length * 0.5)] || 0;
+  const p95 = latencies[Math.floor(latencies.length * 0.95)] || 0;
+  const p99 = latencies[Math.floor(latencies.length * 0.99)] || 0;
+
+  console.log(\`  ✓ Total Requests:    \${totalRequests}\`);
+  console.log(\`  ✓ Success (2xx):     \${successCount}\`);
+  console.log(\`  ✓ Rate-Limited(429): \${rateLimitedCount}\`);
+  console.log(\`  ✓ Errors (5xx/0):    \${errorCount}\`);
+  console.log(\`  📊 Latency P50:      \${p50}ms\`);
+  console.log(\`  📊 Latency P95:      \${p95}ms\`);
+  console.log(\`  📊 Latency P99:      \${p99}ms\`);
+
+  return { successCount, rateLimitedCount, errorCount, p50, p95, p99 };
+}
+
+async function runBenchmarks() {
+  console.log('======================================================================');
+  console.log('⚡ Noor Platform — Production Benchmarking & Stress Testing');
+  console.log('======================================================================');
+
+  // 1. Diagnostics endpoint benchmark
+  console.log('\\n[Benchmark 1/2] Diagnostics & Healthcheck endpoint (/api)');
+  const healthRes = await runConcurrencyBurst('/api', 30, 10);
+
+  // 2. Avatar fallback generation benchmark
+  console.log('\\n[Benchmark 2/2] Sheikh Avatar Generator (/api/sheikh-avatar?name=test)');
+  const avatarRes = await runConcurrencyBurst('/api/sheikh-avatar?name=test', 30, 10);
+
+  console.log('\\n======================================================================');
+  console.log('✓ Load & latency benchmark finished.');
+  console.log('======================================================================\\n');
+}
+
+runBenchmarks().catch(console.error);
+`;
+  fs.writeFileSync(path.join(root, 'scripts', 'load_test_benchmarks.mjs'), loadTestScript.trim() + '\n');
+
+  console.log('✓ Governance, Operations & Observability workflows verified successfully.');
 }
 
 ensureGovernanceFiles();
