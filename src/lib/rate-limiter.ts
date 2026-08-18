@@ -94,13 +94,20 @@ export const rateLimiter = new SlidingWindowRateLimiter();
  * Extracts client IP from standard Next.js request headers.
  */
 export function getClientIp(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
-  }
+  // Trust X-Real-IP set by trusted reverse proxy (Caddy / Nginx / Cloudflare)
   const realIp = request.headers.get('x-real-ip');
   if (realIp) {
     return realIp.trim();
+  }
+  const cfConnectingIp = request.headers.get('cf-connecting-ip');
+  if (cfConnectingIp) {
+    return cfConnectingIp.trim();
+  }
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) {
+    // Take the first valid IP from forward chain
+    const parts = forwarded.split(',').map((p) => p.trim()).filter(Boolean);
+    if (parts.length > 0) return parts[0];
   }
   return '127.0.0.1';
 }

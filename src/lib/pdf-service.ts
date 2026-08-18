@@ -94,41 +94,70 @@ export async function getOrDownloadPdf(url: string): Promise<string> {
 
   await evictCacheIfNeeded();
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), PDF_TIMEOUT_MS);
+  const MAX_REDIRECTS = 5;
+  let currentUrl = url;
+  let response: Response | null = null;
+  const visited = new Set<string>();
 
-  try {
-    const response = await fetch(url, {
-      redirect: 'follow',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; Noor-Platform/1.0)',
-        'Accept': 'application/pdf, application/octet-stream',
-      },
-      signal: controller.signal,
-    });
+  for (let hop = 0; hop < MAX_REDIRECTS; hop++) {
+    if (visited.has(currentUrl)) {
+      throw new Error('Redirect loop detected');
+    }
+    visited.add(currentUrl);
 
-    if (!response.ok) {
-      throw new Error(`Failed to download PDF from source: HTTP ${response.status}`);
+    // Validate URL on EACH hop to protect against SSRF via redirects
+    const validation = await validateSafeUrl(currentUrl, { enforceWhitelist: true });
+    if (!validation.safe) {
+      throw new Error(`Forbidden PDF source (${validation.error || 'Host not permitted'})`);
     }
 
-    const contentLengthHeader = response.headers.get('content-length');
-    if (contentLengthHeader) {
-      const length = parseInt(contentLengthHeader, 10);
-      if (!isNaN(length) && length > MAX_PDF_DOWNLOAD_BYTES) {
-        throw new Error(`PDF exceeds maximum allowed file size of ${MAX_PDF_DOWNLOAD_BYTES / (1024 * 1024)}MB`);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), PDF_TIMEOUT_MS);
+
+    try {
+      response = await fetch(currentUrl, {
+        redirect: 'manual',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; Noor-Platform/2.0)',
+          'Accept': 'application/pdf, application/octet-stream',
+        },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location');
+      if (!location) {
+        throw new Error(`Redirect ${response.status} missing Location header`);
       }
+      currentUrl = new URL(location, currentUrl).href;
+      continue;
     }
 
-    const buffer = Buffer.from(await response.arrayBuffer());
-    if (buffer.length > MAX_PDF_DOWNLOAD_BYTES) {
-      throw new Error(`Downloaded PDF size (${Math.round(buffer.length / 1024 / 1024)}MB) exceeds safety limit`);
-    }
-
-    await fs.writeFile(cachedPath, buffer);
-    return cachedPath;
-  } finally {
-    clearTimeout(timer);
+    break;
   }
+
+  if (!response || !response.ok) {
+    throw new Error(`Failed to download PDF from source: HTTP ${response ? response.status : 'unknown'}`);
+  }
+
+  const contentLengthHeader = response.headers.get('content-length');
+  if (contentLengthHeader) {
+    const length = parseInt(contentLengthHeader, 10);
+    if (!isNaN(length) && length > MAX_PDF_DOWNLOAD_BYTES) {
+      throw new Error(`PDF exceeds maximum allowed file size of ${MAX_PDF_DOWNLOAD_BYTES / (1024 * 1024)}MB`);
+    }
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  if (buffer.length > MAX_PDF_DOWNLOAD_BYTES) {
+    throw new Error(`Downloaded PDF size (${Math.round(buffer.length / 1024 / 1024)}MB) exceeds safety limit`);
+  }
+
+  await fs.writeFile(cachedPath, buffer);
+  return cachedPath;
 }
 
 /**
