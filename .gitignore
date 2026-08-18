@@ -68,9 +68,3 @@ public/data/
 !public/data/quran/mp3quran_reciters.json
 !public/data/quran/riwayaat_reciters_map.json
 Noor_Platform_Audit_Report.pdf
-
-# Agent and temporary development artifacts
-.agents/
-.gemini/
-scratch/
-
