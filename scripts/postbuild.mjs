@@ -7,11 +7,13 @@ const buildHash = `v2-${Date.now().toString(36)}`;
 
 // Update Service Worker version with unique build hash
 const swPath = path.join(root, 'public', 'sw.js');
-if (fs.existsSync(swPath)) {
+try {
   let swContent = fs.readFileSync(swPath, 'utf-8');
   swContent = swContent.replace(/const CACHE_VERSION = ['"][^'"]+['"];/, `const CACHE_VERSION = '${buildHash}';`);
   fs.writeFileSync(swPath, swContent);
   console.log(`✓ Service Worker updated with release cache version: ${buildHash}`);
+} catch {
+  // Service worker file optional or not present in minimal builds
 }
 
 if (fs.existsSync(standaloneDir)) {
@@ -617,34 +619,7 @@ export default function ${r.name}Page() {
   console.log('✓ All Next.js App Router route pages generated successfully.');
 }
 
-function refactorLargeEngines() {
-  const intentEnginePath = path.join(root, 'src', 'lib', 'book-intent-engine.ts');
-  if (fs.existsSync(intentEnginePath)) {
-    let content = fs.readFileSync(intentEnginePath, 'utf-8');
-
-    if (!content.includes('@/data/books/authors-knowledge')) {
-      const newImports = `import { normalizeArabic } from './arabic-normalizer';
-import type { MediaItem } from './types';
-import { RAW_AUTHORS, type AuthorKnowledge } from '@/data/books/authors-knowledge';
-import { RAW_ALIASES, type BookAliasKnowledge } from '@/data/books/aliases-knowledge';
-import { MADHHAB_KEYWORDS, DISCIPLINE_KEYWORDS } from '@/data/books/madhhabs-taxonomy';
-
-export type { AuthorKnowledge, BookAliasKnowledge };
-export { RAW_AUTHORS, RAW_ALIASES, MADHHAB_KEYWORDS, DISCIPLINE_KEYWORDS };
-`;
-      content = content.replace(/import { normalizeArabic } from '\.\/arabic-normalizer';\s*import type { MediaItem } from '\.\/types';/, newImports.trim());
-      content = content.replace(/export interface AuthorKnowledge[\s\S]*?const RAW_AUTHORS = \[[\s\S]*?\];\s*export const CLASSICAL_AUTHORS_KB/, 'export const CLASSICAL_AUTHORS_KB');
-      content = content.replace(/export interface BookAliasKnowledge[\s\S]*?const RAW_ALIASES = \[[\s\S]*?\];\s*export const BOOK_ALIASES_KB/, 'export const BOOK_ALIASES_KB');
-      content = content.replace(/export const MADHHAB_KEYWORDS: Record[\s\S]*?export const DISCIPLINE_KEYWORDS: Record[\s\S]*?\};\s*\/\//, '//');
-
-      fs.writeFileSync(intentEnginePath, content);
-      console.log('✓ book-intent-engine.ts slimmed down and decoupled.');
-    }
-  }
-}
-
 ensureGovernanceFiles();
 ensureRoutePages();
-refactorLargeEngines();
 
 
