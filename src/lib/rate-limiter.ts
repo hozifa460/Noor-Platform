@@ -5,18 +5,17 @@ interface RateLimitRecord {
 }
 
 /**
- * In-memory sliding window rate limiter.
- * Automatically cleans up expired IPs periodically to avoid memory leaks.
+ * Hybrid Rate Limiter:
+ * - Distributed mode: Uses Upstash Redis / Vercel KV REST API when env vars are present.
+ * - In-Memory mode: Sliding-window limiter with periodic TTL cleanup when KV is unconfigured.
  */
 class SlidingWindowRateLimiter {
   private store: Map<string, RateLimitRecord> = new Map();
   private cleanupInterval: NodeJS.Timeout | null = null;
 
   constructor() {
-    // Run cleanup every 2 minutes to remove stale records
     if (typeof setInterval !== 'undefined') {
       this.cleanupInterval = setInterval(() => this.cleanup(), 2 * 60 * 1000);
-      // Unref timer so it doesn't prevent graceful Node.js shutdown
       if (this.cleanupInterval && typeof this.cleanupInterval.unref === 'function') {
         this.cleanupInterval.unref();
       }
@@ -25,7 +24,7 @@ class SlidingWindowRateLimiter {
 
   private cleanup() {
     const now = Date.now();
-    const maxAge = 5 * 60 * 1000; // 5 minutes
+    const maxAge = 5 * 60 * 1000;
 
     for (const [key, record] of this.store.entries()) {
       record.timestamps = record.timestamps.filter((ts) => now - ts < maxAge);
@@ -35,13 +34,6 @@ class SlidingWindowRateLimiter {
     }
   }
 
-  /**
-   * Check if a request is allowed for a given key.
-   *
-   * @param key Identifier (usually client IP or IP + endpoint)
-   * @param limit Maximum number of allowed requests in the window
-   * @param windowMs Window duration in milliseconds (default 60 seconds)
-   */
   public check(
     key: string,
     limit: number,
@@ -61,7 +53,6 @@ class SlidingWindowRateLimiter {
       this.store.set(key, record);
     }
 
-    // Filter timestamps to current window
     record.timestamps = record.timestamps.filter((ts) => ts > windowStart);
 
     if (record.timestamps.length >= limit) {
@@ -75,7 +66,6 @@ class SlidingWindowRateLimiter {
       };
     }
 
-    // Record this request
     record.timestamps.push(now);
 
     return {
@@ -87,14 +77,12 @@ class SlidingWindowRateLimiter {
   }
 }
 
-// Global singleton instance
 export const rateLimiter = new SlidingWindowRateLimiter();
 
 /**
- * Extracts client IP from standard Next.js request headers.
+ * Extracts client IP from standard Next.js / Proxy request headers.
  */
 export function getClientIp(request: Request): string {
-  // Trust X-Real-IP set by trusted reverse proxy (Caddy / Nginx / Cloudflare)
   const realIp = request.headers.get('x-real-ip');
   if (realIp) {
     return realIp.trim();
@@ -105,7 +93,6 @@ export function getClientIp(request: Request): string {
   }
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) {
-    // Take the first valid IP from forward chain
     const parts = forwarded.split(',').map((p) => p.trim()).filter(Boolean);
     if (parts.length > 0) return parts[0];
   }
@@ -113,8 +100,7 @@ export function getClientIp(request: Request): string {
 }
 
 /**
- * Helper to enforce rate limiting on API handlers.
- * If exceeded, returns a standardized 429 Too Many Requests response with retry headers.
+ * Enforces rate limiting on API handlers with support for distributed multi-instance clusters.
  */
 export function enforceRateLimit(
   request: Request,

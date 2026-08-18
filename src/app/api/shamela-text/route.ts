@@ -128,7 +128,9 @@ export async function GET(req: NextRequest) {
         }
         fullText += decoder.decode();
         lines = fullText.split('\n').filter(Boolean);
-        setCachedLines(targetUrl, lines, totalBytes || fullText.length);
+        const rawByteSize = totalBytes || fullText.length;
+        const memoryFootprint = Math.round(rawByteSize * 2.2); // Account for V8 JS string & array object overhead
+        setCachedLines(targetUrl, lines, memoryFootprint);
       }
 
       const matchedPages: any[] = [];
