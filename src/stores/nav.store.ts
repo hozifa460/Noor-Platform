@@ -76,52 +76,49 @@ export const useNavStore = create<NavState>((set) => ({
 }));
 
 /**
- * Push a new entry to the browser's history stack.
- *
- * Each entry carries the full ViewState so it can be restored on Back/Forward.
- * The URL is updated with a hash so the address bar reflects the current view
- * (e.g. `#/videos`, `#/sheikh/menshawy`) — this is purely cosmetic and helps
- * with shareable links.
+ * Push a new entry to the browser's history stack with real App Router paths.
  */
 function pushHistory(state: ViewState): void {
   if (typeof window === 'undefined') return;
-  const hash = viewStateToHash(state);
+  const path = viewStateToPath(state);
   try {
-    window.history.pushState(state, '', hash);
+    window.history.pushState(state, '', path);
   } catch {
-    // Some browsers may reject pushState (e.g. very long titles). Fall back
-    // gracefully — the in-app navigation still works, just without history.
+    // Ignore error on long titles
   }
 }
 
 /**
- * Convert a ViewState to a URL hash for the address bar.
- *   home            → #/
- *   videos          → #/videos
- *   sheikh (id=X)   → #/sheikh/X
- *   search (q=Y)    → #/search?q=Y
+ * Convert a ViewState to a clean URL path.
+ *   home            → /
+ *   videos          → /videos
+ *   sheikh (id=X)   → /sheikh/X
+ *   search (q=Y)    → /search?q=Y
  */
-export function viewStateToHash(state: ViewState): string {
+export function viewStateToPath(state: ViewState): string {
   switch (state.view) {
     case 'home':
-      return '#/';
+      return '/';
     case 'sheikh':
-      return `#/sheikh/${encodeURIComponent(state.sheikhId || '')}`;
+      return `/sheikh/${encodeURIComponent(state.sheikhId || '')}`;
     case 'search':
-      return `#/search?q=${encodeURIComponent(state.searchQuery || '')}`;
+      return `/search?q=${encodeURIComponent(state.searchQuery || '')}`;
     default:
-      return `#/${state.view}`;
+      return `/${state.view}`;
   }
 }
 
+export function viewStateToHash(state: ViewState): string {
+  return viewStateToPath(state);
+}
+
 /**
- * Parse a URL hash back into a ViewState. Used on initial load to restore
- * the view from a shared link, and as a safety net for popstate.
+ * Parse a URL path or hash back into a ViewState.
  */
-export function hashToViewState(hash: string): ViewState | null {
-  const h = hash.replace(/^#/, '');
-  if (!h || h === '/') return { view: 'home' };
-  const parts = h.split('/').filter(Boolean); // e.g. ['sheikh', 'menshawy']
+export function hashToViewState(pathOrHash: string): ViewState | null {
+  const cleaned = pathOrHash.replace(/^[#/]+/, '');
+  if (!cleaned) return { view: 'home' };
+  const parts = cleaned.split('?')[0].split('/').filter(Boolean);
   if (parts.length === 0) return { view: 'home' };
   const [kind, ...rest] = parts;
   switch (kind) {
@@ -130,7 +127,7 @@ export function hashToViewState(hash: string): ViewState | null {
     case 'sheikh':
       return { view: 'sheikh', sheikhId: decodeURIComponent(rest.join('/')) };
     case 'search': {
-      const q = h.includes('?q=') ? decodeURIComponent(h.split('?q=')[1]) : '';
+      const q = pathOrHash.includes('?q=') ? decodeURIComponent(pathOrHash.split('?q=')[1]) : '';
       return { view: 'search', searchQuery: q };
     }
     case 'quran':

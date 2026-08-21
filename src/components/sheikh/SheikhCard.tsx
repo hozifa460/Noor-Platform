@@ -1,8 +1,6 @@
-'use client';
-
+import Link from 'next/link';
 import { ChevronLeft, Verified } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { useNavStore } from '@/stores/nav.store';
 import type { Sheikh } from '@/lib/types';
 
 interface SheikhCardProps {
@@ -27,15 +25,13 @@ function avatarUrl(sheikh: Sheikh): string {
 }
 
 export function SheikhCard({ sheikh }: SheikhCardProps) {
-  const openSheikh = useNavStore((s) => s.openSheikh);
-
   const sectionCount = Object.entries(sheikh.sections)
     .filter(([_, items]) => items.length > 0).length;
 
   return (
-    <button
-      onClick={() => openSheikh(sheikh.id)}
-      className="group relative w-full text-right rounded-2xl overflow-hidden bg-card border border-border hover:border-primary/40 transition-all hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 p-4 flex flex-col items-center"
+    <Link
+      href={`/sheikh/${encodeURIComponent(sheikh.id)}`}
+      className="group relative w-full text-right rounded-2xl overflow-hidden bg-card border border-border hover:border-primary/40 transition-all hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 p-4 flex flex-col items-center cursor-pointer"
     >
       <div className="relative mb-3">
         <div
@@ -91,6 +87,6 @@ export function SheikhCard({ sheikh }: SheikhCardProps) {
       <div className="absolute top-3 left-3 size-7 rounded-full bg-background/80 backdrop-blur grid place-items-center opacity-0 group-hover:opacity-100 transition-opacity">
         <ChevronLeft className="size-4" />
       </div>
-    </button>
+    </Link>
   );
 }

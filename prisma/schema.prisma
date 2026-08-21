@@ -13,20 +13,40 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Bookmark {
+  id          String   @id @default(cuid())
+  itemType    String   // 'ayah' | 'hadith' | 'book' | 'fatwa'
+  referenceId String
+  title       String
+  metadata    String?  // JSON serialized extra metadata
+  createdAt   DateTime @default(now())
 }
 
-model Post {
-  id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model ReadingProgress {
+  id          String   @id @default(cuid())
+  itemType    String   // 'quran' | 'book' | 'hadith'
+  itemId      String
+  position    Int      // Page or Ayah number
+  percentage  Float    @default(0)
+  lastReadAt  DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model UserNote {
+  id          String   @id @default(cuid())
+  targetType  String   // 'ayah' | 'hadith' | 'book'
+  targetId    String
+  content     String
+  color       String?  @default("yellow")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model FavoriteItem {
+  id          String   @id @default(cuid())
+  itemId      String   @unique
+  category    String   // 'quran' | 'hadith' | 'book' | 'fatwa' | 'radio' | 'video'
+  title       String
+  sheikhName  String?
+  createdAt   DateTime @default(now())
 }

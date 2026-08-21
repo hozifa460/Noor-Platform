@@ -148,7 +148,7 @@ export function FatwaLibraryView() {
           </h1>
 
           <p className="text-sm sm:text-base text-emerald-100/80 leading-relaxed mb-6 max-w-2xl">
-            أكثر من 225,000 فتوى شرعية محققة لكبار أئمة وعلماء الإسلام ودور الإفتاء المعتمدة، مع محرك بحث فوري فائق الدقة والسرعة وخفيف على جهازك.
+            موسوعة الفتاوى الشرعية المحققة لكبار أئمة وعلماء الإسلام ودور الإفتاء المعتمدة، مع محرك بحث فوري فائق الدقة والسرعة.
           </p>
 
           {/* Quick Metrics */}
@@ -156,7 +156,7 @@ export function FatwaLibraryView() {
             <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-black/30 backdrop-blur-md border border-white/10">
               <FileQuestion className="size-4 text-emerald-400" />
               <span>
-                <strong className="text-white font-bold">+225,000</strong> فتوى شرعية مفهرسة
+                <strong className="text-white font-bold">{fatwas.length > 0 ? fatwas.length.toLocaleString('ar-EG') : 'فتاوى'}</strong> فتوى شرعية مفهرسة
               </span>
             </div>
             <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-black/30 backdrop-blur-md border border-white/10">

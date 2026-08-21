@@ -48,10 +48,10 @@ const CONTENT_NAV: NavItem[] = [
   { view: 'books', href: '/books', label: 'المكتبة الإسلامية', labelEn: 'Books', icon: BookOpen },
   { view: 'fatwa', href: '/fatwa', label: 'الفتاوى الشرعية', labelEn: 'Fatwas', icon: FileQuestion },
   { view: 'radio', href: '/radio', label: 'الإذاعات الإسلامية', labelEn: 'Radio', icon: Radio },
-  { view: 'videos', href: '/#videos', label: 'الفيديوهات', labelEn: 'Videos', icon: PlayCircle, badge: 'library' },
-  { view: 'shorts', href: '/#shorts', label: 'شورتس', labelEn: 'Shorts', icon: Zap, badge: 'library' },
-  { view: 'live', href: '/#live', label: 'البث المباشر', labelEn: 'Live', icon: Radio },
-  { view: 'articles', href: '/#articles', label: 'المقالات', labelEn: 'Articles', icon: FileText },
+  { view: 'videos', href: '/videos', label: 'الفيديوهات', labelEn: 'Videos', icon: PlayCircle, badge: 'library' },
+  { view: 'shorts', href: '/shorts', label: 'شورتس', labelEn: 'Shorts', icon: Zap, badge: 'library' },
+  { view: 'live', href: '/live', label: 'البث المباشر', labelEn: 'Live', icon: Radio },
+  { view: 'articles', href: '/articles', label: 'المقالات', labelEn: 'Articles', icon: FileText },
 ];
 
 const PERSONAL_NAV: NavItem[] = [

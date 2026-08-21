@@ -1,10 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { ChevronLeft, type LucideIcon } from 'lucide-react';
 import { MediaCard } from '@/components/media/MediaCard';
 import { MediaRailSkeleton } from '@/components/media/MediaCardSkeleton';
 import { useLibraryStore } from '@/stores/library.store';
-import { useNavStore } from '@/stores/nav.store';
 import { useYouTubeDates } from '@/hooks/use-youtube-dates';
 import type { MediaItem, SectionKind } from '@/lib/types';
 import { useMemo } from 'react';
@@ -28,7 +28,6 @@ interface SectionRailProps {
  * This is NOT a random shuffle — it's deterministic based on input order,
  * so the same items always produce the same output (stable UI).
  */
-
 
 /**
  * Returns true if an item was sourced from a YouTube-channel sync file
@@ -58,14 +57,16 @@ function sortByNewestWithDiversity(items: MediaItem[]): MediaItem[] {
   const result: MediaItem[] = [];
   let remaining = items.length;
   while (remaining > 0) {
-    for (const key of order) {
-      const group = groups.get(key);
-      if (group && group.length > 0) {
-        result.push(group.shift()!);
+    let pickedInThisRound = false;
+    for (const sheikhId of order) {
+      const list = groups.get(sheikhId);
+      if (list && list.length > 0) {
+        result.push(list.shift()!);
         remaining--;
-        if (remaining === 0) break;
+        pickedInThisRound = true;
       }
     }
+    if (!pickedInThisRound) break;
   }
   return result;
 }
@@ -98,12 +99,11 @@ export function SectionRail({
   title,
   section,
   icon: Icon,
-  limit = 12,
+  limit = 8,
   loading = false,
   shuffle = true,
 }: SectionRailProps) {
   const items = useLibraryStore((s) => s.items);
-  const setView = useNavStore((s) => s.setView);
   const { getDate } = useYouTubeDates();
 
   const filtered = useMemo(() => {
@@ -131,13 +131,13 @@ export function SectionRail({
             {Icon && <Icon className="size-5 text-primary" />}
             {title}
           </h2>
-          <button
-            onClick={() => setView(section === 'main' ? 'videos' : section)}
+          <Link
+            href={`/${section === 'main' ? 'videos' : section}`}
             className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
           >
             عرض الكل
             <ChevronLeft className="size-3" />
-          </button>
+          </Link>
         </div>
         <MediaRailSkeleton />
       </section>
@@ -160,13 +160,13 @@ export function SectionRail({
           {Icon && <Icon className="size-5 text-primary" />}
           {title}
         </h2>
-        <button
-          onClick={() => setView(section === 'main' ? 'videos' : section)}
+        <Link
+          href={`/${section === 'main' ? 'videos' : section}`}
           className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
         >
           عرض الكل
           <ChevronLeft className="size-3" />
-        </button>
+        </Link>
       </div>
 
       {/* Mobile: 2-col grid (or 3-col for shorts) — allows vertical page scroll */}

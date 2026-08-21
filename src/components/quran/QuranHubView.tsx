@@ -256,7 +256,7 @@ export function QuranHubView() {
   const isVerseLevelAvailable = activeQiraah.id === 'hafs' || activeQiraah.id === 'warsh';
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-40 md:pb-28 select-none">
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-40 md:pb-28">
       {/* Hidden Global Audio Tag */}
       <audio
         ref={audioRef}

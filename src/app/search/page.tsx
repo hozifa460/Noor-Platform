@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { AppShell } from '@/components/layout/AppShell';
 import { SearchView } from '@/components/search/SearchView';
 
 export const metadata: Metadata = {
@@ -14,10 +13,8 @@ export const metadata: Metadata = {
 
 export default function SearchPage() {
   return (
-    <AppShell>
-      <Suspense fallback={<div className="p-12 text-center text-muted-foreground animate-pulse">جاري تحميل نتائج البحث...</div>}>
-        <SearchView />
-      </Suspense>
-    </AppShell>
+    <Suspense fallback={<div className="p-12 text-center text-muted-foreground animate-pulse">جاري تحميل نتائج البحث...</div>}>
+      <SearchView />
+    </Suspense>
   );
 }
