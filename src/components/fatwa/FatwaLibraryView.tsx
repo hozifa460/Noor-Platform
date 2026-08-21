@@ -23,10 +23,13 @@ import { usePlayerStore } from '@/stores/player.store';
 import type { MediaItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { normalizeArabic } from '@/lib/arabic-normalizer';
 
 export function FatwaLibraryView() {
   const _fatwas = useFatwaStore((s) => s.fatwas);
   const searching = useFatwaStore((s) => s.searching);
+  const fatwas = useFatwaStore((s) => s.fatwas);
+  const searchResults = useFatwaStore((s) => s.searchResults);
   const selectedCategory = useFatwaStore((s) => s.selectedCategory);
   const selectedScholar = useFatwaStore((s) => s.selectedScholar);
   const searchQuery = useFatwaStore((s) => s.searchQuery);
@@ -35,7 +38,6 @@ export function FatwaLibraryView() {
   const setSelectedCategory = useFatwaStore((s) => s.setSelectedCategory);
   const setSelectedScholar = useFatwaStore((s) => s.setSelectedScholar);
   const setSearchQuery = useFatwaStore((s) => s.setSearchQuery);
-  const getFilteredFatwas = useFatwaStore((s) => s.getFilteredFatwas);
 
   const openPlayer = usePlayerStore((s) => s.open);
 
@@ -106,8 +108,24 @@ export function FatwaLibraryView() {
   };
 
   const filteredFatwas = useMemo(() => {
-    return getFilteredFatwas();
-  }, [getFilteredFatwas]);
+    if (searchQuery.trim()) {
+      return searchResults;
+    }
+
+    if (selectedCategory === 'all' && selectedScholar === 'all') {
+      return fatwas;
+    }
+
+    const schInfo = SCHOLARS_LIST.find((s) => s.id === selectedScholar);
+    const schQuery = schInfo?.query || schInfo?.name || (selectedScholar !== 'all' ? selectedScholar : '');
+    const normScholar = schQuery ? normalizeArabic(schQuery) : '';
+
+    return fatwas.filter((item) => {
+      if (selectedCategory !== 'all' && item.tags?.[0] !== selectedCategory) return false;
+      if (normScholar && !normalizeArabic(item.sheikhName || '').includes(normScholar)) return false;
+      return true;
+    });
+  }, [fatwas, searchResults, searchQuery, selectedCategory, selectedScholar]);
 
   const displayedFatwas = useMemo(() => {
     return filteredFatwas.slice(0, visibleCount);

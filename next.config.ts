@@ -34,7 +34,7 @@ const securityHeaders = [
       "img-src 'self' data: blob: https:;",
       "media-src 'self' blob: https:;",
       "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com;",
-      "connect-src 'self' blob: data: https://huggingface.co https://*.huggingface.co https://raw.githubusercontent.com https://api.alquran.cloud https://api.qurancdn.com https://mp3quran.net https://*.mp3quran.net https://archive.org https://*.archive.org https://gitlab.com https://*.ytimg.com https://www.youtube.com https://*.upstash.io;",
+      "connect-src 'self' blob: data: https://everyayah.com https://*.everyayah.com https://huggingface.co https://*.huggingface.co https://raw.githubusercontent.com https://api.alquran.cloud https://api.qurancdn.com https://mp3quran.net https://*.mp3quran.net https://archive.org https://*.archive.org https://gitlab.com https://*.ytimg.com https://www.youtube.com https://*.upstash.io;",
       "font-src 'self' data: https://fonts.gstatic.com;",
       "worker-src 'self' blob:;",
       "object-src 'none';",

@@ -93,6 +93,9 @@ export function HadithHubView() {
 
   const filteredBooksList = useMemo(() => {
     if (categoryFilter === 'all') return HADITH_BOOKS_LIST;
+    if (categoryFilter === 'jawami') {
+      return HADITH_BOOKS_LIST.filter((b) => b.category === 'jawami' || b.category === 'masanid');
+    }
     return HADITH_BOOKS_LIST.filter((b) => b.category === categoryFilter);
   }, [categoryFilter]);
 

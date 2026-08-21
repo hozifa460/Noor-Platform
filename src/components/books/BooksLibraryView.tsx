@@ -71,8 +71,8 @@ export function BooksLibraryView() {
   }
 
   const filteredBooks = useMemo(
-    () => getFilteredBooks(),
-    [getFilteredBooks],
+    () => getFilteredBooks(books, selectedCategory, selectedLanguage, searchQuery),
+    [getFilteredBooks, books, selectedCategory, selectedLanguage, searchQuery],
   );
   const displayedBooks = filteredBooks.slice(0, visibleCount);
 
@@ -82,8 +82,8 @@ export function BooksLibraryView() {
   };
 
   const handleOpenFeatured = (fc: FeaturedClassic) => {
-    // 1. Quran Mushaf Featured Item
-    if (fc.artTag === 'quran' || fc.id.startsWith('quran-')) {
+    // 1. Quran Mushaf Featured Item ONLY (actual Mushafs, not Tafsir books)
+    if (fc.id.startsWith('quran-') || (fc.artTag === 'quran' && !fc.id.includes('tafsir') && !fc.id.includes('shamela'))) {
       const existing = books.find((b) => b.id === fc.id);
       if (existing) {
         openPlayer(existing);
@@ -103,7 +103,7 @@ export function BooksLibraryView() {
       return;
     }
 
-    // 2. Classical Heritage Book Item
+    // 2. Classical Heritage Book Item (Tafsir, Hadith, Fiqh, Language)
     const existing = books.find((b) => b.id === fc.id || (fc.shamelaId && (b as unknown as Record<string, unknown>).shamelaId === fc.shamelaId));
     if (existing) {
       openPlayer(existing);

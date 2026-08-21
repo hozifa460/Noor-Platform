@@ -152,14 +152,19 @@ export function QuranHubView() {
 
   // Audio Playback effect
   useEffect(() => {
-    if (!audioRef.current) return;
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (currentAudioUrl && audio.src !== currentAudioUrl) {
+      audio.src = currentAudioUrl;
+    }
+
     if ((isPlayingAudio || isPlayingFullSurah) && currentAudioUrl) {
-      audioRef.current.src = currentAudioUrl;
-      audioRef.current.play().catch((err) => {
+      audio.play().catch((err) => {
         console.warn('Audio play prevented or format fallback:', err);
       });
     } else {
-      audioRef.current.pause();
+      audio.pause();
     }
   }, [isPlayingAudio, isPlayingFullSurah, currentAudioUrl]);
 

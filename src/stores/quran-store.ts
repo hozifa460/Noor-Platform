@@ -296,14 +296,16 @@ export const useQuranStore = create<QuranState>((set, get) => ({
     set({ currentPlayingAyah: null, isPlayingAudio: false });
   },
 
-  playNextAyah: () => {
-    const { currentPlayingAyah, surahData, nextSurah, autoPlayNext } = get();
+  playNextAyah: async () => {
+    const { currentPlayingAyah, surahData, autoPlayNext, activeSurah, loadSurah } = get();
     if (!surahData || currentPlayingAyah === null) return;
 
     if (currentPlayingAyah < surahData.totalAyahs) {
       set({ currentPlayingAyah: currentPlayingAyah + 1, isPlayingAudio: true });
-    } else if (autoPlayNext && surahData.surahNo < 114) {
-      nextSurah();
+    } else if (autoPlayNext && activeSurah.number < 114) {
+      const next = ALL_SURAHS[activeSurah.number];
+      set({ activeSurah: next, currentPlayingAyah: null, isPlayingAudio: false });
+      await loadSurah(next.number);
       set({ currentPlayingAyah: 1, isPlayingAudio: true });
     } else {
       set({ currentPlayingAyah: null, isPlayingAudio: false });
