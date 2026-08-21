@@ -546,8 +546,8 @@ function ensureRoutePages() {
       name: 'Search',
       title: 'البحث الشامل في العلوم الإسلامية | منصة نور',
       desc: 'محرك بحث إسلامي فوري يبحث في آيات القرآن الكريم والأحاديث النبوية وكتب التراث والفتاوى.',
-      componentImport: "import { SearchView } from '@/components/search/SearchView';",
-      component: '<SearchView />',
+      componentImport: "import { Suspense } from 'react';\nimport { SearchView } from '@/components/search/SearchView';",
+      component: '<Suspense fallback={<div className="p-12 text-center text-muted-foreground animate-pulse">جاري تحميل نتائج البحث...</div>}><SearchView /></Suspense>',
     },
     {
       dir: 'sheikhs',
