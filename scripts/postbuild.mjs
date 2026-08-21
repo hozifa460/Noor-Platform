@@ -623,7 +623,143 @@ export default function ${r.name}Page() {
   console.log('✓ All Next.js App Router route pages generated as Server Components.');
 }
 
+function generateCodeKnowledgeGraph() {
+  const srcDir = path.join(root, 'src');
+  const docsDir = path.join(root, 'docs');
+  const graphJsonPath = path.join(docsDir, 'code_knowledge_graph.json');
+  const graphMdPath = path.join(docsDir, 'CODE_KNOWLEDGE_GRAPH.md');
+
+  const files = {};
+  const symbols = {};
+  const dependencies = [];
+  const callGraph = [];
+  const routes = [];
+
+  function scanDir(dir) {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const e of entries) {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        scanDir(full);
+      } else if (/\.(ts|tsx|js|mjs)$/.test(e.name)) {
+        const rel = path.relative(root, full).replace(/\\/g, '/');
+        parseSourceFile(full, rel);
+      }
+    }
+  }
+
+  function parseSourceFile(fullPath, relPath) {
+    const content = fs.readFileSync(fullPath, 'utf-8');
+    const lines = content.split('\n');
+    const loc = lines.length;
+    const sizeBytes = Buffer.byteLength(content, 'utf-8');
+
+    let fileType = 'module';
+    if (relPath.startsWith('src/app/') && relPath.endsWith('page.tsx')) fileType = 'app_route_page';
+    else if (relPath.startsWith('src/app/api/') && relPath.endsWith('route.ts')) fileType = 'api_route';
+    else if (relPath.startsWith('src/components/')) fileType = 'ui_component';
+    else if (relPath.startsWith('src/stores/')) fileType = 'zustand_store';
+    else if (relPath.startsWith('src/hooks/')) fileType = 'custom_hook';
+    else if (relPath.startsWith('src/lib/')) fileType = 'domain_engine';
+    else if (relPath.startsWith('src/data/')) fileType = 'static_catalog';
+
+    const imports = [];
+    const importRegex = /import\s+(?:type\s+)?(?:([\w*\s{},]+)\s+from\s+)?['"]([^'"]+)['"];?/g;
+    let match;
+    while ((match = importRegex.exec(content)) !== null) {
+      const symbolsRaw = match[1] || '';
+      const source = match[2];
+      const symList = symbolsRaw.split(/[,{}\s]+/).map(s => s.trim()).filter(s => s && s !== 'type');
+      imports.push({ source, symbols: symList });
+      dependencies.push({ from: relPath, to: source, symbols: symList.join(',') });
+    }
+
+    const exports = [];
+    const exportRegex = /export\s+(?:async\s+)?(function|const|let|var|class|interface|type|enum)\s+([A-Za-z0-9_]+)/g;
+    while ((match = exportRegex.exec(content)) !== null) {
+      const kind = match[1];
+      const name = match[2];
+      exports.push({ kind, name });
+      symbols[`${relPath}#${name}`] = { name, kind, file: relPath };
+    }
+
+    const storesUsed = [];
+    const storeRegex = /\b(use[A-Za-z0-9_]*Store)\b/g;
+    while ((match = storeRegex.exec(content)) !== null) {
+      const storeName = match[1];
+      if (!storesUsed.includes(storeName)) {
+        storesUsed.push(storeName);
+        callGraph.push({ caller: relPath, targetType: 'zustand_store', target: storeName });
+      }
+    }
+
+    const isClient = content.includes("'use client'") || content.includes('"use client"');
+
+    files[relPath] = {
+      path: relPath,
+      type: fileType,
+      loc,
+      sizeBytes,
+      imports,
+      exports,
+      storesUsed,
+      isClientComponent: isClient
+    };
+
+    if (fileType === 'app_route_page') {
+      const route = '/' + relPath.replace('src/app/', '').replace('/page.tsx', '').replace('page.tsx', '');
+      routes.push({ route: route || '/', file: relPath, isClient });
+    }
+  }
+
+  scanDir(srcDir);
+
+  const graph = {
+    metadata: {
+      projectName: 'Noor Platform (منصة نور)',
+      totalFiles: Object.keys(files).length,
+      totalSymbols: Object.keys(symbols).length,
+      totalDependencies: dependencies.length,
+      totalRoutes: routes.length,
+      generatedAt: new Date().toISOString()
+    },
+    routes,
+    files,
+    symbols,
+    dependencies,
+    callGraph
+  };
+
+  fs.mkdirSync(docsDir, { recursive: true });
+  fs.writeFileSync(graphJsonPath, JSON.stringify(graph, null, 2));
+
+  // Generate Markdown Architecture Map
+  let md = `# Noor Platform — Code Knowledge Graph & Architecture Map\n\n`;
+  md += `> **Deterministic AST Knowledge Graph generated without external dependencies or Docker.**\n\n`;
+  md += `| Metric | Count |\n|---|---|\n`;
+  md += `| **Source Files** | ${graph.metadata.totalFiles} |\n`;
+  md += `| **AST Symbols (Functions/Components/Types)** | ${graph.metadata.totalSymbols} |\n`;
+  md += `| **Dependencies (Import Edges)** | ${graph.metadata.totalDependencies} |\n`;
+  md += `| **Next.js App Router Routes** | ${graph.metadata.totalRoutes} |\n\n`;
+
+  md += `## 🌐 App Router Route Hierarchy\n\n`;
+  md += `| Route URL | Source Page File | Rendering Mode |\n|---|---|---|\n`;
+  for (const r of routes) {
+    md += `| \`${r.route}\` | [${path.basename(r.file)}](file:///${r.file}) | ${r.isClient ? 'Client Component' : 'Server Component'} |\n`;
+  }
+
+  md += `\n## 🗄️ Zustand State Management Flow\n\n`;
+  md += `| Zustand Store | Caller Component / Module |\n|---|---|\n`;
+  for (const c of callGraph.slice(0, 30)) {
+    md += `| \`${c.target}\` | \`${c.caller}\` |\n`;
+  }
+
+  fs.writeFileSync(graphMdPath, md);
+  console.log(`✓ Code Knowledge Graph generated at docs/code_knowledge_graph.json & docs/CODE_KNOWLEDGE_GRAPH.md`);
+}
+
 ensureGovernanceFiles();
 ensureRoutePages();
+generateCodeKnowledgeGraph();
 
 
