@@ -15,8 +15,8 @@ export interface FeaturedClassic {
 
 export const FEATURED_ISLAMIC_CLASSICS: FeaturedClassic[] = [
   {
-    id: 'shamela-1167',
-    shamelaId: 1167,
+    id: 'shamela-1165',
+    shamelaId: 1165,
     title: 'صحيح البخاري',
     author: 'الإمام محمد بن إسماعيل البخاري',
     authorDeath: 'ت ٢٥٦ هـ',
@@ -29,7 +29,8 @@ export const FEATURED_ISLAMIC_CLASSICS: FeaturedClassic[] = [
     icon: '📜',
   },
   {
-    id: 'book-sahih-muslim',
+    id: 'shamela-1167',
+    shamelaId: 1167,
     title: 'صحيح مسلم',
     author: 'الإمام مسلم بن الحجاج النيسابوري',
     authorDeath: 'ت ٢٦١ هـ',
@@ -48,7 +49,7 @@ export const FEATURED_ISLAMIC_CLASSICS: FeaturedClassic[] = [
     author: 'الحافظ عماد الدين ابن كثير',
     authorDeath: 'ت ٧٧٤ هـ',
     discipline: 'التفسير',
-    artTag: 'quran',
+    artTag: 'tafsir',
     volumes: 8,
     description: 'عمدة كتب التفسير بالمأثور، يجمع بين تفسير القرآن بالقرآن وبالسنة وأقوال الصحابة والتابعين.',
     gradient: 'from-emerald-950 via-slate-900 to-teal-950',

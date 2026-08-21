@@ -1,5 +1,5 @@
-'use client';
-
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   Home,
   Users,
@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils';
 
 interface NavItem {
   view: ViewKind;
+  href: string;
   label: string;
   labelEn: string;
   icon: LucideIcon;
@@ -37,27 +38,27 @@ interface NavItem {
 }
 
 const MAIN_NAV: NavItem[] = [
-  { view: 'home', label: 'الرئيسية', labelEn: 'Home', icon: Home },
-  { view: 'quran', label: 'القرآن الكريم', labelEn: 'Holy Quran', icon: BookOpen },
-  { view: 'hadith', label: 'الحديث النبوي', labelEn: 'Hadith', icon: Scroll },
-  { view: 'sheikhs', label: 'المشايخ', labelEn: 'Sheikhs', icon: Users },
+  { view: 'home', href: '/', label: 'الرئيسية', labelEn: 'Home', icon: Home },
+  { view: 'quran', href: '/quran', label: 'القرآن الكريم', labelEn: 'Holy Quran', icon: BookOpen },
+  { view: 'hadith', href: '/hadith', label: 'الحديث النبوي', labelEn: 'Hadith', icon: Scroll },
+  { view: 'sheikhs', href: '/sheikhs', label: 'المشايخ', labelEn: 'Sheikhs', icon: Users },
 ];
 
 const CONTENT_NAV: NavItem[] = [
-  { view: 'videos', label: 'الفيديوهات', labelEn: 'Videos', icon: PlayCircle, badge: 'library' },
-  { view: 'shorts', label: 'شورتس', labelEn: 'Shorts', icon: Zap, badge: 'library' },
-  { view: 'live', label: 'البث المباشر', labelEn: 'Live', icon: Radio },
-  { view: 'radio', label: 'الإذاعات', labelEn: 'Radio', icon: Radio },
-  { view: 'fatwa', label: 'الفتاوى', labelEn: 'Fatwas', icon: FileQuestion },
-  { view: 'books', label: 'الكتب', labelEn: 'Books', icon: BookOpen },
-  { view: 'articles', label: 'المقالات', labelEn: 'Articles', icon: FileText },
+  { view: 'books', href: '/books', label: 'المكتبة الإسلامية', labelEn: 'Books', icon: BookOpen },
+  { view: 'fatwa', href: '/fatwa', label: 'الفتاوى الشرعية', labelEn: 'Fatwas', icon: FileQuestion },
+  { view: 'radio', href: '/radio', label: 'الإذاعات الإسلامية', labelEn: 'Radio', icon: Radio },
+  { view: 'videos', href: '/#videos', label: 'الفيديوهات', labelEn: 'Videos', icon: PlayCircle, badge: 'library' },
+  { view: 'shorts', href: '/#shorts', label: 'شورتس', labelEn: 'Shorts', icon: Zap, badge: 'library' },
+  { view: 'live', href: '/#live', label: 'البث المباشر', labelEn: 'Live', icon: Radio },
+  { view: 'articles', href: '/#articles', label: 'المقالات', labelEn: 'Articles', icon: FileText },
 ];
 
 const PERSONAL_NAV: NavItem[] = [
-  { view: 'favorites', label: 'المفضلة', labelEn: 'Favorites', icon: Heart, badge: 'favorites' },
-  { view: 'history', label: 'السجل', labelEn: 'History', icon: History, badge: 'history' },
-  { view: 'downloads', label: 'التنزيلات', labelEn: 'Downloads', icon: Download, badge: 'downloads' },
-  { view: 'settings', label: 'الإعدادات', labelEn: 'Settings', icon: Settings },
+  { view: 'favorites', href: '/favorites', label: 'المفضلة', labelEn: 'Favorites', icon: Heart, badge: 'favorites' },
+  { view: 'history', href: '/history', label: 'السجل', labelEn: 'History', icon: History, badge: 'history' },
+  { view: 'downloads', href: '/downloads', label: 'التنزيلات', labelEn: 'Downloads', icon: Download, badge: 'downloads' },
+  { view: 'settings', href: '/settings', label: 'الإعدادات', labelEn: 'Settings', icon: Settings },
 ];
 
 interface SidebarProps {
@@ -66,7 +67,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ open, onClose }: SidebarProps) {
-  const view = useNavStore((s) => s.view);
+  const pathname = usePathname();
   const setView = useNavStore((s) => s.setView);
 
   const libraryItems = useLibraryStore((s) => s.items);
@@ -83,9 +84,14 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     return null;
   };
 
-  const handleNavigate = (v: ViewKind) => {
-    setView(v);
+  const handleNavigate = (item: NavItem) => {
+    setView(item.view);
     onClose();
+  };
+
+  const isItemActive = (href: string) => {
+    if (href === '/') return pathname === '/';
+    return pathname === href || pathname.startsWith(href + '/');
   };
 
   const renderSection = (title: string, items: NavItem[]) => (
@@ -96,12 +102,13 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       <nav className="space-y-0.5">
         {items.map((item) => {
           const Icon = item.icon;
-          const active = view === item.view;
+          const active = isItemActive(item.href);
           const badge = getBadge(item.badge);
           return (
-            <button
-              key={item.view}
-              onClick={() => handleNavigate(item.view)}
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => handleNavigate(item)}
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all',
                 'hover:bg-accent hover:text-accent-foreground',
@@ -115,7 +122,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                   {badge > 999 ? '999+' : badge}
                 </Badge>
               )}
-            </button>
+            </Link>
           );
         })}
       </nav>

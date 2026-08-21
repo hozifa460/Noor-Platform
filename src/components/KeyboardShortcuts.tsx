@@ -33,9 +33,12 @@ export function KeyboardShortcuts() {
       // "/" focuses search
       if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
-        const searchInput = document.querySelector<HTMLInputElement>('input[type="text"][placeholder*="ابحث"]');
+        const searchInput = document.querySelector<HTMLInputElement>(
+          'input[placeholder*="ابحث"], input[type="search"], input[aria-label*="بحث"], input[type="text"]'
+        );
         if (searchInput) {
           searchInput.focus();
+          searchInput.select();
         }
         return;
       }
@@ -64,10 +67,10 @@ export function KeyboardShortcuts() {
         return;
       }
 
-      // Escape: go home (simplified — could close modals etc.)
+      // Escape: close open drawers/modals first
       if (e.key === 'Escape') {
-        const player = document.querySelector('[role="dialog"]');
-        if (!player) {
+        const modalOrDrawer = document.querySelector('[role="dialog"], [data-state="open"], .fixed.inset-0');
+        if (!modalOrDrawer) {
           goHome();
         }
         return;

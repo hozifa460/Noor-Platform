@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Search, Moon, Sun, Menu, RefreshCw, Radio, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -16,6 +18,7 @@ interface HeaderProps {
 }
 
 export function Header({ onToggleSidebar }: HeaderProps) {
+  const router = useRouter();
   const { theme, setTheme } = useTheme();
   const mounted = useMounted();
   const [query, setQuery] = useState('');
@@ -27,7 +30,11 @@ export function Header({ onToggleSidebar }: HeaderProps) {
 
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (query.trim()) openSearch(query.trim());
+    const q = query.trim();
+    if (q) {
+      openSearch(q);
+      router.push(`/search?q=${encodeURIComponent(q)}`);
+    }
   };
 
   return (
@@ -45,7 +52,8 @@ export function Header({ onToggleSidebar }: HeaderProps) {
         </Button>
 
         {/* Logo */}
-        <button
+        <Link
+          href="/"
           onClick={goHome}
           className="flex items-center gap-2 shrink-0 group"
           aria-label="الصفحة الرئيسية"
@@ -58,9 +66,9 @@ export function Header({ onToggleSidebar }: HeaderProps) {
           </div>
           <div className="hidden sm:flex flex-col leading-tight text-right">
             <span className="font-bold text-base">منصة النور</span>
-            <span className="text-[10px] text-muted-foreground">Islamic Streaming</span>
+            <span className="text-[10px] text-muted-foreground font-medium">موسوعة العلوم الإسلامية</span>
           </div>
-        </button>
+        </Link>
 
         {/* Search */}
         <form

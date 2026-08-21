@@ -1,61 +1,62 @@
 'use client';
 
-import { Home, Users, Search, BookOpen, Settings } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Home, BookOpen, Scroll, Library, Radio, Search } from 'lucide-react';
 import { useNavStore } from '@/stores/nav.store';
 import type { ViewKind } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
   view: ViewKind;
+  href: string;
   label: string;
   icon: typeof Home;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { view: 'home', label: 'الرئيسية', icon: Home },
-  { view: 'quran', label: 'القرآن', icon: BookOpen },
-  { view: 'sheikhs', label: 'مشايخ', icon: Users },
-  { view: 'search', label: 'بحث', icon: Search },
-  { view: 'settings', label: 'إعدادات', icon: Settings },
+  { view: 'home', href: '/', label: 'الرئيسية', icon: Home },
+  { view: 'quran', href: '/quran', label: 'القرآن', icon: BookOpen },
+  { view: 'hadith', href: '/hadith', label: 'الحديث', icon: Scroll },
+  { view: 'books', href: '/books', label: 'المكتبة', icon: Library },
+  { view: 'radio', href: '/radio', label: 'الإذاعات', icon: Radio },
+  { view: 'search', href: '/search', label: 'بحث', icon: Search },
 ];
 
 /**
  * Mobile bottom navigation bar — shown only on small screens (lg:hidden).
- * Replaces the sidebar for quick navigation on phones.
+ * Direct Next.js App Router navigation across all primary Islamic hubs.
  */
 export function MobileNav() {
-  const view = useNavStore((s) => s.view);
+  const pathname = usePathname();
   const setView = useNavStore((s) => s.setView);
-  const openSearch = useNavStore((s) => s.openSearch);
 
-  const handleNav = (item: NavItem) => {
-    if (item.view === 'search') {
-      openSearch('');
-    } else {
-      setView(item.view);
-    }
+  const isItemActive = (href: string) => {
+    if (href === '/') return pathname === '/';
+    return pathname === href || pathname.startsWith(href + '/');
   };
 
   return (
-    <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 glass border-t border-border">
-      <div className="grid grid-cols-5 gap-1 px-2 py-1.5 safe-area-inset-bottom">
+    <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 glass border-t border-border shadow-lg">
+      <div className="grid grid-cols-6 gap-0.5 px-1 py-1.5 safe-area-inset-bottom">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
-          const active = view === item.view || (item.view === 'search' && view === 'search');
+          const active = isItemActive(item.href);
           return (
-            <button
-              key={item.view}
-              onClick={() => handleNav(item)}
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setView(item.view)}
               className={cn(
-                'flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg transition-colors',
-                active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
+                'flex flex-col items-center gap-0.5 py-1 px-0.5 rounded-lg transition-colors',
+                active ? 'text-primary font-bold' : 'text-muted-foreground hover:text-foreground',
               )}
               aria-label={item.label}
               aria-current={active ? 'page' : undefined}
             >
-              <Icon className={cn('size-5', active && 'fill-primary/20')} />
-              <span className="text-[10px] font-medium">{item.label}</span>
-            </button>
+              <Icon className={cn('size-4 sm:size-5', active && 'stroke-[2.5] text-primary')} />
+              <span className="text-[9px] sm:text-[10px] leading-tight">{item.label}</span>
+            </Link>
           );
         })}
       </div>

@@ -38,7 +38,7 @@ interface BooksState {
   setSelectedLanguage: (langCode: string) => void;
   setSearchQuery: (query: string) => void;
   setViewMode: (mode: "grid" | "list") => void;
-  getFilteredBooks: () => MediaItem[];
+  getFilteredBooks: (customBooks?: MediaItem[], customCat?: string, customLang?: string, customQuery?: string) => MediaItem[];
 }
 
 const LOCAL_CACHE_KEY = 'noor-books-shamela-v4';
@@ -288,8 +288,11 @@ export const useBooksStore = create<BooksState>((set, get) => ({
     }
   },
 
-  getFilteredBooks: () => {
-    const { books, selectedCategory, selectedLanguage, searchQuery } = get();
+  getFilteredBooks: (customBooks?: MediaItem[], customCat?: string, customLang?: string, customQuery?: string) => {
+    const books = customBooks ?? get().books;
+    const selectedCategory = customCat ?? get().selectedCategory;
+    const selectedLanguage = customLang ?? get().selectedLanguage;
+    const searchQuery = customQuery ?? get().searchQuery;
     const queryTrimmed = searchQuery.trim();
 
     // Intent-Driven Semantic Search
