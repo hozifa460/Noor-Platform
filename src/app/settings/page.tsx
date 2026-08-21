@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { AppShell } from '@/components/layout/AppShell';
 import { SettingsView } from '@/components/library/SettingsView';
 
 export const metadata: Metadata = {
@@ -12,9 +11,5 @@ export const metadata: Metadata = {
 };
 
 export default function SettingsPage() {
-  return (
-    <AppShell>
-      <SettingsView />
-    </AppShell>
-  );
+  return <SettingsView />;
 }

@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { AppShell } from '@/components/layout/AppShell';
 import { HistoryView } from '@/components/library/HistoryView';
 
 export const metadata: Metadata = {
@@ -12,9 +11,5 @@ export const metadata: Metadata = {
 };
 
 export default function HistoryPage() {
-  return (
-    <AppShell>
-      <HistoryView />
-    </AppShell>
-  );
+  return <HistoryView />;
 }

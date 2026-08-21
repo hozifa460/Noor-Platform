@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { AppShell } from '@/components/layout/AppShell';
 import { QuranHubView } from '@/components/quran/QuranHubView';
 
 export const metadata: Metadata = {
@@ -12,9 +11,5 @@ export const metadata: Metadata = {
 };
 
 export default function QuranPage() {
-  return (
-    <AppShell>
-      <QuranHubView />
-    </AppShell>
-  );
+  return <QuranHubView />;
 }

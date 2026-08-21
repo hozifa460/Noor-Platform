@@ -1,10 +1,8 @@
-'use client';
-
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { BookOpen, Copy, Check, Globe, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { loadHadithBook, type HadithItem, type HadithChapter } from '@/lib/hadith-engine';
+import type { HadithItem, HadithChapter } from '@/lib/hadith-engine';
 import type { HadithBookMeta } from '@/lib/hadith-data';
 import { getHadithGrade } from '@/lib/hadith-grade-engine';
 import { cn } from '@/lib/utils';
@@ -26,30 +24,8 @@ export function HadithCard({
   const [copied, setCopied] = useState(false);
   const [showEnglish, setShowEnglish] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [extraResolved, setExtraResolved] = useState<string | null>(null);
-  const resolvedArabic = extraResolved || hadith.arabic;
-
+  const resolvedArabic = hadith.arabic;
   const gradeInfo = getHadithGrade(book.id, hadith.idInBook);
-
-  // Asynchronously resolve the FULL authentic text if card received a short preview
-  useEffect(() => {
-    let isMounted = true;
-    if (hadith.arabic.length < 80) {
-      loadHadithBook(book.fileName).then((bookData) => {
-        if (isMounted && bookData && bookData.hadiths) {
-          const fullItem = bookData.hadiths.find(
-            (h) => h.idInBook === hadith.idInBook || h.id === hadith.id
-          );
-          if (fullItem && fullItem.arabic && fullItem.arabic.length > hadith.arabic.length) {
-            setExtraResolved(fullItem.arabic);
-          }
-        }
-      }).catch(() => {});
-    }
-    return () => {
-      isMounted = false;
-    };
-  }, [hadith.arabic, hadith.idInBook, hadith.id, book.fileName]);
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();

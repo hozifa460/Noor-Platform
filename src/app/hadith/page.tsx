@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { AppShell } from '@/components/layout/AppShell';
 import { HadithHubView } from '@/components/hadith/HadithHubView';
 
 export const metadata: Metadata = {
@@ -12,9 +11,5 @@ export const metadata: Metadata = {
 };
 
 export default function HadithPage() {
-  return (
-    <AppShell>
-      <HadithHubView />
-    </AppShell>
-  );
+  return <HadithHubView />;
 }

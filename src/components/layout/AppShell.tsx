@@ -29,11 +29,20 @@ export function AppShell({ children }: AppShellProps) {
   useLiveMonitor();
 
   const theme = useSettingsStore((s) => s.theme);
+  const language = useSettingsStore((s) => s.language);
+  const rtl = useSettingsStore((s) => s.rtl);
   const { setTheme } = useTheme();
 
   useEffect(() => {
     setTheme(theme);
   }, [theme, setTheme]);
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = language || 'ar';
+      document.documentElement.dir = rtl ? 'rtl' : 'ltr';
+    }
+  }, [language, rtl]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

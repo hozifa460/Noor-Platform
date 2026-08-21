@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Cairo, Amiri } from "next/font/google";
 import "./globals.css";
+import { AppShell } from "@/components/layout/AppShell";
 import { Toaster } from "@/components/ui/toaster";
 import { Providers } from "@/components/providers";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -59,7 +60,7 @@ export default function RootLayout({
         className={`${cairo.variable} ${amiri.variable} font-sans antialiased bg-background text-foreground min-h-screen`}
       >
         <Providers>
-          {children}
+          <AppShell>{children}</AppShell>
           <Toaster />
           <Sonner position="top-center" richColors closeButton />
         </Providers>

@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { AppShell } from '@/components/layout/AppShell';
 import { FatwaLibraryView } from '@/components/fatwa/FatwaLibraryView';
 
 export const metadata: Metadata = {
@@ -12,9 +11,5 @@ export const metadata: Metadata = {
 };
 
 export default function FatwaPage() {
-  return (
-    <AppShell>
-      <FatwaLibraryView />
-    </AppShell>
-  );
+  return <FatwaLibraryView />;
 }

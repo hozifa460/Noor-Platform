@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { AppShell } from '@/components/layout/AppShell';
 import { SheikhsListView } from '@/components/sheikh/SheikhsListView';
 
 export const metadata: Metadata = {
@@ -12,9 +11,5 @@ export const metadata: Metadata = {
 };
 
 export default function SheikhsPage() {
-  return (
-    <AppShell>
-      <SheikhsListView />
-    </AppShell>
-  );
+  return <SheikhsListView />;
 }

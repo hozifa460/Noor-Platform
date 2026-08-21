@@ -106,7 +106,7 @@ export function HadithHubView() {
   }, [bookData, selectedChapterId]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-28 select-none">
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-28">
       {/* Top Sticky Header */}
       <header className="sticky top-0 z-30 border-b border-border/80 bg-background/95 backdrop-blur-md px-3 sm:px-6 py-3">
         <div className="flex flex-wrap items-center justify-between gap-2.5 max-w-7xl mx-auto">
