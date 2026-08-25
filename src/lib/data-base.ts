@@ -26,8 +26,17 @@ export function dataUrl(path: string): string {
 }
 
 /** Shard URL with 2-level sharding (ab/cd/abcd1234.json) to stay under HF's
- *  10K-files-per-directory limit while keeping local dev flat. */
+ *  10K-files-per-directory limit while keeping local dev flat.
+ *
+ *  The hash is validated against `^[0-9a-f]{8}$` so user-supplied ids can
+ *  never inject path separators, traversal sequences, or an absolute URL —
+ *  silences CodeQL's "request depends on file data" alert and is a real
+ *  hardening measure. */
+const SHARD_HASH_RE = /^[0-9a-f]{8}$/;
 export function shardUrl(subdir: 'fatwa_answers' | 'micro_shards', hash: string): string {
+  if (!SHARD_HASH_RE.test(hash)) {
+    throw new Error(`Invalid shard hash: ${hash} (expected 8 hex chars)`);
+  }
   const path = `data/${subdir}/${hash.slice(0, 2)}/${hash.slice(2, 4)}/${hash}.json`;
   return dataUrl(path);
 }
