@@ -8,7 +8,7 @@
  *  - Stale-while-revalidate for static public data JSON.
  */
 
-const CACHE_VERSION = 'v2-mt2y6j9i';
+const CACHE_VERSION = 'v3-hf-shards';
 const STATIC_CACHE = `noor-static-${CACHE_VERSION}`;
 const CONTENT_CACHE = `noor-content-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
@@ -84,8 +84,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 5. Static JSON under 2MB (stale-while-revalidate with LRU size limit)
+  // 5. Static JSON (stale-while-revalidate) — same-origin AND HuggingFace dataset.
+  //    Fatwa shards on HF are immutable (1.1GB, 226k files); a long cache keeps
+  //    repeat visitors off the network entirely.
+  const isHfDataHost = url.hostname === 'huggingface.co' || url.hostname.endsWith('.huggingface.co');
   if (url.pathname.endsWith('.json') && !url.pathname.includes('manifest')) {
+    const isFatwaShard = /\/data\/(fatwa_answers|shards|micro_shards|fatwa_browse)\//.test(url.pathname);
+    const sizeCap = isFatwaShard ? 10 * 1024 * 1024 : 2 * 1024 * 1024;
+    const maxItems = isFatwaShard ? 2000 : 100;
     event.respondWith(
       caches.open(CONTENT_CACHE).then(async (cache) => {
         const cached = await cache.match(req);
@@ -93,11 +99,10 @@ self.addEventListener('fetch', (event) => {
           .then(async (networkRes) => {
             if (networkRes.ok) {
               const cl = networkRes.headers.get('content-length');
-              // Only cache files under 2MB
-              if (cl && parseInt(cl, 10) < 2 * 1024 * 1024) {
+              if (cl && parseInt(cl, 10) < sizeCap) {
                 const keys = await cache.keys();
-                if (keys.length >= 100) {
-                  await cache.delete(keys[0]);
+                while (keys.length >= maxItems) {
+                  await cache.delete(keys.shift());
                 }
                 cache.put(req, networkRes.clone());
               }
@@ -106,6 +111,28 @@ self.addEventListener('fetch', (event) => {
           })
           .catch(() => cached);
         return cached || fetchPromise;
+      })
+    );
+    return;
+  }
+
+  // 6. Other HuggingFace dataset files (any non-JSON) — cache-first with LRU
+  if (isHfDataHost) {
+    event.respondWith(
+      caches.open(CONTENT_CACHE).then(async (cache) => {
+        const cached = await cache.match(req);
+        if (cached) return cached;
+        return fetch(req).then(async (res) => {
+          if (res.ok) {
+            const cl = res.headers.get('content-length');
+            if (!cl || parseInt(cl, 10) < 10 * 1024 * 1024) {
+              const keys = await cache.keys();
+              while (keys.length >= 2000) await cache.delete(keys.shift());
+              cache.put(req, res.clone());
+            }
+          }
+          return res;
+        });
       })
     );
   }

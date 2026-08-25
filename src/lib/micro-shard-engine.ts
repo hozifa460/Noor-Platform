@@ -4,6 +4,7 @@ import { normalizeArabic } from '@/lib/arabic-normalizer';
 import { scoreArabicSearch, extractConceptGroups } from '@/lib/arabic-search-engine';
 import { FATWA_CATEGORIES, type FatwaIndexItem } from '@/lib/fatwa-index';
 import { scholarFilterQuery } from '@/lib/scholar-filter';
+import { dataUrl } from '@/lib/data-base';
 import { BUILTIN_SEED_FATWAS } from '@/lib/seed-fatwas';
 
 interface CompactMicroItem {
@@ -37,7 +38,7 @@ class MicroShardEngine {
             return;
           }
         }
-        const res = await fetch('/data/micro_shards/prefix_router.json');
+        const res = await fetch(dataUrl('data/micro_shards/prefix_router.json'));
         if (res.ok) {
           this.routerTable = await res.json();
         }
@@ -55,7 +56,7 @@ class MicroShardEngine {
     }
 
     try {
-      const res = await fetch('/data/micro_shards/showcase.json');
+      const res = await fetch(dataUrl('data/micro_shards/showcase.json'));
       if (res.ok) {
         const data = (await res.json()) as CompactMicroItem[];
         this.showcaseItems = data.map((d) => compactToFull(d));
@@ -74,7 +75,7 @@ class MicroShardEngine {
     }
 
     try {
-      const res = await fetch(`/data/micro_shards/${hash}.json`);
+      const res = await fetch(dataUrl(`data/micro_shards/${hash}.json`));
       if (res.ok) {
         const items = (await res.json()) as CompactMicroItem[];
         this.shardCache.set(hash, items);
