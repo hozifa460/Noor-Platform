@@ -1,5 +1,7 @@
 'use client';
 
+import { dataUrl } from './data-base';
+
 /**
  * Fatwa Browse Engine (Phase 3)
  * =============================
@@ -27,13 +29,18 @@ const categoryCache = new Map<string, CategoryData>();
 let scholarsMap: Record<string, string> | null = null;
 
 const CATEGORY_FILES: Record<string, string> = {
-  salah: '/data/fatwa_browse/salah.json',
-  zakah: '/data/fatwa_browse/zakah.json',
-  muamalat: '/data/fatwa_browse/muamalat.json',
-  aqeedah: '/data/fatwa_browse/aqeedah.json',
-  family: '/data/fatwa_browse/family.json',
-  contemporary: '/data/fatwa_browse/contemporary.json',
+  salah: 'data/fatwa_browse/salah.json',
+  zakah: 'data/fatwa_browse/zakah.json',
+  muamalat: 'data/fatwa_browse/muamalat.json',
+  aqeedah: 'data/fatwa_browse/aqeedah.json',
+  family: 'data/fatwa_browse/family.json',
+  contemporary: 'data/fatwa_browse/contemporary.json',
 };
+
+function categoryUrl(cat: string): string {
+  const p = CATEGORY_FILES[cat];
+  return p ? dataUrl(p) : '';
+}
 
 /** Real totals from manifest — used for honest counters. */
 export const BROWSE_TOTALS: Record<string, number> = {
@@ -49,7 +56,7 @@ export const BROWSE_TOTALS: Record<string, number> = {
 async function ensureScholars(): Promise<void> {
   if (scholarsMap) return;
   try {
-    const res = await fetch('/data/fatwa_browse/scholars.json');
+    const res = await fetch(dataUrl('data/fatwa_browse/scholars.json'));
     if (res.ok) scholarsMap = await res.json();
   } catch {
     scholarsMap = {};
@@ -75,7 +82,7 @@ export async function loadCategory(category: string): Promise<BrowseItem[]> {
   const cached = categoryCache.get(category);
   if (cached?.loaded) return cached.tuples.map(decodeTuple);
 
-  const file = CATEGORY_FILES[category];
+  const file = categoryUrl(category);
   if (!file) return [];
 
   try {
