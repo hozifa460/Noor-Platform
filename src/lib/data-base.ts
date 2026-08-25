@@ -25,6 +25,13 @@ export function dataUrl(path: string): string {
   return ensureTrailingSlash(DATA_BASE) + p;
 }
 
+/** Shard URL with 2-level sharding (ab/cd/abcd1234.json) to stay under HF's
+ *  10K-files-per-directory limit while keeping local dev flat. */
+export function shardUrl(subdir: 'fatwa_answers' | 'micro_shards', hash: string): string {
+  const path = `data/${subdir}/${hash.slice(0, 2)}/${hash.slice(2, 4)}/${hash}.json`;
+  return dataUrl(path);
+}
+
 /** Test helper: is the data base remote (HF) rather than local. */
 export function isRemoteData(): boolean {
   return DATA_BASE.length > 0;

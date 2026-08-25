@@ -90,8 +90,11 @@ self.addEventListener('fetch', (event) => {
   const isHfDataHost = url.hostname === 'huggingface.co' || url.hostname.endsWith('.huggingface.co');
   if (url.pathname.endsWith('.json') && !url.pathname.includes('manifest')) {
     const isFatwaShard = /\/data\/(fatwa_answers|shards|micro_shards|fatwa_browse)\//.test(url.pathname);
-    const sizeCap = isFatwaShard ? 10 * 1024 * 1024 : 2 * 1024 * 1024;
-    const maxItems = isFatwaShard ? 2000 : 100;
+    // Also handle 2-level sharded paths (ab/cd/abcd1234.json)
+    const isShardedShard = /\/(fatwa_answers|micro_shards)\/[0-9a-f]{2}\/[0-9a-f]{2}\/[0-9a-f]{8}\.json$/.test(url.pathname);
+    const isAnyFatwaShard = isFatwaShard || isShardedShard;
+    const sizeCap = isAnyFatwaShard ? 10 * 1024 * 1024 : 2 * 1024 * 1024;
+    const maxItems = isAnyFatwaShard ? 2000 : 100;
     event.respondWith(
       caches.open(CONTENT_CACHE).then(async (cache) => {
         const cached = await cache.match(req);

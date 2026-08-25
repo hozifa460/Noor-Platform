@@ -1,6 +1,6 @@
 'use client';
 
-import { dataUrl } from './data-base';
+import { shardUrl } from './data-base';
 
 /**
  * Fatwa Answer Shards client — v3 (direct hash lookup, zero index wait).
@@ -129,7 +129,7 @@ async function fetchShard(hash: string): Promise<Map<string, AnswerRecord>> {
 
   const p = (async () => {
     try {
-      const res = await fetch(dataUrl(`data/fatwa_answers/${hash}.json`));
+      const res = await fetch(shardUrl('fatwa_answers', hash));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const items = (await res.json()) as AnswerRecord[];
       const map = new Map<string, AnswerRecord>();

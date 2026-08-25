@@ -4,7 +4,7 @@ import { normalizeArabic } from '@/lib/arabic-normalizer';
 import { scoreArabicSearch, extractConceptGroups } from '@/lib/arabic-search-engine';
 import { FATWA_CATEGORIES, type FatwaIndexItem } from '@/lib/fatwa-index';
 import { scholarFilterQuery } from '@/lib/scholar-filter';
-import { dataUrl } from '@/lib/data-base';
+import { dataUrl, shardUrl } from '@/lib/data-base';
 import { BUILTIN_SEED_FATWAS } from '@/lib/seed-fatwas';
 
 interface CompactMicroItem {
@@ -75,7 +75,7 @@ class MicroShardEngine {
     }
 
     try {
-      const res = await fetch(dataUrl(`data/micro_shards/${hash}.json`));
+      const res = await fetch(shardUrl('micro_shards', hash));
       if (res.ok) {
         const items = (await res.json()) as CompactMicroItem[];
         this.shardCache.set(hash, items);
