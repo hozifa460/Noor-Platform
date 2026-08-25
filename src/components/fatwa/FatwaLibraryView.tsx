@@ -98,7 +98,6 @@ export function FatwaLibraryView() {
   // ── Phase 1: real Q/A content hydration ──
   // answers for visible cards are fetched in small batches from static shards
   const [contentMap, setContentMap] = useState<Map<string, { question: string; answer: string; found: boolean }>>(new Map());
-  const hydratedRef = useRef(new Set<string>());
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
