@@ -10,29 +10,64 @@ import { enforceRateLimitAsync } from '@/lib/rate-limiter';
 const AVATAR_CACHE: Map<string, { buffer: Buffer; contentType: string; ts: number }> = new Map();
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 const MAX_AVATAR_CACHE_ITEMS = 500;
+/** Hard memory ceiling for the whole cache (bytes). Previously unbounded:
+ *  500 items × up to 5MB images could theoretically reach ~2.5GB in one process. */
+const MAX_AVATAR_CACHE_BYTES = 64 * 1024 * 1024; // 64MB
+let avatarCacheBytes = 0;
+
+function avatarEntryBytes(buffer: Buffer, key: string): number {
+  return buffer.byteLength + key.length * 2 + 64;
+}
+
+function evictOldestAvatar(): void {
+  let oldestKey = '';
+  let oldestTs = Infinity;
+  for (const [k, v] of AVATAR_CACHE.entries()) {
+    if (v.ts < oldestTs) {
+      oldestTs = v.ts;
+      oldestKey = k;
+    }
+  }
+  if (oldestKey) {
+    const evicted = AVATAR_CACHE.get(oldestKey)!;
+    avatarCacheBytes -= avatarEntryBytes(evicted.buffer, oldestKey);
+    AVATAR_CACHE.delete(oldestKey);
+  }
+}
+
+function cacheAvatar(key: string, buffer: Buffer, contentType: string): void {
+  const entryBytes = avatarEntryBytes(buffer, key);
+
+  // Never cache a single oversized entry beyond the whole ceiling
+  if (entryBytes > MAX_AVATAR_CACHE_BYTES) return;
+
+  while (
+    (AVATAR_CACHE.size >= MAX_AVATAR_CACHE_ITEMS && AVATAR_CACHE.size > 0) ||
+    (avatarCacheBytes + entryBytes > MAX_AVATAR_CACHE_BYTES && AVATAR_CACHE.size > 0)
+  ) {
+    if (!AVATAR_CACHE.has('') && AVATAR_CACHE.size === 0) break;
+    const before = AVATAR_CACHE.size;
+    evictOldestAvatar();
+    if (AVATAR_CACHE.size === before) break; // safety against infinite loop
+  }
+
+  AVATAR_CACHE.set(key, { buffer, contentType, ts: Date.now() });
+  avatarCacheBytes += entryBytes;
+}
 
 function pruneCache() {
   const now = Date.now();
   for (const [key, val] of AVATAR_CACHE.entries()) {
     if (now - val.ts > CACHE_TTL) {
+      avatarCacheBytes -= avatarEntryBytes(val.buffer, key);
       AVATAR_CACHE.delete(key);
     }
   }
 
   while (AVATAR_CACHE.size >= MAX_AVATAR_CACHE_ITEMS) {
-    let oldestKey = '';
-    let oldestTs = Infinity;
-    for (const [k, v] of AVATAR_CACHE.entries()) {
-      if (v.ts < oldestTs) {
-        oldestTs = v.ts;
-        oldestKey = k;
-      }
-    }
-    if (oldestKey) {
-      AVATAR_CACHE.delete(oldestKey);
-    } else {
-      break;
-    }
+    const before = AVATAR_CACHE.size;
+    evictOldestAvatar();
+    if (AVATAR_CACHE.size === before) break; // safety
   }
 }
 
@@ -260,8 +295,8 @@ export async function GET(request: Request) {
   if (meta.imageUrl) {
     const result = await fetchImageAsBuffer(meta.imageUrl);
     if (result) {
-      AVATAR_CACHE.set(cacheKey, { ...result, ts: Date.now() });
-      return new NextResponse(new Uint8Array(result.buffer), {
+    cacheAvatar(cacheKey, result.buffer, result.contentType);
+    return new NextResponse(new Uint8Array(result.buffer), {
         status: 200,
         headers: {
           'Content-Type': result.contentType,
@@ -278,7 +313,7 @@ export async function GET(request: Request) {
     if (avatarUrl) {
       const result = await fetchImageAsBuffer(avatarUrl);
       if (result) {
-        AVATAR_CACHE.set(cacheKey, { ...result, ts: Date.now() });
+        cacheAvatar(cacheKey, result.buffer, result.contentType);
         return new NextResponse(new Uint8Array(result.buffer), {
           status: 200,
           headers: {
@@ -293,7 +328,7 @@ export async function GET(request: Request) {
 
   // 3. Fallback SVG avatar
   const svgResult = generateSvgAvatar(name, id);
-  AVATAR_CACHE.set(cacheKey, { ...svgResult, ts: Date.now() });
+  cacheAvatar(cacheKey, svgResult.buffer, svgResult.contentType);
   return new NextResponse(new Uint8Array(svgResult.buffer), {
     status: 200,
     headers: {

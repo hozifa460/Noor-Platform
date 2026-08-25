@@ -14,6 +14,57 @@ const MAX_PDF_DOWNLOAD_BYTES = 100 * 1024 * 1024; // 100 MB maximum single PDF s
 const PDF_TIMEOUT_MS = 30_000;
 
 /**
+ * System dependency probes (cached after first check).
+ *
+ * The PDF pipeline depends on poppler-utils binaries (`pdftoppm`, `pdfinfo`)
+ * which are NOT npm dependencies — they must exist on the host. Without this
+ * probe, every request failed with a cryptic 500. With it, failures return a
+ * clear 503-style message and OPERATIONS.md documents how to install.
+ */
+type DepName = 'pdftoppm' | 'pdfinfo';
+const depAvailability = new Map<DepName, boolean>();
+
+async function isDependencyAvailable(dep: DepName): Promise<boolean> {
+  const cached = depAvailability.get(dep);
+  if (cached !== undefined) return cached;
+
+  let available = false;
+  try {
+    // `--help` exits quickly and touches no files; ENOENT means not installed
+    await execFileAsync(dep, ['--help'], { timeout: 5_000 });
+    available = true;
+  } catch (err: unknown) {
+    const code = (err as NodeJS.ErrnoException)?.code;
+    available = code !== 'ENOENT'; // ran but errored → binary exists
+  }
+
+  depAvailability.set(dep, available);
+  if (!available) {
+    console.error(
+      `[pdf-service] System dependency "${dep}" is NOT installed on this host. ` +
+      `PDF features will fail until it is provided. Install with:\n` +
+      `  Debian/Ubuntu: apt-get install -y poppler-utils\n` +
+      `  Alpine (Docker): apk add --no-cache poppler-utils\n` +
+      `  macOS: brew install poppler`
+    );
+  }
+  return available;
+}
+
+/** Throws a descriptive error when the PDF toolchain is missing. */
+async function ensurePdfToolchain(): Promise<void> {
+  const [pp, pi] = await Promise.all([
+    isDependencyAvailable('pdftoppm'),
+    isDependencyAvailable('pdfinfo'),
+  ]);
+  if (!pp || !pi) {
+    throw new Error(
+      'PDF_SYSTEM_DEPENDENCY_MISSING: poppler-utils (pdftoppm/pdfinfo) is not installed on the server'
+    );
+  }
+}
+
+/**
  * Concurrency Semaphore to prevent process table / CPU resource exhaustion from native PDF processors.
  */
 class Semaphore {
@@ -272,6 +323,7 @@ export async function renderPdfPageAsync(
   page: number,
   width: number
 ): Promise<Buffer> {
+  await ensurePdfToolchain();
   const release = await PDF_PROCESS_SEMAPHORE.acquire();
 
   const tempPrefix = `pdf-page-${page}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -328,6 +380,7 @@ export async function renderPdfPageAsync(
 export async function getPdfInfoAsync(
   pdfPath: string
 ): Promise<{ numPages: number; width: number; height: number }> {
+  await ensurePdfToolchain();
   const release = await PDF_PROCESS_SEMAPHORE.acquire();
 
   try {
