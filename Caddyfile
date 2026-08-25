@@ -8,6 +8,10 @@
 		header_up X-Forwarded-For {remote_host}
 		header_up X-Forwarded-Proto {scheme}
 		header_up X-Real-IP {remote_host}
+		# Shared-secret proof for the app's rate limiter (getClientIp trusts
+		# proxy IP headers ONLY when this matches PROXY_SECRET in .env).
+		# Generate one with:  openssl rand -hex 32
+		header_up X-Noor-Proxy-Secret "{$PROXY_SECRET:}"
 	}
 
 	# Hardened Security Headers

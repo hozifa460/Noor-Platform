@@ -18,6 +18,31 @@ function findYtDlp(): string {
   return process.env.YTDLP_PATH || (process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp');
 }
 
+/**
+ * Probes whether the yt-dlp binary exists on this host (cached).
+ * Without it, YouTube downloads failed with a generic 502 and no hint why.
+ */
+let ytdlpAvailable: boolean | null = null;
+async function isYtDlpAvailable(): Promise<boolean> {
+  if (ytdlpAvailable !== null) return ytdlpAvailable;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const proc = spawn(/*turbopackIgnore: true*/ findYtDlp(), ['--version'], { timeout: 10_000 });
+      proc.on('error', (err: NodeJS.ErrnoException) => reject(err));
+      proc.on('close', (code) => code === 0 ? resolve() : reject(new Error(`exit ${code}`)));
+    });
+    ytdlpAvailable = true;
+  } catch {
+    ytdlpAvailable = false;
+    console.error(
+      '[download] yt-dlp binary is NOT available on this host. YouTube downloads will fail. ' +
+      'Install from https://github.com/yt-dlp/yt-dlp or set YTDLP_PATH to its location.'
+    );
+  }
+  return ytdlpAvailable;
+}
+
+
 function isYouTubeUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
@@ -173,19 +198,27 @@ async function streamUrl(initialUrl: string, filename: string): Promise<Response
     }
   }
 
-  // Enforce runtime byte limit & overall stream timeout through TransformStream
+  // Enforce runtime byte limit & IDLE-based stream timeout through TransformStream.
+  // The timer resets on every chunk: only a STALLED stream (no data for
+  // STREAM_IDLE_TIMEOUT_MS) is killed. A healthy slow download of any size
+  // up to MAX_STREAM_BYTES now completes instead of dying at 60s total.
   let bytesRead = 0;
   let streamTimer: NodeJS.Timeout | null = null;
 
+  const armIdleTimer = (controller: TransformStreamDefaultController<Uint8Array>) => {
+    if (streamTimer) clearTimeout(streamTimer);
+    streamTimer = setTimeout(() => {
+      try {
+        controller.error(new Error(`Download stream stalled: no data received for ${STREAM_TIMEOUT_MS / 1000}s`));
+      } catch {
+        /* ignore */
+      }
+    }, STREAM_TIMEOUT_MS);
+  };
+
   const byteLimiter = new TransformStream<Uint8Array, Uint8Array>({
     start(controller) {
-      streamTimer = setTimeout(() => {
-        try {
-          controller.error(new Error('Download stream timeout exceeded'));
-        } catch {
-          /* ignore */
-        }
-      }, STREAM_TIMEOUT_MS);
+      armIdleTimer(controller);
     },
     transform(chunk, controller) {
       bytesRead += chunk.byteLength;
@@ -194,6 +227,8 @@ async function streamUrl(initialUrl: string, filename: string): Promise<Response
         controller.error(new Error(`Stream exceeded maximum byte limit of ${MAX_STREAM_BYTES} bytes`));
         return;
       }
+      // Data arrived → the download is alive; reset the idle window
+      armIdleTimer(controller);
       controller.enqueue(chunk);
     },
     flush() {
@@ -261,6 +296,16 @@ export async function GET(req: NextRequest) {
 
   if (isYouTubeUrl(target)) {
     try {
+      const available = await isYtDlpAvailable();
+      if (!available) {
+        return NextResponse.json(
+          {
+            error: 'YouTube Download Unavailable',
+            message: 'yt-dlp is not installed on the server. Contact the administrator.',
+          },
+          { status: 503 }
+        );
+      }
       const directUrl = await ytdlpGetDirectUrl(target, format);
       return await streamUrl(directUrl, filename);
     } catch (err) {

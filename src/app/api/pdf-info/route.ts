@@ -52,6 +52,12 @@ export async function GET(request: Request) {
         }
       );
     }
+    if (errMsg.includes('PDF_SYSTEM_DEPENDENCY_MISSING')) {
+      return NextResponse.json(
+        { error: 'PDF service unavailable: server is missing required system dependencies (poppler-utils)' },
+        { status: 503, headers: { 'Retry-After': '3600' } }
+      );
+    }
     console.error('[pdf-info] Error:', err);
     return NextResponse.json(
       { error: 'Failed to retrieve PDF metadata' },

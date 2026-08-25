@@ -67,6 +67,16 @@ public/data/
 !public/data/hadith/nawawi40.json
 !public/data/quran/mp3quran_reciters.json
 !public/data/quran/riwayaat_reciters_map.json
+
+# Prisma removed (Aug 2026): app state is localStorage-only; never re-add binary DBs
+db/
+*.db
+
+# Generated fatwa shards (1.6GB — regenerate with scripts/build_fatwa_answer_shards.py)
+public/data/fatwa_answers/
+# Browse index is small but regenerable (scripts/build_fatwa_browse_index.mjs)
+public/data/fatwa_browse/
+__pycache__/
 Noor_Platform_Audit_Report.pdf
 
 # Agent and temporary development artifacts

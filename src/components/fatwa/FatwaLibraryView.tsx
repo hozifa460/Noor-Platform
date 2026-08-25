@@ -19,17 +19,66 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useFatwaStore } from '@/stores/fatwa-store';
 import { FATWA_CATEGORIES, SCHOLARS_LIST } from '@/lib/fatwa-index';
+import { getFatwaContent } from '@/lib/fatwa-answers';
+import { BROWSE_TOTALS } from '@/lib/fatwa-browse';
+import { scholarFilterQuery } from '@/lib/scholar-filter';
+import { cleanFatwaText } from '@/lib/fatwa-text';
 import { usePlayerStore } from '@/stores/player.store';
 import type { MediaItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { normalizeArabic } from '@/lib/arabic-normalizer';
 
+/** Phase 2: highlights query words inside text with <mark>. Pure string math — no HTML injection. */
+function buildHighlightParts(text: string, query: string): string[] | null {
+  const trimmed = query.trim();
+  if (!trimmed || trimmed.length < 2) return null;
+
+  const words = Array.from(
+    new Set(
+      trimmed
+        .split(/\s+/)
+        .map((w) => w.trim())
+        .filter((w) => w.length >= 2)
+    )
+  );
+  if (words.length === 0) return null;
+
+  try {
+    const pattern = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    const re = new RegExp(`(${pattern})`, 'gi');
+    return text.split(re);
+  } catch {
+    return null; // invalid pattern — render plain text
+  }
+}
+
+function HighlightedText({ text, query, className }: { text: string; query: string; className?: string }) {
+  const parts = buildHighlightParts(text, query);
+  if (!parts) {
+    return <span className={className}>{text}</span>;
+  }
+  return (
+    <span className={className}>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <mark key={i} className="bg-amber-300/40 dark:bg-amber-500/30 text-foreground rounded px-0.5">
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      )}
+    </span>
+  );
+}
+
 export function FatwaLibraryView() {
-  const _fatwas = useFatwaStore((s) => s.fatwas);
+  // Remove the duplicated selector (legacy bug): single source of truth below
   const searching = useFatwaStore((s) => s.searching);
   const fatwas = useFatwaStore((s) => s.fatwas);
   const searchResults = useFatwaStore((s) => s.searchResults);
+  const browseItems = useFatwaStore((s) => s.browseItems);
   const selectedCategory = useFatwaStore((s) => s.selectedCategory);
   const selectedScholar = useFatwaStore((s) => s.selectedScholar);
   const searchQuery = useFatwaStore((s) => s.searchQuery);
@@ -45,6 +94,11 @@ export function FatwaLibraryView() {
   const [visibleCount, setVisibleCount] = useState(30);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // ── Phase 1: real Q/A content hydration ──
+  // answers for visible cards are fetched in small batches from static shards
+  const [contentMap, setContentMap] = useState<Map<string, { question: string; answer: string; found: boolean }>>(new Map());
+  const hydratedRef = useRef(new Set<string>());
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -112,24 +166,47 @@ export function FatwaLibraryView() {
       return searchResults;
     }
 
+    // Full browse list from the real library indexes (loaded by the store)
+    if (browseItems.length > 0) {
+      return browseItems;
+    }
+
     if (selectedCategory === 'all' && selectedScholar === 'all') {
       return fatwas;
     }
 
-    const schInfo = SCHOLARS_LIST.find((s) => s.id === selectedScholar);
-    const schQuery = schInfo?.query || schInfo?.name || (selectedScholar !== 'all' ? selectedScholar : '');
-    const normScholar = schQuery ? normalizeArabic(schQuery) : '';
+    const normScholar = scholarFilterQuery(selectedScholar);
 
     return fatwas.filter((item) => {
       if (selectedCategory !== 'all' && item.tags?.[0] !== selectedCategory) return false;
       if (normScholar && !normalizeArabic(item.sheikhName || '').includes(normScholar)) return false;
       return true;
     });
-  }, [fatwas, searchResults, searchQuery, selectedCategory, selectedScholar]);
+  }, [fatwas, searchResults, browseItems, searchQuery, selectedCategory, selectedScholar]);
 
   const displayedFatwas = useMemo(() => {
     return filteredFatwas.slice(0, visibleCount);
   }, [filteredFatwas, visibleCount]);
+
+  // ── Lazy content hydration on expand (one shard per opened fatwa) ──
+  // We only fetch the answer shard when the user actually clicks a fatwa card,
+  // never pre-fetch a batch on page load. This keeps bandwidth minimal and
+  // lets search requests win the connection.
+  useEffect(() => {
+    if (!expandedId || contentMap.has(expandedId)) return;
+    let cancelled = false;
+    getFatwaContent(expandedId).then((content) => {
+      if (cancelled) return;
+      setContentMap((prev) => {
+        const next = new Map(prev);
+        next.set(expandedId, content);
+        return next;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [expandedId, contentMap]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
@@ -151,12 +228,12 @@ export function FatwaLibraryView() {
             موسوعة الفتاوى الشرعية المحققة لكبار أئمة وعلماء الإسلام ودور الإفتاء المعتمدة، مع محرك بحث فوري فائق الدقة والسرعة.
           </p>
 
-          {/* Quick Metrics */}
+          {/* Quick Metrics — honest counts from the real dataset manifest */}
           <div className="flex flex-wrap items-center gap-3 text-xs">
             <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-black/30 backdrop-blur-md border border-white/10">
               <FileQuestion className="size-4 text-emerald-400" />
               <span>
-                <strong className="text-white font-bold">{fatwas.length > 0 ? fatwas.length.toLocaleString('ar-EG') : 'فتاوى'}</strong> فتوى شرعية مفهرسة
+                <strong className="text-white font-bold">{(BROWSE_TOTALS[selectedCategory] ?? BROWSE_TOTALS.all).toLocaleString('ar-EG')}</strong> فتوى شرعية في هذا القسم
               </span>
             </div>
             <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-black/30 backdrop-blur-md border border-white/10">
@@ -264,6 +341,12 @@ export function FatwaLibraryView() {
           {displayedFatwas.map((item) => {
             const isExpanded = expandedId === item.id;
             const categoryObj = FATWA_CATEGORIES.find((c) => c.id === item.tags?.[0]);
+            // Phase 1: real content (or honest placeholder — never fabricated text)
+            const realContent = contentMap.get(item.id);
+            const hasRealAnswer = Boolean(realContent?.found && realContent.answer);
+            const snippet = hasRealAnswer
+              ? cleanFatwaText(realContent!.answer)
+              : cleanFatwaText(item.answer);
 
             return (
               <div
@@ -302,14 +385,18 @@ export function FatwaLibraryView() {
                         )}
                       </div>
 
-                      {/* Main Title / Question */}
+                      {/* Main Title / Question — with search highlight */}
                       <h3 className="font-bold text-base sm:text-lg text-foreground leading-snug">
-                        {item.title}
+                        <HighlightedText text={item.title} query={searchQuery} />
                       </h3>
 
-                      {/* Prominent Descriptive Snippet under Title */}
+                      {/* Prominent Descriptive Snippet — real answer text or honest placeholder */}
                       <p className="text-xs sm:text-sm text-muted-foreground/90 line-clamp-2 mt-2 leading-relaxed font-normal">
-                        {item.answer || item.description || 'اضغط لقراءة الفتوى والبيان الفقهي بالتفصيل...'}
+                        {snippet ? (
+                          <HighlightedText text={snippet} query={searchQuery} />
+                        ) : (
+                          'اضغط لعرض السؤال والجواب الكامل...'
+                        )}
                       </p>
                     </div>
                   </div>
@@ -344,14 +431,32 @@ export function FatwaLibraryView() {
                 {/* Expanded Full Answer Content */}
                 {isExpanded && (
                   <div className="mt-4 pt-4 border-t border-border/60 space-y-4 animate-in fade-in duration-300">
+                    {/* Question Body (real) */}
+                    {realContent?.question && (
+                      <div className="p-4 rounded-xl bg-muted/40 border border-border text-sm sm:text-base leading-loose text-foreground">
+                        <strong className="text-xs font-bold text-foreground flex items-center gap-1.5 mb-2">
+                          <FileQuestion className="size-3.5" /> نص السؤال:
+                        </strong>
+                        <div className="whitespace-pre-wrap">{cleanFatwaText(realContent.question)}</div>
+                      </div>
+                    )}
+
                     {/* Answer Body */}
                     <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 text-sm sm:text-base leading-loose text-foreground">
                       <strong className="text-xs font-bold text-primary flex items-center gap-1.5 mb-2">
                         <BookOpen className="size-3.5" /> نص الجواب والبيان الفقهي:
                       </strong>
-                      <div className="whitespace-pre-wrap">
-                        {item.answer || item.description || 'الجواب متوفر في التسجيل الصوتي أو عبر فتح الفتوى.'}
-                      </div>
+                      {hasRealAnswer ? (
+                        <div className="whitespace-pre-wrap">{cleanFatwaText(realContent!.answer)}</div>
+                      ) : item.answer ? (
+                        <div className="whitespace-pre-wrap">{cleanFatwaText(item.answer)}</div>
+                      ) : realContent && !realContent.found ? (
+                        <div className="text-muted-foreground italic">
+                          نص الإجابة الكامل لهذه المسألة متوفر في المصدر المطبوع أو التسجيل الصوتي — سيتم إثراء النص تدريجياً.
+                        </div>
+                      ) : (
+                        <div className="text-muted-foreground animate-pulse">جارٍ تحميل النص الكامل...</div>
+                      )}
                     </div>
 
                     {/* Footer Actions */}

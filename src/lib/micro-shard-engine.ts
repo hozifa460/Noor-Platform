@@ -2,7 +2,8 @@
 
 import { normalizeArabic } from '@/lib/arabic-normalizer';
 import { scoreArabicSearch, extractConceptGroups } from '@/lib/arabic-search-engine';
-import { FATWA_CATEGORIES, SCHOLARS_LIST, type FatwaIndexItem } from '@/lib/fatwa-index';
+import { FATWA_CATEGORIES, type FatwaIndexItem } from '@/lib/fatwa-index';
+import { scholarFilterQuery } from '@/lib/scholar-filter';
 import { BUILTIN_SEED_FATWAS } from '@/lib/seed-fatwas';
 
 interface CompactMicroItem {
@@ -20,7 +21,6 @@ class MicroShardEngine {
   private routerPromise: Promise<void> | null = null;
   private shardCache = new Map<string, CompactMicroItem[]>();
   private showcaseItems: FatwaIndexItem[] = BUILTIN_SEED_FATWAS;
-  private isShowcaseLoaded = true;
 
   private async loadRouter(): Promise<void> {
     if (this.routerTable) return;
@@ -59,7 +59,6 @@ class MicroShardEngine {
       if (res.ok) {
         const data = (await res.json()) as CompactMicroItem[];
         this.showcaseItems = data.map((d) => compactToFull(d));
-        this.isShowcaseLoaded = true;
         return this.showcaseItems;
       }
     } catch {
@@ -116,7 +115,7 @@ class MicroShardEngine {
       }
     }
 
-    // Parallel fetch of micro-shards (each ~30KB)
+    // Parallel fetch of micro-shards
     const fetchedShards = await Promise.all(
       Array.from(hashesToFetch).map((hash) => this.fetchShard(hash))
     );
@@ -147,9 +146,8 @@ class MicroShardEngine {
     const candidates = Array.from(candidateMap.values());
     const results: { item: FatwaIndexItem; score: number }[] = [];
 
-    const schInfo = SCHOLARS_LIST.find((s) => s.id === scholar);
-    const schQuery = schInfo?.query || schInfo?.name || (scholar !== 'all' ? scholar : '');
-    const normScholar = schQuery ? normalizeArabic(schQuery) : '';
+    // '' when no scholar is selected — never filter by a pseudo display name.
+    const normScholar = scholarFilterQuery(scholar);
 
     for (let i = 0; i < candidates.length; i++) {
       const c = candidates[i];

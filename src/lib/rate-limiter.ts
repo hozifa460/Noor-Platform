@@ -136,10 +136,27 @@ async function checkDistributedRateLimit(
 /**
  * Determines if the current runtime is deployed behind a trusted reverse proxy / edge network.
  * Headers like CF-Connecting-IP and X-Forwarded-For are only trusted when explicitly verified.
+ *
+ * Two trust mechanisms:
+ * 1. TRUSTED_PROXY=true — blanket trust (for platforms where the edge is guaranteed,
+ *    e.g. Vercel/Cloudflare managed runtimes).
+ * 2. PROXY_SECRET — shared-secret mode: the reverse proxy injects a secret header
+ *    that a outside client cannot forge. Caddy config in Caddyfile does exactly this
+ *    via `header_up X-Noor-Proxy-Secret`. Without the correct secret, proxy IP
+ *    headers are IGNORED (spoofed values cannot poison rate-limit buckets).
  */
-export function isTrustedProxyEnvironment(): boolean {
+export function hasProxyProof(request: Request): boolean {
+  const secret = process.env.PROXY_SECRET;
+  if (!secret) return false;
+  const provided = request.headers.get('x-noor-proxy-secret');
+  return typeof provided === 'string' && provided.length === secret.length && provided === secret;
+}
+
+export function isTrustedProxyEnvironment(request?: Request): boolean {
   if (process.env.TRUSTED_PROXY === 'true') return true;
   if (process.env.VERCEL === '1' || process.env.CF_PAGES === '1') return true;
+  // Shared-secret proof from our own Caddy/nginx layer
+  if (request && hasProxyProof(request)) return true;
   return false;
 }
 
@@ -152,9 +169,11 @@ function isValidIp(ip: string): boolean {
 
 /**
  * Extracts client IP from request headers with trusted proxy validation and strict sanitization.
+ * Proxy headers are honored ONLY when the environment is trusted (TRUSTED_PROXY=true,
+ * managed edge platforms, or a valid shared PROXY_SECRET header injected by our own Caddy).
  */
 export function getClientIp(request: Request): string {
-  if (isTrustedProxyEnvironment()) {
+  if (isTrustedProxyEnvironment(request)) {
     const cfConnectingIp = request.headers.get('cf-connecting-ip');
     if (cfConnectingIp && isValidIp(cfConnectingIp.trim())) {
       return cfConnectingIp.trim().replace(/[^0-9a-fA-F.:]/g, '');

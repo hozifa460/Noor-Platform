@@ -97,10 +97,7 @@ class FatwaIndexManager {
     if (!query || !query.trim()) {
       let res = this.rawItems;
       if (category !== 'all') {
-        const catInfo = FATWA_CATEGORIES.find((c) => c.id === category);
-        const catName = catInfo?.name || category;
-        const normCat = normalizeArabic(catName);
-        res = res.filter((i) => i.category && normalizeArabic(i.category).includes(normCat));
+        res = res.filter((i) => i.category === category);
       }
       if (scholar !== 'all') {
         const schInfo = SCHOLARS_LIST.find((s) => s.id === scholar);
@@ -117,13 +114,8 @@ class FatwaIndexManager {
     for (let i = 0; i < this.internalIndex.length; i++) {
       const entry = this.internalIndex[i];
 
-      // Category filter
-      if (category !== 'all') {
-        const catInfo = FATWA_CATEGORIES.find((c) => c.id === category);
-        const catName = catInfo?.name || category;
-        const normCat = normalizeArabic(catName);
-        if (!entry.normCategory.includes(normCat)) continue;
-      }
+      // Category filter (ids are stored as-is on items)
+      if (category !== 'all' && entry.item.category !== category) continue;
 
       // Scholar filter
       if (scholar !== 'all') {
