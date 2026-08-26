@@ -39,11 +39,6 @@ function normBookTitle(s: string): string {
     .replace(/ة/g, 'ه');
 }
 
-function normPrefix3(title: string): string {
-  const normed = normBookTitle(title).replace(/[^\u0600-\u06FF]/g, '');
-  return (normed + '___').slice(0, 3);
-}
-
 function _firstLetterOf(title: string): string {
   const normed = normBookTitle(title).replace(/[^\u0600-\u06FF]/g, '');
   return normed[0] || '_';
