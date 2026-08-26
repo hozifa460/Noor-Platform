@@ -81,11 +81,9 @@ def load_progress() -> dict:
             pass
     # Try HF as a fallback
     try:
-        import urllib.request
-        req = urllib.request.Request(
-            f'https://huggingface.co/datasets/{REPO}/resolve/main/_internal/progress.json',
-            headers={'User-Agent': 'noor-splitter/1.0'},
-        )
+        import urllib.request, urllib.parse
+        url = f'https://huggingface.co/datasets/{REPO}/resolve/main/_internal/progress.json'
+        req = urllib.request.Request(url, headers={'User-Agent': 'noor-splitter/1.0'})
         with urllib.request.urlopen(req, timeout=15) as r:
             p = json.loads(r.read())
             # Cache locally so subsequent reads don't need a round-trip
@@ -127,17 +125,30 @@ _remote_progress_api = None
 
 def hf_list_json(url: str) -> list:
     """GET a JSON array from HF dataset tree endpoint."""
-    import urllib.request
-    req = urllib.request.Request(url, headers={'User-Agent': 'noor-splitter/1.0'})
+    import urllib.request, urllib.parse
+    # Split URL into base + Arabic path so we can percent-encode only the
+    # non-ASCII portion. urllib.request's default ASCII quoting chokes on
+    # Arabic folder names like '01__العقيدة'.
+    parts = url.split('huggingface.co/', 1)
+    if len(parts) == 2 and not url.startswith('http'):
+        pass  # already split
+    # Generic approach: percent-encode each path segment after the host
+    parsed = urllib.parse.urlparse(url)
+    encoded_path = urllib.parse.quote(parsed.path, safe='/')
+    safe_url = urllib.parse.urlunparse(parsed._replace(path=encoded_path))
+    req = urllib.request.Request(safe_url, headers={'User-Agent': 'noor-splitter/1.0'})
     with urllib.request.urlopen(req, timeout=60) as r:
         return json.loads(r.read())
 
 
 def hf_download_raw(url: str, dest: Path) -> None:
     """Stream a file from HF into dest (no LFS, just a normal raw file)."""
-    import urllib.request
+    import urllib.request, urllib.parse
+    parsed = urllib.parse.urlparse(url)
+    encoded_path = urllib.parse.quote(parsed.path, safe='/')
+    safe_url = urllib.parse.urlunparse(parsed._replace(path=encoded_path))
     dest.parent.mkdir(parents=True, exist_ok=True)
-    req = urllib.request.Request(url, headers={'User-Agent': 'noor-splitter/1.0'})
+    req = urllib.request.Request(safe_url, headers={'User-Agent': 'noor-splitter/1.0'})
     with urllib.request.urlopen(req, timeout=300) as r:
         with dest.open('wb') as f:
             shutil.copyfileobj(r, f, length=1 << 20)  # 1MB chunks
