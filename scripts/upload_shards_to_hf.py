@@ -39,6 +39,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.request
+import json as jsonlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent  # project root
@@ -70,6 +72,49 @@ def fmt_size(n: int) -> str:
             return f'{n:.1f}{u}'
         n /= 1024
     return f'{n:.1f}TB'
+
+
+def list_remote_files(repo: str, token: str | None = None) -> set[str]:
+    """List every file already uploaded to the repo (relative paths under /data)."""
+    api_root = f'https://huggingface.co/api/datasets/{repo}'
+    seen: set[str] = set()
+    queue: list[str] = ['']  # start with root
+    # Cap to prevent runaway if repo is huge
+    pages = 0
+    while queue and pages < 500:
+        cursor = queue.pop()
+        url = f'{api_root}/tree/main/{cursor}'.rstrip('/')
+        if cursor:
+            url = f'{api_root}/tree/main/{cursor}'
+        try:
+            req = urllib.request.Request(url)
+            if token:
+                req.add_header('Authorization', f'Bearer {token}')
+            data = jsonlib.loads(urllib.request.urlopen(req, timeout=30).read())
+        except Exception as e:
+            print(f'  ! cannot list {url}: {e}', file=sys.stderr)
+            break
+        for entry in data:
+            p = entry.get('path', '')
+            t = entry.get('type', '')
+            # Strip the leading 'data/' to match our staging layout
+            rel = p[5:] if p.startswith('data/') else p
+            if t == 'directory':
+                queue.append(p)
+            else:
+                seen.add(rel)
+        pages += 1
+    return seen
+
+
+def read_token() -> str | None:
+    cache = Path.home() / '.cache' / 'huggingface' / 'token'
+    if cache.is_file():
+        try:
+            return cache.read_text().strip() or None
+        except OSError:
+            return None
+    return None
 
 
 def shard_name(name: str) -> str:
@@ -126,6 +171,10 @@ def main() -> int:
     ap.add_argument('--message', '-m', default='upload: publish Noor fatwa shards')
     ap.add_argument('--keep-staging', action='store_true',
                     help='do not delete the staging dir (for debugging)')
+    ap.add_argument('--resume', action='store_true',
+                    help='skip files already uploaded to the repo (uses HF API to list)')
+    ap.add_argument('--skip-existing', action='store_true',
+                    help='alias of --resume')
     args = ap.parse_args()
 
     # Build staging
@@ -135,6 +184,41 @@ def main() -> int:
     if not count:
         print('No files to upload — check public/data/', file=sys.stderr)
         return 1
+
+    # --resume: prune staging of files already uploaded
+    do_resume = args.resume or args.skip_existing
+    if do_resume:
+        print(f'\n[resume] listing files already in {args.repo} ...')
+        token = read_token()
+        try:
+            existing = list_remote_files(args.repo, token)
+        except Exception as e:
+            print(f'  ! resume lookup failed: {e}\n  continuing without --resume', file=sys.stderr)
+            existing = set()
+        if existing:
+            kept = 0
+            removed = 0
+            for p in list(staging.rglob('*')):
+                if not p.is_file():
+                    continue
+                rel = str(p.relative_to(staging)).replace('\\', '/')
+                if rel in existing:
+                    p.unlink()
+                    removed += 1
+                else:
+                    kept += 1
+            # Clean empty dirs
+            for d in sorted(staging.rglob('*'), reverse=True):
+                if d.is_dir() and not any(d.iterdir()):
+                    d.rmdir()
+            print(f'  already uploaded: {removed:,}  |  to upload: {kept:,}')
+            count = kept
+            if kept == 0:
+                print('\nNothing left to upload — repo is already up to date.')
+                if not args.keep_staging:
+                    shutil.rmtree(staging, ignore_errors=True)
+                return 0
+
     print(f'Files to upload: {count:,}')
     print(f'Total size:      {fmt_size(total)} ({total:,} bytes)')
     print(f'Target repo:     {args.repo}')
