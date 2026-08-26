@@ -95,6 +95,28 @@ async function lookupShamelaBook(bookId: string): Promise<EBookMetadata | null> 
   return shamelaCatalogCache.get(bookId) ?? null;
 }
 
+/** Fetch ONLY the per-letter index that *might* contain this book. Much
+ *  cheaper than loadShamelaCatalogFull: a single ~1MB request (worst case)
+ *  instead of ~31 small ones (~1.6MB). Caller passes the Arabic first
+ *  letter of the book title if known, otherwise we fall back to __. */
+async function loadShamelaBookByLetter(
+  bookId: string,
+  firstLetter: string,
+): Promise<EBookMetadata | null> {
+  if (shamelaCatalogCache.has(bookId)) return shamelaCatalogCache.get(bookId)!;
+  if (isRemoteData()) {
+    await loadCatalogLetterIndex('shamela', firstLetter);
+    if (shamelaCatalogCache.has(bookId)) return shamelaCatalogCache.get(bookId)!;
+    if (firstLetter !== '_' && firstLetter !== '__') {
+      // Title normalisation may have landed the book in a different bucket
+      // than the caller guessed (e.g. اختلاف في ال/ا). One small fallback.
+      await loadCatalogLetterIndex('shamela', '__');
+      if (shamelaCatalogCache.has(bookId)) return shamelaCatalogCache.get(bookId)!;
+    }
+  }
+  return null;
+}
+
 /**
  * Fetch the master catalog of pure-text Islamic eBooks
  */
@@ -133,26 +155,51 @@ async function loadOpenItiDynamicEBook(bookId: string): Promise<EBookMetaRespons
 /**
  * Dynamically load an authentic Maktaba Shamela 4 E-Book
  * with true printed pagination, separated footnotes, verified TOC, and zero-lag chunking.
+ *
+ * If the caller already knows the book's first Arabic letter (from a prior
+ * index fetch) we can resolve it with a single ~1MB index request instead
+ * of pulling the full 31-letter catalog.
  */
-async function loadShamelaEBook(bookId: string): Promise<EBookMetaResponse | null> {
+async function loadShamelaEBook(
+  bookId: string,
+  firstLetter?: string,
+): Promise<EBookMetaResponse | null> {
   const cleanId = bookId.replace(/^shamela-/, '');
 
-  let bookItem: { id?: string, shamelaId?: string | number, shamelaPath?: string, title?: string, sheikhName?: string, date?: string, shamelaCategoryName?: string, category?: string, islamicArt?: string, century?: number, description?: string, volumeCount?: number, totalPages?: number, betakaText?: string } | null = null;
+  type BookItem = {
+    id?: string;
+    shamelaId?: string | number;
+    shamelaPath?: string;
+    title?: string;
+    sheikhName?: string;
+    date?: string;
+    shamelaCategoryName?: string;
+    category?: string;
+    islamicArt?: string;
+    century?: number;
+    description?: string;
+    volumeCount?: number;
+    totalPages?: number;
+    betakaText?: string;
+  };
+  let bookItem: BookItem | null = null;
   try {
     // Path 1: lazy per-letter index lookup (HF or local fallback)
-    const found = await lookupShamelaBook(bookId);
+    const found = firstLetter
+      ? await loadShamelaBookByLetter(bookId, firstLetter)
+      : await lookupShamelaBook(bookId);
     if (found) {
-      bookItem = found as unknown as typeof bookItem;
-    } else {
-      // Path 2: legacy direct fetch (kept as a safety net for any books
-      // not yet migrated to the per-letter index). Will be removed once
-      // /public/data/ebooks/shamela_arabic_catalog.json is deleted.
-      const res = await fetch(dataUrl('data/ebooks/shamela_arabic_catalog.json'));
-      if (res.ok) {
-        const list = await res.json();
-        bookItem = list.find((b: { id: string, shamelaId?: string | number, title?: string, sheikhName?: string, pdfUrl?: string, date?: string, century?: number, islamicArt?: string, description?: string }) => b.id === bookId || String(b.shamelaId) === cleanId);
-      }
+      bookItem = found as unknown as BookItem;
+    } else if (!firstLetter) {
+      // No letter hint and per-letter lookup failed → try the remaining
+      // 28 letters. This is still ~1.6MB total, much cheaper than the
+      // 13.5MB legacy flat catalog we used to download.
+      await loadShamelaCatalogFull();
+      const retry = shamelaCatalogCache.get(bookId);
+      if (retry) bookItem = retry as unknown as BookItem;
     }
+    // Note: the legacy 13.5MB shamela_arabic_catalog.json fallback was
+    // removed. The per-letter indexes are now the single source of truth.
   } catch {}
 
   const shamelaPath = bookItem?.shamelaPath;
@@ -328,7 +375,12 @@ export async function loadEBookMeta(bookId: string): Promise<EBookMetaResponse |
   }
 
   if (bookId.startsWith('shamela-') || bookId.includes('shamela')) {
-    return loadShamelaEBook(bookId);
+    // If the per-letter indexes are already loaded we can read the first
+    // letter from the cached entry and resolve the book in one ~1MB
+    // request instead of pulling the full 31-letter catalog.
+    const cached = shamelaCatalogCache.get(bookId);
+    const firstLetter = cached ? _firstLetterOf(cached.title || '') : undefined;
+    return loadShamelaEBook(bookId, firstLetter);
   }
 
   if (bookId.startsWith('openiti-') || bookId.includes('openiti')) {
@@ -482,7 +534,9 @@ export async function loadChapterChunk(
 
   if (bookId.startsWith('shamela-') || bookId.includes('shamela')) {
     if (!metaCache.has(bookId)) {
-      await loadShamelaEBook(bookId);
+      const cached = shamelaCatalogCache.get(bookId);
+      const firstLetter = cached ? _firstLetterOf(cached.title || '') : undefined;
+      await loadShamelaEBook(bookId, firstLetter);
     }
     if (chunkCache.has(cacheKey)) {
       return chunkCache.get(cacheKey)!;
