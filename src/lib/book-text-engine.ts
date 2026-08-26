@@ -1,5 +1,6 @@
 'use client';
 
+import { dataUrl, booksIndexUrl, booksShardUrl, isRemoteData } from './data-base';
 import { normalizeArabic } from '@/lib/arabic-normalizer';
 import type {
   EBookMetadata,
@@ -21,10 +22,83 @@ type SearchIndexMap = Record<string, Array<[number, number, string]>>; // token 
 
 // In-Memory Caches
 let catalogCache: EBookMetadata[] | null = null;
+const shamelaCatalogCache: Map<string, EBookMetadata> = new Map(); // key: bookId
+const openitiCatalogCache: Map<string, EBookMetadata> = new Map();
 const metaCache = new Map<string, EBookMetaResponse>();
 const chunkCache = new Map<string, BookChapterChunk>(); // key: `${bookId}:${chapterIndex}`
-const searchIndexCache = new Map<string, SearchIndexMap>();
+const searchIndexCache = new Map<string, SearchIndexMap>(); // token -> [chapterIndex, pageNumber, snippet]
 const shamelaPathMap = new Map<string, string>(); // bookId -> shamelaPath
+
+/** Normalise Arabic title for prefixing — must match the Python build script. */
+function normBookTitle(s: string): string {
+  if (!s) return '';
+  return s
+    .replace(/[\u064B-\u0652\u0670\u0640]/g, '')
+    .replace(/[إأآا]/g, 'ا')
+    .replace(/[يى]/g, 'ي')
+    .replace(/ة/g, 'ه');
+}
+
+function normPrefix3(title: string): string {
+  const normed = normBookTitle(title).replace(/[^\u0600-\u06FF]/g, '');
+  return (normed + '___').slice(0, 3);
+}
+
+function _firstLetterOf(title: string): string {
+  const normed = normBookTitle(title).replace(/[^\u0600-\u06FF]/g, '');
+  return normed[0] || '_';
+}
+
+/** Fetch a single per-letter index file and cache its books. */
+async function loadCatalogLetterIndex(
+  source: 'shamela' | 'openiti',
+  letter: string,
+): Promise<EBookMetadata[]> {
+  if (isRemoteData()) {
+    const url = booksIndexUrl(source, letter);
+    const res = await fetch(url).catch(() => null);
+    if (!res || !res.ok) return [];
+    const data = (await res.json()) as EBookMetadata[];
+    const cache = source === 'shamela' ? shamelaCatalogCache : openitiCatalogCache;
+    for (const b of data) {
+      if (b.id) cache.set(b.id, b);
+    }
+    return data;
+  }
+  // Local dev fallback: read the legacy flat JSON if present.
+  if (source === 'shamela') {
+    try {
+      const res = await fetch('/data/ebooks/shamela_arabic_catalog.json');
+      if (res.ok) {
+        const data = (await res.json()) as EBookMetadata[];
+        for (const b of data) {
+          if (b.id) shamelaCatalogCache.set(b.id, b);
+        }
+        return data;
+      }
+    } catch {}
+  }
+  return [];
+}
+
+/** Load the whole shamela catalog (used by /library). Fetches the per-letter
+ *  index files lazily. The heavy `_by_prefix` shard is only fetched when a
+ *  single book is opened. */
+export async function loadShamelaCatalogFull(): Promise<EBookMetadata[]> {
+  // 28 Arabic letters + 1 fallback for non-Arabic titles
+  const letters = 'ابتثجحخدذرزسشصضطظعغفقكلمنهوي'.split('');
+  const results = await Promise.all(
+    [...letters, '__'].map((l) => loadCatalogLetterIndex('shamela', l)),
+  );
+  return results.flat();
+}
+
+/** Lookup a single shamela book — fetches per-letter indexes on demand. */
+async function lookupShamelaBook(bookId: string): Promise<EBookMetadata | null> {
+  if (shamelaCatalogCache.has(bookId)) return shamelaCatalogCache.get(bookId)!;
+  await loadShamelaCatalogFull();
+  return shamelaCatalogCache.get(bookId) ?? null;
+}
 
 /**
  * Fetch the master catalog of pure-text Islamic eBooks
@@ -70,16 +144,15 @@ async function loadShamelaEBook(bookId: string): Promise<EBookMetaResponse | nul
 
   let bookItem: { id?: string, shamelaId?: string | number, shamelaPath?: string, title?: string, sheikhName?: string, date?: string, shamelaCategoryName?: string, category?: string, islamicArt?: string, century?: number, description?: string, volumeCount?: number, totalPages?: number, betakaText?: string } | null = null;
   try {
-    if (typeof window === 'undefined') {
-      const fs = await import('fs');
-      const path = await import('path');
-      const p = path.join(process.cwd(), 'public', 'data', 'ebooks', 'shamela_arabic_catalog.json');
-      if (fs.existsSync(p)) {
-        const list = JSON.parse(fs.readFileSync(p, 'utf-8'));
-        bookItem = list.find((b: { id: string, shamelaId?: string | number, title?: string, sheikhName?: string, pdfUrl?: string, date?: string, century?: number, islamicArt?: string, description?: string }) => b.id === bookId || String(b.shamelaId) === cleanId);
-      }
+    // Path 1: lazy per-letter index lookup (HF or local fallback)
+    const found = await lookupShamelaBook(bookId);
+    if (found) {
+      bookItem = found as unknown as typeof bookItem;
     } else {
-      const res = await fetch('/data/ebooks/shamela_arabic_catalog.json');
+      // Path 2: legacy direct fetch (kept as a safety net for any books
+      // not yet migrated to the per-letter index). Will be removed once
+      // /public/data/ebooks/shamela_arabic_catalog.json is deleted.
+      const res = await fetch(dataUrl('data/ebooks/shamela_arabic_catalog.json'));
       if (res.ok) {
         const list = await res.json();
         bookItem = list.find((b: { id: string, shamelaId?: string | number, title?: string, sheikhName?: string, pdfUrl?: string, date?: string, century?: number, islamicArt?: string, description?: string }) => b.id === bookId || String(b.shamelaId) === cleanId);

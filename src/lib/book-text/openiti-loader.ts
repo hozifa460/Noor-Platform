@@ -1,3 +1,4 @@
+import { dataUrl, isRemoteData } from '@/lib/data-base';
 import type {
   EBookMetadata,
   TableOfContentsItem,
@@ -17,6 +18,16 @@ export function toArabicDigits(num: number | string): string {
 
 export function cleanTitleFallback(title: string): string {
   return title.replace(/^[\d\-_\.]+\s*/, "").trim();
+}
+
+/** First Arabic letter of a title (after light normalisation), used to pick
+ *  the per-letter index file on HF. Mirrors build_books_catalogs.py. */
+function normFirstLetter(id: string, title?: string): string {
+  const src = (title || id || '').replace(/[\u064B-\u0652\u0670\u0640]/g, '');
+  for (const ch of src) {
+    if (ch >= '\u0600' && ch <= '\u06FF') return ch;
+  }
+  return '__';
 }
 
 /**
@@ -39,10 +50,27 @@ export async function loadOpenItiDynamicEBook(
   } | null = null;
 
   try {
-    const res = await fetch("/data/ebooks/openiti_arabic_catalog.json");
+    // Per-letter index → look up the book by id. We don't know the title
+    // yet, so try the __ fallback (non-Arabic) first; then the letter
+    // derived from the cleanId itself (often starts with the year digits
+    // but OpenITI ids also embed the book slug).
+    const firstLetter = normFirstLetter('', '');
+    const url = isRemoteData()
+      ? dataUrl(`data/books/catalogs/openiti/_index_${firstLetter}.json`)
+      : '/data/ebooks/openiti_arabic_catalog.json';
+    const res = await fetch(url);
     if (res.ok) {
       const list = await res.json();
       bookItem = list.find((b: { id: string }) => b.id === bookId || b.id === `openiti-${cleanId}`);
+      if (!bookItem && isRemoteData()) {
+        // OpenITI book ids start with the century code (e.g. JK007501, 0250Booker...).
+        // We don't know the title, so scan the small fallback __ bucket.
+        const fallback = await fetch(dataUrl('data/books/catalogs/openiti/_index__.json'));
+        if (fallback.ok) {
+          const list2 = await fallback.json();
+          bookItem = list2.find((b: { id: string }) => b.id === bookId || b.id === `openiti-${cleanId}`);
+        }
+      }
     }
   } catch {}
 
