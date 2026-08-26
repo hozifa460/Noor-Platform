@@ -334,12 +334,24 @@ def main() -> int:
     global _remote_progress_api
     _remote_progress_api = api
 
-    # 1. List all books
+    # 1. List all books. Always re-walk the tree if the cache is missing,
+    # empty, or malformed — a previous failed run might have left a bad
+    # cache that would silently skip all 8,589 books.
     books_meta = ROOT / 'books_meta.json'
+    cache_valid = False
     if books_meta.exists():
-        log(f'Loading book list from {books_meta} (cached) ...')
-        books = json.loads(books_meta.read_text(encoding='utf-8'))
-    else:
+        try:
+            cached = json.loads(books_meta.read_text(encoding='utf-8'))
+            if isinstance(cached, list) and len(cached) > 0:
+                books = cached
+                cache_valid = True
+                log(f'Loading book list from {books_meta} (cached, {len(books)} books)')
+        except Exception:
+            pass
+    if not cache_valid:
+        if books_meta.exists():
+            log(f'Ignoring stale cache at {books_meta} (empty or malformed)')
+            books_meta.unlink()
         books = list_books()
         books_meta.write_text(json.dumps(books, ensure_ascii=False), encoding='utf-8')
     log(f'Books to process: {len(books)}')
