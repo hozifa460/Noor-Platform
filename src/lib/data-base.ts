@@ -25,8 +25,11 @@ export function dataUrl(path: string): string {
   return ensureTrailingSlash(DATA_BASE) + p;
 }
 
-/** Shard URL with 2-level sharding (ab/cd/abcd1234.json) to stay under HF's
- *  10K-files-per-directory limit while keeping local dev flat.
+/** Shard URL with 2-level sharding (ab/cd/abcd1234.json) for BOTH subdirs.
+ *
+ *  fatwa_answers: 226k files → needs fan-out.
+ *  micro_shards: 1,566 files but each ~1MB (283MB total) → fan-out keeps
+ *  per-directory size and per-commit size manageable on HF.
  *
  *  The hash is validated against `^[0-9a-f]{8}$` so user-supplied ids can
  *  never inject path separators, traversal sequences, or an absolute URL —
