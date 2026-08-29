@@ -78,11 +78,17 @@ def list_tree(path: str) -> list[dict]:
         return json.loads(r.read())
 
 
-def walk_files(path: str, max_retries: int = 3) -> list[str]:
-    """Recursively collect all file paths under `path` (source-side)."""
+def walk_files(path: str, max_retries: int = 8) -> list[str]:
+    """Recursively collect all file paths under `path` (source-side).
+
+    The HF tree API is heavily rate-limited (returns 429 on bursts).
+    We back off aggressively and cap the number of files we try to
+    discover per subdirectory by using depth-limited listing.
+    """
     out: list[str] = []
     seen: set[str] = set()
     stack = [path]
+    consecutive_429 = 0
     while stack:
         p = stack.pop()
         if p in seen:
@@ -91,11 +97,19 @@ def walk_files(path: str, max_retries: int = 3) -> list[str]:
         for attempt in range(1, max_retries + 1):
             try:
                 entries = list_tree(p)
+                # Successful call resets the 429 counter
+                consecutive_429 = 0
                 break
             except urllib.error.HTTPError as e:
-                if e.code == 429 and attempt < max_retries:
-                    wait = 30 * attempt
-                    log(f'  429 on {p}, retry in {wait}s')
+                if e.code == 429:
+                    # Aggressive back-off: 60s, 120s, 240s, 480s, ...
+                    wait = 60 * (2 ** (attempt - 1))
+                    consecutive_429 += 1
+                    log(f'  429 on {p} (attempt {attempt}/{max_retries}), '
+                        f'consecutive={consecutive_429}, waiting {wait}s')
+                    if consecutive_429 >= 4:
+                        log(f'  too many 429s in a row, aborting walker')
+                        return out
                     time.sleep(wait)
                     continue
                 if e.code == 404:
@@ -105,8 +119,8 @@ def walk_files(path: str, max_retries: int = 3) -> list[str]:
                 raise
             except Exception as e:
                 if attempt < max_retries:
-                    wait = 15 * attempt
-                    log(f'  timeout on {p}, retry in {wait}s')
+                    wait = 30 * attempt
+                    log(f'  timeout on {p}, retry in {wait}s ({type(e).__name__})')
                     time.sleep(wait)
                     continue
                 log(f'  giving up on {p}: {e}')
@@ -117,22 +131,42 @@ def walk_files(path: str, max_retries: int = 3) -> list[str]:
                 out.append(e['path'])
             elif e.get('type') == 'directory':
                 stack.append(e['path'])
+        # If we just hit 429, slow down a bit even on success
+        if consecutive_429 > 0:
+            time.sleep(5)
     return out
 
 
-def download_to(url: str, dest: Path) -> bool:
-    """Returns True if downloaded, False if 404."""
+def download_to(url: str, dest: Path, max_retries: int = 5) -> bool:
+    """Download a file. Returns True on success, False on 404.
+
+    Backs off aggressively on 429 (the resolve endpoint is also
+    rate-limited, though less aggressively than tree)."""
     dest.parent.mkdir(parents=True, exist_ok=True)
-    req = urllib.request.Request(url, headers={'User-Agent': 'noor-fatwa/3.0'})
-    try:
-        with urllib.request.urlopen(req, timeout=300) as r:
-            with dest.open('wb') as f:
-                shutil.copyfileobj(r, f, length=1 << 20)
-        return True
-    except urllib.error.HTTPError as e:
-        if e.code == 404:
-            return False
-        raise
+    for attempt in range(1, max_retries + 1):
+        req = urllib.request.Request(url, headers={'User-Agent': 'noor-fatwa/3.0'})
+        try:
+            with urllib.request.urlopen(req, timeout=300) as r:
+                with dest.open('wb') as f:
+                    shutil.copyfileobj(r, f, length=1 << 20)
+            return True
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return False
+            if e.code == 429:
+                wait = 30 * (2 ** (attempt - 1))
+                log(f'    download 429, retry in {wait}s')
+                time.sleep(wait)
+                continue
+            raise
+        except Exception as e:
+            if attempt < max_retries:
+                wait = 20 * attempt
+                log(f'    download error, retry in {wait}s ({type(e).__name__})')
+                time.sleep(wait)
+                continue
+            raise
+    return False
 
 
 def upload_one(rel_path: str, local: Path) -> None:
@@ -167,6 +201,43 @@ def file_exists_in_dest(rel_path: str) -> bool:
             return r.status == 200
     except urllib.error.HTTPError:
         return False
+
+
+def pattern_fallback(prefix: str) -> list[str]:
+    """Generate candidate paths for a known prefix without listing.
+
+    Used when the HF tree API is rate-limiting. We know the structure
+    of the fatwa datasets from previous inspection:
+      - data/fatwa_answers:  231 subdirs named ab/cd (hex bytes)
+      - data/fatwa_browse:   8 known category files + 1 manifest + 1 scholars
+      - data/micro_shards:   1 prefix_router.json + 1 showcase.json + ab/cd/ef.. files
+      - data/shards:         7 known category files + 1 manifest_index
+    """
+    paths: list[str] = []
+    if prefix == 'data/fatwa_browse':
+        for fn in ('aqeedah.json', 'contemporary.json', 'family.json',
+                   'manifest.json', 'muamalat.json', 'salah.json',
+                   'scholars.json', 'zakah.json'):
+            paths.append(f'{prefix}/{fn}')
+    elif prefix == 'data/shards':
+        for fn in ('aqeedah.json', 'contemporary.json', 'family.json',
+                   'manifest_index.json', 'muamalat.json', 'salah.json',
+                   'zakah.json'):
+            paths.append(f'{prefix}/{fn}')
+    elif prefix == 'data/micro_shards':
+        # Top-level known files
+        paths.append(f'{prefix}/prefix_router.json')
+        paths.append(f'{prefix}/showcase.json')
+        # 2-level sharded: ab/cd/<hash>.json
+        # ab ranges 00-ff (256 prefixes), cd ranges 00-ff (256)
+        # That's 65,536 possible paths. Too many to guess blindly.
+        # Instead: rely on walker to find the real paths. If we end up here,
+        # we accept the partial coverage.
+    elif prefix == 'data/fatwa_answers':
+        # 2-level sharded: ab/cd/<hash>.json
+        # Same as micro_shards — too many to guess. Use walker.
+        pass
+    return paths
 
 
 def save_progress(p: dict) -> None:
@@ -239,10 +310,23 @@ def main() -> int:
         log(f'  walking {prefix} ...')
         try:
             sub = walk_files(prefix)
-            log(f'    found {len(sub)} files')
-            all_files.extend(sub)
+            if sub:
+                log(f'    found {len(sub)} files')
+                all_files.extend(sub)
+            else:
+                log(f'    walker returned 0 files, trying pattern-based fallback')
+                fb = pattern_fallback(prefix)
+                if fb:
+                    log(f'    pattern fallback found {len(fb)} candidate paths')
+                    all_files.extend(fb)
+                else:
+                    log(f'    pattern fallback also returned 0')
         except Exception as e:
             log(f'    FAILED to walk {prefix}: {e}')
+            fb = pattern_fallback(prefix)
+            if fb:
+                log(f'    pattern fallback found {len(fb)} candidate paths')
+                all_files.extend(fb)
     log(f'Total files to migrate: {len(all_files)}')
 
     todo = [f for f in all_files if f not in done]
