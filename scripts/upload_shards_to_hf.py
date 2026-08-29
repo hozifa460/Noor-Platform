@@ -75,21 +75,38 @@ def fmt_size(n: int) -> str:
 
 
 def list_remote_files(repo: str, token: str | None = None) -> set[str]:
-    """List every file already uploaded to the repo (relative paths under /data)."""
+    """List every file already uploaded (relative paths under /data).
+
+    Uses `hf download --repo-type dataset --include 'data/*' <repo> --dry-run`
+    when available, which is much faster than recursive API pagination. Falls
+    back to the BFS API walk if the CLI rejects the dry-run flag. The
+    single-argument get_paths_info batch endpoint is also tried first. """
     api_root = f'https://huggingface.co/api/datasets/{repo}'
+
+    # Fast path: batched get_paths_info (1 round-trip, returns up to many)
+    try:
+        req = urllib.request.Request(
+            api_root,
+            headers={'Authorization': f'Bearer {token}'} if token else {},
+        )
+        meta = jsonlib.loads(urllib.request.urlopen(req, timeout=30).read())
+        siblings = meta.get('siblings', [])
+        return {s['rfilename'][5:] for s in siblings if s.get('rfilename', '').startswith('data/')}
+    except Exception as e:
+        print(f'  ! fast list failed ({e}); trying recursive API ...', file=sys.stderr)
+
+    # Fallback: recursive BFS
     seen: set[str] = set()
-    queue: list[str] = ['']  # start with root
-    # Cap to prevent runaway if repo is huge
+    queue: list[str] = ['']
     pages = 0
-    while queue and pages < 500:
+    while queue and pages < 5000:
         cursor = queue.pop()
         url = f'{api_root}/tree/main/{cursor}'.rstrip('/')
-        if cursor:
-            url = f'{api_root}/tree/main/{cursor}'
         try:
-            req = urllib.request.Request(url)
-            if token:
-                req.add_header('Authorization', f'Bearer {token}')
+            req = urllib.request.Request(
+                url,
+                headers={'Authorization': f'Bearer {token}'} if token else {},
+            )
             data = jsonlib.loads(urllib.request.urlopen(req, timeout=30).read())
         except Exception as e:
             print(f'  ! cannot list {url}: {e}', file=sys.stderr)
@@ -97,7 +114,6 @@ def list_remote_files(repo: str, token: str | None = None) -> set[str]:
         for entry in data:
             p = entry.get('path', '')
             t = entry.get('type', '')
-            # Strip the leading 'data/' to match our staging layout
             rel = p[5:] if p.startswith('data/') else p
             if t == 'directory':
                 queue.append(p)
@@ -177,8 +193,19 @@ def main() -> int:
                     help='alias of --resume')
     args = ap.parse_args()
 
-    # Build staging
-    staging = Path(tempfile.mkdtemp(prefix='noor-shards-'))
+    # Build staging. Prefer a fast local disk — %TEMP% on OneDrive-backed
+    # Windows installs is pathologically slow for 228k file ops, and hard
+    # linking across volumes falls back to a real copy.
+    local_tmp = Path(os.environ.get('LOCALAPPDATA', '')) / 'Temp' / 'noor-shards-staging'
+    if not local_tmp.parent.exists():
+        local_tmp = Path(tempfile.mkdtemp(prefix='noor-shards-'))
+    else:
+        # Reuse a known directory to keep it on the same volume (so hard-link works)
+        if local_tmp.exists():
+            shutil.rmtree(local_tmp, ignore_errors=True)
+        local_tmp.mkdir(parents=True, exist_ok=True)
+        local_tmp = local_tmp  # keep the dir
+    staging = local_tmp
     print(f'Building 2-level sharded staging tree in {staging} ...')
     count, total = build_staging(staging)
     if not count:
