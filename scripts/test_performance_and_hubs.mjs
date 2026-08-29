@@ -40,10 +40,11 @@ async function testAll() {
   const microCode = fs.readFileSync(microShardPath, 'utf-8');
   assert(microCode.includes('BUILTIN_SEED_FATWAS'), 'micro-shard-engine integrates BUILTIN_SEED_FATWAS');
 
-  // 4. Check shamela-text route for in-memory caching
-  const shamelaRoutePath = path.join(process.cwd(), 'src', 'app', 'api', 'shamela-text', 'route.ts');
-  const shamelaCode = fs.readFileSync(shamelaRoutePath, 'utf-8');
-  assert(shamelaCode.includes('BOOK_LINES_CACHE'), 'shamela-text route includes server-side memory cache for 0ms slicing');
+  // 4. book-text-engine.ts uses an in-memory cache (replaces the
+  //    deleted /api/shamela-text server route).
+  const bookEnginePath = path.join(process.cwd(), 'src', 'lib', 'book-text-engine.ts');
+  const bookEngineCode = fs.readFileSync(bookEnginePath, 'utf-8');
+  assert(/Cache\s*=\s*new\s+Map/.test(bookEngineCode), 'book-text-engine uses an in-memory Map cache for 0ms slicing');
 
   // 5. Test Live AlQuran Cloud CDN endpoint
   try {
