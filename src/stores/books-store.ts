@@ -44,6 +44,56 @@ interface BooksState {
 
 const LOCAL_CACHE_KEY = 'noor-books-shamela-v4';
 
+// Module-level memo: dedupes parallel calls (startLoading + loadCategoryBooks
+// both fire on /books mount) and caches the in-flight Promise so the second
+// caller awaits the same fetch instead of triggering 29 redundant requests.
+let shamelaCatalogPromise: Promise<unknown> | null = null;
+
+async function cachedLoadShamelaCatalog(
+  set: (partial: Partial<BooksState> | ((s: BooksState) => Partial<BooksState>)) => void,
+  get: () => BooksState,
+): Promise<void> {
+  if (get().loadedFiles.has('shamela')) return;
+  if (shamelaCatalogPromise) {
+    await shamelaCatalogPromise;
+    return;
+  }
+  shamelaCatalogPromise = (async () => {
+    try {
+      const letters = 'ابتثجحخدذرزسشصضطظعغفقكلمنهوي'.split('');
+      const urls = isRemoteData()
+        ? [...letters, '__'].map((l) =>
+            dataUrl(`data/books/catalogs/shamela/_index_${l}.json`),
+          )
+        : ['/data/ebooks/shamela_arabic_catalog.json'];
+      const responses = await Promise.all(
+        urls.map((u) => fetch(u).then((r) => (r.ok ? r.json() : [])).catch(() => [])),
+      );
+      const items = responses.flat();
+      if (items.length > 0) {
+        set((s: BooksState) => {
+          const nextFiles = new Set(s.loadedFiles);
+          nextFiles.add('shamela');
+          nextFiles.add('openiti');
+          return {
+            books: dedupeBooks([...s.books, ...items]),
+            loadedFiles: nextFiles,
+          };
+        });
+      }
+    } catch {
+      // non-critical: shamela is optional
+    }
+  })();
+  try {
+    await shamelaCatalogPromise;
+  } finally {
+    // Keep the resolved Promise cached so subsequent calls short-circuit
+    // via the `loadedFiles.has('shamela')` check above. Reset on error so
+    // a retry can re-attempt the fetch.
+  }
+}
+
 function getInitialCachedBooks(): MediaItem[] {
   if (typeof window === 'undefined') return QURANIC_MUS_HAFS;
   try {
@@ -125,36 +175,7 @@ export const useBooksStore = create<BooksState>((set, get) => ({
   loadCategoryBooks: async (catId: string) => {
     if (catId === 'shamela' || catId === 'openiti') {
       if (get().loadedFiles.has('shamela')) return;
-      try {
-        // Lazy load: fetch every per-letter index for the relevant source.
-        // For shamela: 28 letters + 1 fallback (__) ≈ 1.6MB total.
-        // For openiti: same shape, ≈ 2.7MB.
-        // The original 13.5MB / 14.3MB catalogs are gone.
-        const source: 'shamela' | 'openiti' = catId === 'shamela' ? 'shamela' : 'openiti';
-        const letters = 'ابتثجحخدذرزسشصضطظعغفقكلمنهوي'.split('');
-        const urls = isRemoteData()
-          ? [...letters, '__'].map((l) =>
-              dataUrl(`data/books/catalogs/${source}/_index_${l}.json`),
-            )
-          : ['/data/ebooks/shamela_arabic_catalog.json'];
-        const responses = await Promise.all(
-          urls.map((u) => fetch(u).then((r) => (r.ok ? r.json() : [])).catch(() => [])),
-        );
-        const items = responses.flat();
-        if (items.length > 0) {
-          set((s) => {
-            const nextFiles = new Set(s.loadedFiles);
-            nextFiles.add('shamela');
-            nextFiles.add('openiti');
-            return {
-              books: dedupeBooks([...s.books, ...items]),
-              loadedFiles: nextFiles,
-            };
-          });
-        }
-      } catch {
-        // non-critical fallback
-      }
+      await cachedLoadShamelaCatalog(set, get);
       return;
     }
 
@@ -268,25 +289,8 @@ export const useBooksStore = create<BooksState>((set, get) => ({
 
       // 4. Maktaba Shamela 4 Master Corpus (8,589 Verified Classical Works)
       //    Lazy: per-letter index files (~1.6MB total) instead of the 13.5MB flat catalog.
-      try {
-        const shamelaLetters = 'ابتثجحخدذرزسشصضطظعغفقكلمنهوي'.split('');
-        const shamelaUrls = isRemoteData()
-          ? [...shamelaLetters, '__'].map((l) =>
-              dataUrl(`data/books/catalogs/shamela/_index_${l}.json`),
-            )
-          : ['/data/ebooks/shamela_arabic_catalog.json'];
-        const responses = await Promise.all(
-          shamelaUrls.map((u) => fetch(u).then((r) => (r.ok ? r.json() : [])).catch(() => [])),
-        );
-        const shamelaItems = responses.flat();
-        if (shamelaItems.length > 0) {
-          accumulated.push(...shamelaItems);
-          nextFiles.add('shamela');
-          nextFiles.add('openiti');
-        }
-      } catch {
-        // non-critical fallback
-      }
+      //    Same loader as loadCategoryBooks — dedupes via loadedFiles set.
+      await cachedLoadShamelaCatalog(set, get);
 
       // Single atomic batch update to eliminate re-render cycles and UI freezes
       const merged = dedupeBooks(accumulated);
