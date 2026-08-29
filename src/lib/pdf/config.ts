@@ -124,7 +124,10 @@ export function proxifyPdfUrl(url: string): string {
   try {
     const parsed = new URL(url);
     if (parsed.origin === window.location.origin) return url;
-    return `/api/proxy/pdf?url=${encodeURIComponent(url)}`;
+    // /api/proxy/pdf was removed for the static-only Cloudflare build.
+    // The PDF reader will attempt the direct URL; if the host doesn't
+    // send permissive CORS, the reader will surface an error.
+    return url;
   } catch {
     return url;
   }

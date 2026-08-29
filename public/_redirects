@@ -1,0 +1,17 @@
+# Cloudflare Pages _redirects file
+# 1. Single Page App fallback: any unknown path inside the static export
+#    is served by /index.html so Next.js' client router can take over.
+# 2. /download/<videoId> rewrites to /download so the placeholder
+#    placeholder page (out/download/index.html) renders and the
+#    DownloadClient reads the [videoId] segment from useParams.
+#
+# Syntax: https://developers.cloudflare.com/pages/configuration/redirects/
+
+# SPA fallback — all unmatched paths fall back to /index.html (200, not 302)
+/download/* /download/index.html 200
+
+# /sheikh/<id> rewrites to /sheikh/index.html (placeholder)
+# We currently have one entry per known sheikh so this is only a safety
+# net. /sheikh/abc123 still returns 404 unless a /sheikh/abc123.html
+# page exists in the build output.
+/sheikh/* /sheikh/index.html 200
