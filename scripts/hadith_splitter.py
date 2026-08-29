@@ -41,9 +41,13 @@ from pathlib import Path
 REPO = os.environ.get('HF_REPO', 'hozifa1/noor-platform-hadith')
 TOKEN = os.environ.get('HF_TOKEN')  # set this via Kaggle Secrets
 SOURCE_REPO = 'hozifa1/quran_and_sunnah'
-SOURCE_BASE = f'https://huggingface.co/datasets/{SOURCE_REPO}/resolve/main/sunnahset'
-BOOKS_DIR = f'{SOURCE_BASE}/All_hadith_books'
-SHARH_URL = f'{SOURCE_BASE}/HadeethEnc_Sharh/hadeethenc_sharh.json'
+# Use the tree API for listings (resolve/main returns 404 on directory paths).
+LISTING_BASE = f'https://huggingface.co/api/datasets/{SOURCE_REPO}/tree/main/sunnahset'
+# Use resolve/main for individual file downloads.
+RESOLVE_BASE = f'https://huggingface.co/datasets/{SOURCE_REPO}/resolve/main/sunnahset'
+BOOKS_DIR = f'{RESOLVE_BASE}/All_hadith_books'
+BOOKS_LISTING = f'{LISTING_BASE}/All_hadith_books'
+SHARH_URL = f'{RESOLVE_BASE}/HadeethEnc_Sharh/hadeethenc_sharh.json'
 
 # Where we stage everything locally. On Kaggle this is /kaggle/working/.
 ROOT = Path(os.environ.get('NOOR_STAGING', '/kaggle/working/noor-hadith'))
@@ -135,8 +139,8 @@ def load_progress() -> dict:
 
 def list_books() -> list[dict]:
     """Return [{fileName, label}] for the 17 Hadith books."""
-    log(f'Listing books from {BOOKS_DIR} ...')
-    entries = hf_list_json(BOOKS_DIR)
+    log(f'Listing books from {BOOKS_LISTING} ...')
+    entries = hf_list_json(BOOKS_LISTING)
     books = []
     for e in entries:
         if e.get('type') == 'file' and e['path'].endswith('.json'):
