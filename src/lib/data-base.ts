@@ -1,28 +1,56 @@
 /**
  * Single source of truth for where static data lives.
  *
- * - In Vercel production: served from the Noor HuggingFace dataset, so the
- *   site works WITHOUT shipping 1.1GB of shards in the git repo (Vercel's
- *   git size limit would block the build anyway).
+ * The platform is split across three independent HuggingFace datasets so
+ * each concern (fatwas, hadiths, books) can be uploaded, versioned, and
+ * served independently. Each base is overridable at build time:
  *
- * - In local dev: defaults to the on-disk public/data so developers without
- *   network still get a working app.
+ *   NEXT_PUBLIC_FATWA_BASE=https://huggingface.co/datasets/hozifa1/noor-platform-fatwa/resolve/main
+ *   NEXT_PUBLIC_HADITH_BASE=https://huggingface.co/datasets/hozifa1/noor-platform-hadith/resolve/main
+ *   NEXT_PUBLIC_BOOKS_BASE=https://huggingface.co/datasets/hozifa1/noor-platform-books/resolve/main
  *
- * Override at build time with:
- *   NEXT_PUBLIC_DATA_BASE=https://huggingface.co/datasets/hozifa1/noor-platform-shards/resolve/main
+ * For backward compatibility NEXT_PUBLIC_DATA_BASE still works as the
+ * fatwa base when NEXT_PUBLIC_FATWA_BASE is not set. In local dev, all
+ * bases fall back to the empty string and callers serve from /public/data.
  */
-export const DATA_BASE: string =
+export const FATWA_BASE: string =
+  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FATWA_BASE) ||
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_DATA_BASE) ||
   // Dev fallback (works offline against the local public/data tree)
   '';
 
+export const HADITH_BASE: string =
+  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_HADITH_BASE) ||
+  // Legacy default — points at the public mirror repo
+  'https://huggingface.co/datasets/hozifa1/quran_and_sunnah/resolve/main/sunnahset' ||
+  '';
+
+export const BOOKS_BASE: string =
+  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BOOKS_BASE) ||
+  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_DATA_BASE) ||
+  '';
+
 const ensureTrailingSlash = (s: string) => (s.endsWith('/') ? s : s + '/');
 
-/** Resolve a path under the data base, or return the local path if no base. */
+/** Resolve a path under the fatwa/base, or return the local path if no base. */
 export function dataUrl(path: string): string {
   const p = path.startsWith('/') ? path.slice(1) : path;
-  if (!DATA_BASE) return `/${p}`;
-  return ensureTrailingSlash(DATA_BASE) + p;
+  if (!FATWA_BASE) return `/${p}`;
+  return ensureTrailingSlash(FATWA_BASE) + p;
+}
+
+/** Resolve a path under the hadith base. Falls back to /<path> if no base. */
+export function hadithUrl(path: string): string {
+  const p = path.startsWith('/') ? path.slice(1) : path;
+  if (!HADITH_BASE) return `/${p}`;
+  return ensureTrailingSlash(HADITH_BASE) + p;
+}
+
+/** Resolve a path under the books base. Falls back to /<path> if no base. */
+export function booksUrl(path: string): string {
+  const p = path.startsWith('/') ? path.slice(1) : path;
+  if (!BOOKS_BASE) return `/${p}`;
+  return ensureTrailingSlash(BOOKS_BASE) + p;
 }
 
 /** Shard URL with 2-level sharding (ab/cd/abcd1234.json) for BOTH subdirs.
@@ -44,9 +72,9 @@ export function shardUrl(subdir: 'fatwa_answers' | 'micro_shards', hash: string)
   return dataUrl(path);
 }
 
-/** Test helper: is the data base remote (HF) rather than local. */
+/** Test helper: is the fatwa base remote (HF) rather than local. */
 export function isRemoteData(): boolean {
-  return DATA_BASE.length > 0;
+  return FATWA_BASE.length > 0;
 }
 
 /** URL for a books-catalog index file split by Arabic first letter.
@@ -69,4 +97,27 @@ export function booksShardUrl(source: 'shamela' | 'openiti', prefix: string): st
   const p2 = safe[1] || '_';
   const p3 = safe[2] || '_';
   return dataUrl(`data/books/catalogs/${source}/_by_prefix/${p1}/${p2}/${p3}.json`);
+}
+
+/* -------------------- Hadith helpers --------------------------------- */
+
+/** Per-book index file (hadith/books/<label>/index.json). */
+export function hadithBookIndexUrl(label: string): string {
+  return hadithUrl(`data/hadith/books/${label}/index.json`);
+}
+
+/** Per-book metadata (hadith/books/<label>/metadata.json). */
+export function hadithBookMetadataUrl(label: string): string {
+  return hadithUrl(`data/hadith/books/${label}/metadata.json`);
+}
+
+/** Per-book chapter chunk (hadith/books/<label>/chapters/<NNN>.json). */
+export function hadithChapterUrl(label: string, chunkIndex: number): string {
+  const i = String(chunkIndex).padStart(3, '0');
+  return hadithUrl(`data/hadith/books/${label}/chapters/${i}.json`);
+}
+
+/** HadeethEnc sharh dataset (single file). */
+export function hadithSharhUrl(): string {
+  return hadithUrl('data/hadith/sharh/hadeethenc_sharh.json');
 }

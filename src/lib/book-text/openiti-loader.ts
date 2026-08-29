@@ -77,8 +77,10 @@ export async function loadOpenItiDynamicEBook(
   const rawGithubUrl = bookItem?.pdfUrl || `https://raw.githubusercontent.com/OpenITI/0025AH/master/data/${cleanId}`;
 
   try {
-    const proxyUrl = `/api/openiti-text?url=${encodeURIComponent(rawGithubUrl)}`;
-    const res = await fetch(proxyUrl);
+    // Read directly from the OpenITI GitHub raw URL; the /api/openiti-text
+    // proxy was removed for the static-only Cloudflare build. GitHub
+    // raw serves permissive CORS for unauthenticated GETs.
+    const res = await fetch(rawGithubUrl);
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
     }

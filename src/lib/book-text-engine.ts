@@ -213,7 +213,10 @@ async function loadShamelaEBook(
   try {
     const getUrl = (subPath: string) => {
       if (typeof window !== 'undefined' && window.location?.origin) {
-        return `/api/shamela-text?path=${encodeURIComponent(shamelaPath + '/' + subPath)}`;
+        // Read directly from the public Shamela mirror on HF — no proxy
+        // needed and no /api route required. This is the same URL the
+        // server-side branch falls back to when the proxy is absent.
+        return `https://huggingface.co/datasets/AuthenticIlm/Shamela4_Full_DB/resolve/main/${shamelaPath}/${subPath}`;
       }
       return `https://huggingface.co/datasets/AuthenticIlm/Shamela4_Full_DB/resolve/main/${shamelaPath}/${subPath}`;
     };

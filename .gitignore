@@ -84,3 +84,8 @@ Noor_Platform_Audit_Report.pdf
 .gemini/
 scratch/
 
+staging/
+scripts/upload_micro_shards_flat.py
+staging/
+scripts/upload_micro_shards_flat.py
+staging-books/

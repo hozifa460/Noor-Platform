@@ -3,6 +3,13 @@ import { expandSemanticTerms, extractQueryCore } from './hadith-semantic';
 import { HADITH_BOOKS_LIST } from './hadith-data';
 import { getCachedHadithBook, setCachedHadithBook } from './hadith-storage';
 import { BUILTIN_SEED_SHARH } from './seed-hadith-sharh';
+import {
+  HADITH_BASE,
+  hadithBookIndexUrl,
+  hadithBookMetadataUrl,
+  hadithChapterUrl,
+  hadithSharhUrl,
+} from './data-base';
 
 import {
   type HadithEnglish,
@@ -91,7 +98,23 @@ export async function loadHadithBook(fileName: string): Promise<HadithBookData |
     }
   }
 
-  // 4. Browser public /data fetch
+  // 4. PRIMARY: chunked shards on noor-platform-hadith (smaller, faster,
+  //    served from a dedicated dataset). index.json → N chapter chunks.
+  if (HADITH_BASE) {
+    try {
+      const label = fileName.replace(/\.json$/, '');
+      const data = await loadHadithBookFromShards(label);
+      if (data) {
+        const prepared = prepareBookData(data);
+        bookCache.set(fileName, prepared);
+        return prepared;
+      }
+    } catch (err) {
+      console.warn(`[hadith] shard fetch failed for ${fileName}, falling back:`, err);
+    }
+  }
+
+  // 5. Legacy: full-size JSON from the public mirror repo
   try {
     const res = await fetch(`/data/hadith/${fileName}`);
     if (res.ok) {
@@ -105,7 +128,7 @@ export async function loadHadithBook(fileName: string): Promise<HadithBookData |
     /* fallback to HF */
   }
 
-  // 5. Remote Hugging Face dataset fetch
+  // 6. Final fallback: full JSON on the legacy quran_and_sunnah repo
   try {
     const url = `${HF_SUNNAH_BASE}/All_hadith_books/${fileName}`;
     const res = await fetch(url);
@@ -121,6 +144,101 @@ export async function loadHadithBook(fileName: string): Promise<HadithBookData |
   }
 
   return null;
+}
+
+/**
+ * Loads a hadith book from the chunked layout on noor-platform-hadith:
+ *   <book>/index.json        — {totalHadiths, chapterCount, chunkCount}
+ *   <book>/metadata.json     — slim book info
+ *   <book>/chapters/NNN.json — array of ~500 hadiths each
+ *
+ * Returns the assembled HadithBookData on success, or null on any failure
+ * (caller should fall back to the legacy single-file paths).
+ */
+export async function loadHadithBookFromShards(label: string): Promise<HadithBookData | null> {
+  // 1. Fetch the book index (small — ~200 bytes)
+  let index: { totalHadiths: number; chapterCount: number; chunkCount: number; fileName?: string };
+  try {
+    const res = await fetch(hadithBookIndexUrl(label));
+    if (!res.ok) return null;
+    index = await res.json();
+  } catch {
+    return null;
+  }
+  if (!index || !index.chunkCount) return null;
+
+  // 2. Fetch metadata + all chapter chunks in parallel
+  const [metaRes, ...chunkResults] = await Promise.all([
+    fetch(hadithBookMetadataUrl(label)).catch(() => null),
+    ...Array.from({ length: index.chunkCount }, (_, i) =>
+      fetch(hadithChapterUrl(label, i)).then(r => r.ok ? r.json() : null)
+    ),
+  ]);
+
+  const hadiths: HadithItem[] = [];
+  for (const c of chunkResults) {
+    if (Array.isArray(c)) hadiths.push(...c);
+  }
+  if (hadiths.length === 0) return null;
+
+  // 3. Build the assembled book. The legacy shape had metadata with
+  //    {arabic, english} nested objects; we coerce our flatter metadata
+  //    into that shape so existing UI code keeps working.
+  type SlimMeta = {
+    id?: number;
+    length?: number;
+    title_ar?: string;
+    author_ar?: string;
+    introduction_ar?: string;
+    title_en?: string;
+    author_en?: string;
+  };
+  let meta: SlimMeta = {};
+  if (metaRes && (metaRes as Response).ok) {
+    try { meta = (await (metaRes as Response).json()) as SlimMeta; } catch { /* */ }
+  }
+
+  // 4. Group hadiths by chapterId into the `chapters` array the UI expects.
+  const chaptersMap = new Map<string, { id: number; count: number; firstHadithId?: number | string }>();
+  for (const h of hadiths) {
+    const ch = String(h.chapterId ?? '1');
+    const entry = chaptersMap.get(ch) ?? { id: Number(ch) || 0, count: 0 };
+    entry.count += 1;
+    if (entry.firstHadithId === undefined) {
+      entry.firstHadithId = h.id ?? h.idInBook;
+    }
+    chaptersMap.set(ch, entry);
+  }
+  const bookId = meta.id ?? 0;
+  const chapters: import('./hadith/types').HadithChapter[] = Array.from(chaptersMap.values())
+    .sort((a, b) => a.id - b.id)
+    .map(c => ({
+      id: c.id,
+      bookId,
+      arabic: '',  // chapter titles live in toc.json (not loaded here yet)
+      english: '',
+    }));
+
+  const data: HadithBookData = {
+    id: meta.id ?? 0,
+    metadata: {
+      id: meta.id ?? 0,
+      length: meta.length ?? index.totalHadiths,
+      arabic: {
+        title: meta.title_ar ?? label,
+        author: meta.author_ar ?? '',
+        introduction: meta.introduction_ar ?? '',
+      },
+      english: {
+        title: meta.title_en ?? label,
+        author: meta.author_en ?? '',
+      },
+    },
+    chapters,
+    hadiths,
+  };
+
+  return data;
 }
 
 /**
@@ -158,7 +276,22 @@ export async function loadHadeethEncSharh(): Promise<HadeethEncSharhItem[]> {
     }
   }
 
-  // 3. Browser public fetch
+  // 3. PRIMARY: chunked sharh on noor-platform-hadith (smaller, dedicated)
+  if (HADITH_BASE) {
+    try {
+      const res = await fetch(hadithSharhUrl());
+      if (res.ok) {
+        sharhCache = (await res.json()) as HadeethEncSharhItem[];
+        setCachedHadithBook('hadeethenc_sharh.json', sharhCache).catch(() => {});
+        buildSharhInvertedIndex(sharhCache);
+        return sharhCache;
+      }
+    } catch (err) {
+      console.warn('[hadith] sharh fetch from noor-platform-hadith failed:', err);
+    }
+  }
+
+  // 4. Legacy: full-size sharh from the public mirror repo
   try {
     const res = await fetch('/data/hadith/hadeethenc_sharh.json');
     if (res.ok) {
@@ -171,7 +304,7 @@ export async function loadHadeethEncSharh(): Promise<HadeethEncSharhItem[]> {
     /* fallback */
   }
 
-  // 4. Remote HF fetch
+  // 5. Final fallback: sharh on the legacy quran_and_sunnah repo
   try {
     const url = `${HF_SUNNAH_BASE}/HadeethEnc_Sharh/hadeethenc_sharh.json`;
     const res = await fetch(url);

@@ -179,7 +179,11 @@ function proxifyUrl(url: string): string {
   try {
     const parsed = new URL(url);
     if (parsed.origin === window.location.origin) return url;
-    return `/api/proxy/pdf?url=${encodeURIComponent(url)}`;
+    // Without the /api/proxy/pdf route (e.g. on a static-only deploy
+    // like Cloudflare Pages), fall back to the direct URL. The PDF
+    // reader will still work as long as the upstream sends
+    // permissive CORS headers, which the major Islamic PDF hosts do.
+    return url;
   } catch {
     return url;
   }

@@ -131,8 +131,11 @@ export function gitlabRawUrl(repo: RepositorySource, filePath: string): string {
   const branch = repo.branch || 'main';
   const cleanPath = filePath.replace(/^\/+/, '');
   const upstream = `https://gitlab.com/${repo.owner}/${repo.repo}/-/raw/${branch}/${cleanPath}`;
-  return `/api/proxy/gitlab?url=${encodeURIComponent(upstream)}`;
-}
+ // /api/proxy/gitlab was removed for the static-only Cloudflare build.
+ // GitLab raw already serves permissive CORS, so the direct URL works
+ // in both Vercel and Cloudflare deployments.
+ return upstream;
+ }
 
 /**
  * Build the raw URL for the index.json in a repository.
