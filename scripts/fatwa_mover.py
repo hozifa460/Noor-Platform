@@ -1,25 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Noor Platform — Fatwa Mover (v4: tree-free)
-============================================
+Noor Platform — Fatwa Uploader (no tree API)
+=============================================
 
-Copies fatwa data from `hozifa1/noor-platform-shards` to
-`hozifa1/noor-platform-fatwa`. Uses NO tree API at all — just direct
-file paths and per-file HEAD/GET against the resolve endpoint.
+Uploads fatwa files to `hozifa1/noor-platform-fatwa` by downloading
+them directly from the public `hozifa1/noor-platform-shards` HF repo
+(one GET per file, no tree API needed).
 
-Strategy
---------
-1. For each known fatwa file path, attempt HEAD on the source repo.
-   If it returns 200, the file exists. We don't enumerate directories.
-2. For 2-level sharded paths (data/micro_shards/ab/cd/hash.json and
-   data/fatwa_answers/ab/cd/hash.json), we use the prefix_router.json
-   we know is at the top of micro_shards to find every hash that
-   actually exists.
-3. Skip files already in destination (HEAD against dest).
-4. For each new file: GET from source, create_commit on dest.
+The set of files to upload is built from a KNOWN list (no discovery):
+- 18 top-level files (manifest, browse, shards, micro_shards tops)
+- For data/micro_shards/ab/cd/hash.json: read data/micro_shards/prefix_router.json
+  (which is a small ~27KB file) to get every hash.
+- For data/fatwa_answers/ab/cd/...: there is no router, so this version
+  skips them. The Kaggle notebook (hf cp) is the recommended path for
+  these because remote-to-remote copy works there.
 
-Resume-safe: progress.json mirrored to dest under _internal/.
+Per-file commit + progress.json under _internal/ makes this safe to
+interrupt and resume.
 """
 import json
 import os
@@ -27,7 +25,6 @@ import shutil
 import sys
 import time
 import urllib.error
-import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -42,7 +39,6 @@ ROOT = Path(os.environ.get('NOOR_STAGING', '/kaggle/working/noor-fatwa'))
 PROGRESS = ROOT / 'progress.json'
 LOG = ROOT / 'split.log'
 
-# Top-level known fatwa files (no sharding).
 TOP_LEVEL_FILES = [
     'data/fatwas_manifest.json',
     'data/fatwa_browse/aqeedah.json',
@@ -76,12 +72,9 @@ def log(msg: str) -> None:
 
 
 def hf_get(url: str, max_retries: int = 5, timeout: int = 60) -> bytes | None:
-    """GET with 429/timeout backoff. Returns None on 404."""
     for attempt in range(1, max_retries + 1):
         try:
-            req = urllib.request.Request(
-                url, headers={'User-Agent': 'noor-fatwa/4.0'}
-            )
+            req = urllib.request.Request(url, headers={'User-Agent': 'noor-fatwa/5.0'})
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 return r.read()
         except urllib.error.HTTPError as e:
@@ -92,25 +85,20 @@ def hf_get(url: str, max_retries: int = 5, timeout: int = 60) -> bytes | None:
                 log(f'  429 on {url[:80]}..., retry in {wait}s')
                 time.sleep(wait)
                 continue
-            log(f'  HTTP {e.code} on {url[:80]}...: {e}')
             return None
-        except Exception as e:
+        except Exception:
             if attempt < max_retries:
-                wait = 15 * attempt
-                log(f'  error on {url[:80]}..., retry in {wait}s ({type(e).__name__})')
-                time.sleep(wait)
+                time.sleep(15 * attempt)
                 continue
-            log(f'  giving up on {url[:80]}...: {e}')
             return None
     return None
 
 
-def hf_head(url: str, max_retries: int = 5) -> bool:
-    """HEAD against resolve URL. True if file exists, False otherwise."""
-    for attempt in range(1, max_retries + 1):
+def hf_head(url: str) -> bool:
+    for attempt in range(5):
         try:
             req = urllib.request.Request(
-                url, method='HEAD', headers={'User-Agent': 'noor-fatwa/4.0'}
+                url, method='HEAD', headers={'User-Agent': 'noor-fatwa/5.0'}
             )
             with urllib.request.urlopen(req, timeout=30) as r:
                 return r.status == 200
@@ -118,46 +106,35 @@ def hf_head(url: str, max_retries: int = 5) -> bool:
             if e.code == 404:
                 return False
             if e.code == 429:
-                wait = 30 * (2 ** (attempt - 1))
-                log(f'  HEAD 429, retry in {wait}s')
-                time.sleep(wait)
+                time.sleep(30 * (2 ** attempt))
                 continue
             return False
         except Exception:
-            if attempt < max_retries:
-                time.sleep(15 * attempt)
-                continue
-            return False
+            time.sleep(15 * attempt)
     return False
 
 
-def get_prefix_router_hashes() -> list[str]:
-    """Read data/micro_shards/prefix_router.json and return every hash.
-
-    The router looks like:
-        { "ab": ["hash1", "hash2", ...], "cd": [...], ... }
-
-    We use this to enumerate every 2-level path that exists, without
-    using the tree API.
-    """
-    log('  reading micro_shards/prefix_router.json to enumerate hashes...')
-    data = hf_get(f'{SOURCE_RESOLVE}/data/micro_shards/prefix_router.json',
-                  timeout=120)
+def get_micro_shard_paths() -> list[str]:
+    log('  reading micro_shards/prefix_router.json...')
+    data = hf_get(f'{SOURCE_RESOLVE}/data/micro_shards/prefix_router.json', timeout=120)
     if data is None:
         log('  could not read prefix_router.json')
         return []
     try:
         router = json.loads(data)
     except Exception as e:
-        log(f'  failed to parse prefix_router.json: {e}')
+        log(f'  parse error: {e}')
         return []
 
     paths: list[str] = []
-    for ab, hashes in router.items():
-        if not isinstance(hashes, list):
+    for ab, value in router.items():
+        if isinstance(value, list):
+            hashes = value
+        elif isinstance(value, str):
+            hashes = [value]
+        else:
             continue
         for h in hashes:
-            # h is the full 8-char hash; the directory is ab/cd (first 2/next 2)
             if not isinstance(h, str) or len(h) < 4:
                 continue
             cd = h[2:4]
@@ -166,27 +143,37 @@ def get_prefix_router_hashes() -> list[str]:
     return paths
 
 
-def upload_one(rel_path: str, local_path: Path) -> bool:
+def upload_one(rel_path: str, data: bytes) -> bool:
     from huggingface_hub import CommitOperationAdd
-    for attempt in range(1, 7):
+    import tempfile
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.tmp') as f:
+        f.write(data)
+        tmp_path = f.name
+    try:
+        for attempt in range(1, 7):
+            try:
+                _api.create_commit(
+                    repo_id=TARGET_REPO,
+                    repo_type='dataset',
+                    operations=[CommitOperationAdd(
+                        path_in_repo=rel_path,
+                        path_or_fileobj=tmp_path,
+                    )],
+                    commit_message=f'fatwa: {rel_path}',
+                )
+                return True
+            except Exception as e:
+                if attempt == 6:
+                    log(f'  upload gave up: {type(e).__name__}: {e}')
+                    return False
+                wait = 2 ** attempt
+                log(f'  upload error, retry in {wait}s')
+                time.sleep(wait)
+    finally:
         try:
-            _api.create_commit(
-                repo_id=TARGET_REPO,
-                repo_type='dataset',
-                operations=[CommitOperationAdd(
-                    path_in_repo=rel_path,
-                    path_or_fileobj=str(local_path),
-                )],
-                commit_message=f'fatwa: {rel_path}',
-            )
-            return True
-        except Exception as e:
-            if attempt == 6:
-                log(f'  upload gave up on {rel_path}: {type(e).__name__}: {e}')
-                return False
-            wait = 2 ** attempt
-            log(f'  upload 429/error on {rel_path}, retry in {wait}s')
-            time.sleep(wait)
+            os.unlink(tmp_path)
+        except OSError:
+            pass
     return False
 
 
@@ -221,7 +208,7 @@ def main() -> int:
     log(f'Target: {TARGET_REPO}')
 
     if not TOKEN:
-        log('ERROR: HF_TOKEN not set. On Kaggle add a Secret named HF_TOKEN.')
+        log('ERROR: HF_TOKEN not set')
         return 1
 
     from huggingface_hub import HfApi
@@ -231,28 +218,18 @@ def main() -> int:
     done = set(progress['done'])
     failed = progress.get('failed', {})
 
-    # 1. Build the candidate file list: top-level files + micro_shards from router
-    log('Building candidate file list...')
+    log('Building candidate list...')
     candidates: list[str] = list(TOP_LEVEL_FILES)
-
-    # 2. Fetch prefix_router.json to enumerate every micro_shards file
-    #    This is ONE network call (no tree API).
-    router_paths = get_prefix_router_hashes()
-    candidates.extend(router_paths)
-    log(f'Total candidate files: {len(candidates)}')
-
-    # 3. For each candidate, check if it exists on source (HEAD) and
-    #    is missing on destination. We don't try to enumerate directories.
+    candidates.extend(get_micro_shard_paths())
+    log(f'Total candidates: {len(candidates)}')
 
     todo = []
     for rel in candidates:
         if rel in done:
             continue
-        # HEAD against source
         if not hf_head(f'{SOURCE_RESOLVE}/{rel}'):
             log(f'  skip {rel}: not in source')
             continue
-        # HEAD against destination
         if hf_head(f'{DEST_RESOLVE}/{rel}'):
             log(f'  skip {rel}: already in dest')
             done.add(rel)
@@ -266,8 +243,6 @@ def main() -> int:
     for i, rel in enumerate(todo, 1):
         t_start = time.time()
         try:
-            local = ROOT / 'staging' / rel
-            local.parent.mkdir(parents=True, exist_ok=True)
             data = hf_get(f'{SOURCE_RESOLVE}/{rel}', timeout=300)
             if data is None:
                 log(f'  [{i}/{len(todo)}] {rel}: download failed')
@@ -275,8 +250,7 @@ def main() -> int:
                 progress['failed'] = failed
                 save_progress(progress)
                 continue
-            local.write_bytes(data)
-            ok = upload_one(rel, local)
+            ok = upload_one(rel, data)
             if ok:
                 dt = time.time() - t_start
                 done.add(rel)
@@ -284,10 +258,6 @@ def main() -> int:
                 progress['done'] = sorted(done)
                 progress['failed'] = failed
                 save_progress(progress)
-                try:
-                    local.unlink()
-                except OSError:
-                    pass
                 log(f'  [{i}/{len(todo)}] {rel}: ok ({dt:.1f}s, {len(data)/1024:.0f}KB)')
             else:
                 failed[rel] = 'upload failed'
