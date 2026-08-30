@@ -232,14 +232,9 @@ def main() -> int:
     for rel in candidates:
         if rel in done:
             continue
-        # Skip HEAD on source — the router tells us these exist.
-        # Just check dest (much faster, fewer HEAD requests).
-        if hf_head(f'{DEST_RESOLVE}/{rel}'):
-            log(f'  skip {rel}: already in dest')
-            done.add(rel)
-            progress['done'] = sorted(done)
-            save_progress(progress)
-            continue
+        # Skip ALL HEAD checks — the router says these exist, and
+        # the upload step will surface any 404s. Doing 1,564 HEAD
+        # requests adds 40+ minutes of dead time.
         todo.append(rel)
     log(f'To migrate: {len(todo)}')
 
