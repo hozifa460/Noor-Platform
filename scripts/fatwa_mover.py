@@ -128,6 +128,9 @@ def get_micro_shard_paths() -> list[str]:
 
     paths: list[str] = []
     for ab, value in router.items():
+        # NOTE: the `ab` key in the router is NOT a directory prefix.
+        # The actual path uses the first 2 chars of the hash itself
+        # as the directory: data/micro_shards/{hash[0:2]}/{hash[2:4]}/{hash}.json
         if isinstance(value, list):
             hashes = value
         elif isinstance(value, str):
@@ -137,8 +140,10 @@ def get_micro_shard_paths() -> list[str]:
         for h in hashes:
             if not isinstance(h, str) or len(h) < 4:
                 continue
-            cd = h[2:4]
-            paths.append(f'data/micro_shards/{ab}/{cd}/{h}.json')
+            # Use the hash itself, not the router key, for the
+            # directory layout (verified: data/micro_shards/d3/d9/d3d94468.json works)
+            d1, d2 = h[0:2], h[2:4]
+            paths.append(f'data/micro_shards/{d1}/{d2}/{h}.json')
     log(f'  prefix_router yields {len(paths)} micro_shard files')
     return paths
 
