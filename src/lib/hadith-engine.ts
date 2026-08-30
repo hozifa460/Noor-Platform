@@ -5,6 +5,7 @@ import { getCachedHadithBook, setCachedHadithBook } from './hadith-storage';
 import { BUILTIN_SEED_SHARH } from './seed-hadith-sharh';
 import {
   HADITH_BASE,
+  hadithUrl,
   hadithBookIndexUrl,
   hadithBookMetadataUrl,
   hadithChapterUrl,
@@ -417,9 +418,25 @@ function buildMicroTokenMap(entries: MicroIndexEntry[]): void {
 /**
  * Loads the 50,000+ Hadith Micro-Index
  */
-export async function loadHadithMicroIndex(): Promise<MicroIndexEntry[]> {
+async function loadHadithMicroIndex(): Promise<MicroIndexEntry[]> {
   if (microIndexCache) return microIndexCache;
 
+  // 1. PRIMARY: chunked dataset on HF (full 50,884 hadiths, 38.5MB)
+  if (HADITH_BASE) {
+    try {
+      const res = await fetch(hadithUrl('data/hadith/hadiths_micro_index.json'));
+      if (res.ok) {
+        const parsed = await res.json();
+        microIndexCache = parseMicroIndexPayload(parsed);
+        buildMicroTokenMap(microIndexCache);
+        return microIndexCache;
+      }
+    } catch (err) {
+      console.warn('[hadith] micro_index fetch from HF failed, falling back:', err);
+    }
+  }
+
+  // 2. Node local FS (build-time / dev)
   if (typeof window === 'undefined') {
     try {
       const fs = await import('fs');
@@ -436,6 +453,7 @@ export async function loadHadithMicroIndex(): Promise<MicroIndexEntry[]> {
     }
   }
 
+  // 3. Browser fallback: relative URL
   try {
     const res = await fetch('/data/hadith/hadiths_micro_index.json');
     if (res.ok) {
