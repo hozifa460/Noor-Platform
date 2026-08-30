@@ -1,32 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Noor Platform — Fatwa Mover
-============================
+Noor Platform — Fatwa Uploader (no tree API)
+=============================================
 
-Copies ONLY the fatwa-related files from `hozifa1/noor-platform-shards`
-to `hozifa1/noor-platform-fatwa`. Books (data/books/) are NOT touched.
+Uploads fatwa files to `hozifa1/noor-platform-fatwa` by downloading
+them directly from the public `hozifa1/noor-platform-shards` HF repo
+(one GET per file, no tree API needed).
 
-What gets copied
-----------------
-  data/fatwa_answers/   (231 subdirs of fatwa answer shards)
-  data/fatwa_browse/    (8 JSON category indexes)
-  data/micro_shards/    (search index, ~4,000 small files)
-  data/shards/          (7 large category shards)
-  data/fatwas_manifest.json  (master manifest)
+The set of files to upload is built from a KNOWN list (no discovery):
+- 18 top-level files (manifest, browse, shards, micro_shards tops)
+- For data/micro_shards/ab/cd/hash.json: read data/micro_shards/prefix_router.json
+  (which is a small ~27KB file) to get every hash.
+- For data/fatwa_answers/ab/cd/...: there is no router, so this version
+  skips them. The Kaggle notebook (hf cp) is the recommended path for
+  these because remote-to-remote copy works there.
 
-What does NOT get copied
-------------------------
-  data/books/           — left in `noor-platform-shards`
-
-The mover walks each source folder, downloads every file, then uploads
-it to the destination via a single `huggingface_hub.create_commit`
-call per file. progress.json is mirrored to the destination repo under
-`_internal/progress.json` so an interrupted run resumes from exactly
-where it stopped (the destination-side progress is the source of truth;
-HF server-side rate limits are honoured via exponential backoff).
-
-Run on Kaggle for fast internet (free 30h/week).
+Per-file commit + progress.json under _internal/ makes this safe to
+interrupt and resume.
 """
 import json
 import os
@@ -37,29 +28,38 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-# ---- configuration ------------------------------------------------------
 TARGET_REPO = 'hozifa1/noor-platform-fatwa'
 SOURCE_REPO = 'hozifa1/noor-platform-shards'
 TOKEN = os.environ.get('HF_TOKEN')
 
-API_BASE = f'https://huggingface.co/api/datasets/{SOURCE_REPO}/tree/main'
-RESOLVE_BASE = f'https://huggingface.co/datasets/{SOURCE_REPO}/resolve/main'
-DEST_RESOLVE_BASE = f'https://huggingface.co/datasets/{TARGET_REPO}/resolve/main'
+SOURCE_RESOLVE = f'https://huggingface.co/datasets/{SOURCE_REPO}/resolve/main'
+DEST_RESOLVE = f'https://huggingface.co/datasets/{TARGET_REPO}/resolve/main'
 
 ROOT = Path(os.environ.get('NOOR_STAGING', '/kaggle/working/noor-fatwa'))
 PROGRESS = ROOT / 'progress.json'
 LOG = ROOT / 'split.log'
 
-# ONLY fatwa-related prefixes. Do NOT add 'data/books' here.
-FATWA_PREFIXES = [
-    'data/fatwa_answers',
-    'data/fatwa_browse',
-    'data/micro_shards',
-    'data/shards',
-    'data/fatwas_manifest.json',  # top-level file, not a directory
+TOP_LEVEL_FILES = [
+    'data/fatwas_manifest.json',
+    'data/fatwa_browse/aqeedah.json',
+    'data/fatwa_browse/contemporary.json',
+    'data/fatwa_browse/family.json',
+    'data/fatwa_browse/manifest.json',
+    'data/fatwa_browse/muamalat.json',
+    'data/fatwa_browse/salah.json',
+    'data/fatwa_browse/scholars.json',
+    'data/fatwa_browse/zakah.json',
+    'data/shards/aqeedah.json',
+    'data/shards/contemporary.json',
+    'data/shards/family.json',
+    'data/shards/manifest_index.json',
+    'data/shards/muamalat.json',
+    'data/shards/salah.json',
+    'data/shards/zakah.json',
+    'data/micro_shards/prefix_router.json',
+    'data/micro_shards/showcase.json',
 ]
 
-# ---------------------------------------------------------------------------
 _api = None
 
 
@@ -71,136 +71,131 @@ def log(msg: str) -> None:
             f.write(line + '\n')
 
 
-def list_tree(path: str) -> list[dict]:
-    url = f'{API_BASE}/{path}'
-    req = urllib.request.Request(url, headers={'User-Agent': 'noor-fatwa/3.0'})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        return json.loads(r.read())
-
-
-def walk_files(path: str, max_retries: int = 3) -> list[str]:
-    """Recursively collect all file paths under `path` (source-side)."""
-    out: list[str] = []
-    seen: set[str] = set()
-    stack = [path]
-    while stack:
-        p = stack.pop()
-        if p in seen:
-            continue
-        seen.add(p)
-        for attempt in range(1, max_retries + 1):
-            try:
-                entries = list_tree(p)
-                break
-            except urllib.error.HTTPError as e:
-                if e.code == 429 and attempt < max_retries:
-                    wait = 30 * attempt
-                    log(f'  429 on {p}, retry in {wait}s')
-                    time.sleep(wait)
-                    continue
-                if e.code == 404:
-                    log(f'  404 on {p}, skip')
-                    entries = []
-                    break
-                raise
-            except Exception as e:
-                if attempt < max_retries:
-                    wait = 15 * attempt
-                    log(f'  timeout on {p}, retry in {wait}s')
-                    time.sleep(wait)
-                    continue
-                log(f'  giving up on {p}: {e}')
-                entries = []
-                break
-        for e in entries:
-            if e.get('type') == 'file':
-                out.append(e['path'])
-            elif e.get('type') == 'directory':
-                stack.append(e['path'])
-    return out
-
-
-def download_to(url: str, dest: Path) -> bool:
-    """Returns True if downloaded, False if 404."""
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    req = urllib.request.Request(url, headers={'User-Agent': 'noor-fatwa/3.0'})
-    try:
-        with urllib.request.urlopen(req, timeout=300) as r:
-            with dest.open('wb') as f:
-                shutil.copyfileobj(r, f, length=1 << 20)
-        return True
-    except urllib.error.HTTPError as e:
-        if e.code == 404:
-            return False
-        raise
-
-
-def upload_one(rel_path: str, local: Path) -> None:
-    """Upload a single file to the destination repo."""
-    from huggingface_hub import CommitOperationAdd
-    for attempt in range(1, 7):
+def hf_get(url: str, max_retries: int = 5, timeout: int = 60) -> bytes | None:
+    for attempt in range(1, max_retries + 1):
         try:
-            _api.create_commit(
-                repo_id=TARGET_REPO,
-                repo_type='dataset',
-                operations=[CommitOperationAdd(
-                    path_in_repo=rel_path,
-                    path_or_fileobj=str(local),
-                )],
-                commit_message=f'fatwa: {rel_path}',
+            req = urllib.request.Request(url, headers={'User-Agent': 'noor-fatwa/5.0'})
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.read()
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return None
+            if e.code == 429:
+                wait = 30 * (2 ** (attempt - 1))
+                log(f'  429 on {url[:80]}..., retry in {wait}s')
+                time.sleep(wait)
+                continue
+            return None
+        except Exception:
+            if attempt < max_retries:
+                time.sleep(15 * attempt)
+                continue
+            return None
+    return None
+
+
+def hf_head(url: str) -> bool:
+    for attempt in range(5):
+        try:
+            req = urllib.request.Request(
+                url, method='HEAD', headers={'User-Agent': 'noor-fatwa/5.0'}
             )
-            return
-        except Exception as e:
-            if attempt == 6:
-                raise
-            wait = 2 ** attempt
-            log(f'    retry in {wait}s ({type(e).__name__})')
-            time.sleep(wait)
+            with urllib.request.urlopen(req, timeout=30) as r:
+                return r.status == 200
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return False
+            if e.code == 429:
+                time.sleep(30 * (2 ** attempt))
+                continue
+            return False
+        except Exception:
+            time.sleep(15 * attempt)
+    return False
 
 
-def file_exists_in_dest(rel_path: str) -> bool:
-    """Return True if the destination repo already has this file."""
+def get_micro_shard_paths() -> list[str]:
+    log('  reading micro_shards/prefix_router.json...')
+    data = hf_get(f'{SOURCE_RESOLVE}/data/micro_shards/prefix_router.json', timeout=120)
+    if data is None:
+        log('  could not read prefix_router.json')
+        return []
     try:
-        with urllib.request.urlopen(
-            f'{DEST_RESOLVE_BASE}/{rel_path}', timeout=15
-        ) as r:
-            return r.status == 200
-    except urllib.error.HTTPError:
-        return False
+        router = json.loads(data)
+    except Exception as e:
+        log(f'  parse error: {e}')
+        return []
+
+    paths: list[str] = []
+    for ab, value in router.items():
+        # NOTE: the `ab` key in the router is NOT a directory prefix.
+        # The actual path uses the first 2 chars of the hash itself
+        # as the directory: data/micro_shards/{hash[0:2]}/{hash[2:4]}/{hash}.json
+        if isinstance(value, list):
+            hashes = value
+        elif isinstance(value, str):
+            hashes = [value]
+        else:
+            continue
+        for h in hashes:
+            if not isinstance(h, str) or len(h) < 4:
+                continue
+            # Use the hash itself, not the router key, for the
+            # directory layout (verified: data/micro_shards/d3/d9/d3d94468.json works)
+            d1, d2 = h[0:2], h[2:4]
+            paths.append(f'data/micro_shards/{d1}/{d2}/{h}.json')
+    log(f'  prefix_router yields {len(paths)} micro_shard files')
+    return paths
+
+
+def upload_one(rel_path: str, data: bytes) -> bool:
+    from huggingface_hub import CommitOperationAdd
+    import tempfile
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.tmp') as f:
+        f.write(data)
+        tmp_path = f.name
+    try:
+        for attempt in range(1, 7):
+            try:
+                _api.create_commit(
+                    repo_id=TARGET_REPO,
+                    repo_type='dataset',
+                    operations=[CommitOperationAdd(
+                        path_in_repo=rel_path,
+                        path_or_fileobj=tmp_path,
+                    )],
+                    commit_message=f'fatwa: {rel_path}',
+                )
+                return True
+            except Exception as e:
+                if attempt == 6:
+                    log(f'  upload gave up: {type(e).__name__}: {e}')
+                    return False
+                wait = 2 ** attempt
+                log(f'  upload error, retry in {wait}s')
+                time.sleep(wait)
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+    return False
 
 
 def save_progress(p: dict) -> None:
     PROGRESS.write_text(json.dumps(p, ensure_ascii=False), encoding='utf-8')
-    # Mirror progress to destination repo every 25 files for cross-session resume
-    if _api is not None and len(p['done']) % 25 == 0:
-        try:
-            from huggingface_hub import CommitOperationAdd
-            _api.create_commit(
-                repo_id=TARGET_REPO,
-                repo_type='dataset',
-                operations=[CommitOperationAdd(
-                    path_in_repo='_internal/progress.json',
-                    path_or_fileobj=str(PROGRESS),
-                )],
-                commit_message=f'progress: {len(p["done"])} files done',
-            )
-        except Exception:
-            pass  # best-effort
 
 
 def load_progress() -> dict:
-    # 1. Local file (always present if we've run before)
     if PROGRESS.exists():
         try:
             return json.loads(PROGRESS.read_text(encoding='utf-8'))
         except Exception:
             pass
-    # 2. Destination repo's _internal/progress.json (cross-session)
     try:
-        with urllib.request.urlopen(
-            f'{DEST_RESOLVE_BASE}/_internal/progress.json', timeout=15
-        ) as r:
-            p = json.loads(r.read())
+        data = hf_get(f'{DEST_RESOLVE}/_internal/progress.json', timeout=30)
+        if data is not None:
+            p = json.loads(data)
             PROGRESS.parent.mkdir(parents=True, exist_ok=True)
             PROGRESS.write_text(json.dumps(p, ensure_ascii=False), encoding='utf-8')
             return p
@@ -218,7 +213,7 @@ def main() -> int:
     log(f'Target: {TARGET_REPO}')
 
     if not TOKEN:
-        log('ERROR: HF_TOKEN not set. On Kaggle add a Secret named HF_TOKEN.')
+        log('ERROR: HF_TOKEN not set')
         return 1
 
     from huggingface_hub import HfApi
@@ -228,59 +223,50 @@ def main() -> int:
     done = set(progress['done'])
     failed = progress.get('failed', {})
 
-    log('Enumerating source files...')
-    all_files: list[str] = []
-    for prefix in FATWA_PREFIXES:
-        # single file (not a directory)
-        if '.' in prefix.rsplit('/', 1)[-1]:
-            all_files.append(prefix)
-            log(f'  {prefix}: file (will copy as-is)')
-            continue
-        log(f'  walking {prefix} ...')
-        try:
-            sub = walk_files(prefix)
-            log(f'    found {len(sub)} files')
-            all_files.extend(sub)
-        except Exception as e:
-            log(f'    FAILED to walk {prefix}: {e}')
-    log(f'Total files to migrate: {len(all_files)}')
+    log('Building candidate list...')
+    candidates: list[str] = list(TOP_LEVEL_FILES)
+    candidates.extend(get_micro_shard_paths())
+    log(f'Total candidates: {len(candidates)}')
 
-    todo = [f for f in all_files if f not in done]
-    log(f'Already done: {len(done)} | Remaining: {len(todo)}')
+    todo = []
+    for rel in candidates:
+        if rel in done:
+            continue
+        # Skip HEAD on source — the router tells us these exist.
+        # Just check dest (much faster, fewer HEAD requests).
+        if hf_head(f'{DEST_RESOLVE}/{rel}'):
+            log(f'  skip {rel}: already in dest')
+            done.add(rel)
+            progress['done'] = sorted(done)
+            save_progress(progress)
+            continue
+        todo.append(rel)
+    log(f'To migrate: {len(todo)}')
 
     t0 = time.time()
     for i, rel in enumerate(todo, 1):
-        # Skip-if-exists shortcut (cheap HEAD before downloading)
-        if file_exists_in_dest(rel):
-            log(f'  [{i}/{len(todo)}] {rel}: skip (already in destination)')
-            done.add(rel)
-            progress['done'] = sorted(done)
-            save_progress(progress)
-            continue
-
         t_start = time.time()
         try:
-            local = ROOT / 'staging' / rel
-            ok = download_to(f'{RESOLVE_BASE}/{rel}', local)
-            if not ok:
-                log(f'  [{i}/{len(todo)}] {rel}: 404 (skip)')
-                done.add(rel)
-                progress['done'] = sorted(done)
+            data = hf_get(f'{SOURCE_RESOLVE}/{rel}', timeout=300)
+            if data is None:
+                log(f'  [{i}/{len(todo)}] {rel}: download failed')
+                failed[rel] = 'download failed'
+                progress['failed'] = failed
                 save_progress(progress)
                 continue
-            upload_one(rel, local)
-            dt = time.time() - t_start
-            done.add(rel)
-            failed.pop(rel, None)
-            progress['done'] = sorted(done)
-            progress['failed'] = failed
-            save_progress(progress)
-            try:
-                local.unlink()
-            except OSError:
-                pass
-            sz = (local.stat().st_size if local.exists() else 0) / 1024
-            log(f'  [{i}/{len(todo)}] {rel}: ok ({dt:.1f}s, {sz:.0f}KB)')
+            ok = upload_one(rel, data)
+            if ok:
+                dt = time.time() - t_start
+                done.add(rel)
+                failed.pop(rel, None)
+                progress['done'] = sorted(done)
+                progress['failed'] = failed
+                save_progress(progress)
+                log(f'  [{i}/{len(todo)}] {rel}: ok ({dt:.1f}s, {len(data)/1024:.0f}KB)')
+            else:
+                failed[rel] = 'upload failed'
+                progress['failed'] = failed
+                save_progress(progress)
         except KeyboardInterrupt:
             log('Interrupted. Restart to resume.')
             return 2
@@ -290,7 +276,7 @@ def main() -> int:
             progress['failed'] = failed
             save_progress(progress)
 
-        if i % 25 == 0:
+        if i % 10 == 0:
             elapsed = time.time() - t0
             avg = elapsed / i
             eta = avg * (len(todo) - i)
