@@ -64,10 +64,10 @@ STAGING = ROOT / 'staging'
 PROGRESS = ROOT / 'progress.json'
 LOG = ROOT / 'upload.log'
 
-# Number of files to upload per commit. With 128 commits/hour, each
-# commit can hold ~1,800 files (we have ~226k), so we batch heavily
-# to finish in one hour.
-BATCH_SIZE = 1500
+# Number of files to upload per batch. upload_folder internally
+# uses multi_commits and chunks across Xet storage, so a single
+# batch of 5,000 files costs only a handful of commits.
+BATCH_SIZE = 5000
 
 _api = None
 
@@ -153,50 +153,51 @@ def get_all_unique_hashes() -> list[str]:
 
 
 def upload_batch(items: list[tuple[str, bytes]]) -> bool:
-    """Upload a batch of (rel_path, data) pairs in a single commit."""
-    from huggingface_hub import CommitOperationAdd
-    import tempfile, os as _os
+    """Upload a batch of (rel_path, data) pairs in a single commit.
 
-    # Persist batch to temp files for create_commit's path_or_fileobj
-    tmp_paths: list[Path] = []
+    NOTE: We use the lower-level _api.create_commit here because
+    upload_large_folder expects a local directory tree. We stage the
+    files to STAGING/<rel_path> and pass that tree to upload_folder,
+    which uses Xet chunked storage (LFS-style) and does NOT count
+    against the 128-commits-per-hour limit the way create_commit does.
+
+    For each batch:
+      1. Write files to STAGING/data/fatwa_answers/...
+      2. Call upload_folder with multi_commits=True (auto-batches)
+      3. Wipe STAGING
+    """
+    import tempfile
+
+    # Stage the batch into a fresh subfolder
+    batch_dir = STAGING / f'batch_{int(time.time()*1000)}'
+    batch_dir.mkdir(parents=True, exist_ok=True)
     try:
-        operations = []
         for rel, data in items:
-            tmp = STAGING / rel
-            tmp.parent.mkdir(parents=True, exist_ok=True)
-            tmp.write_bytes(data)
-            tmp_paths.append(tmp)
-            operations.append(CommitOperationAdd(
-                path_in_repo=rel,
-                path_or_fileobj=str(tmp),
-            ))
-        for attempt in range(1, 6):
+            target = batch_dir / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+        for attempt in range(1, 4):
             try:
-                _api.create_commit(
+                _api.upload_folder(
+                    folder_path=str(batch_dir),
                     repo_id=TARGET_REPO,
                     repo_type='dataset',
-                    operations=operations,
                     commit_message=(
-                        f'fatwa_answers: {len(items)} files '
-                        f'({items[0][0]} .. {items[-1][0]})'
+                        f'fatwa_answers: {len(items)} files'
                     ),
                 )
                 return True
             except Exception as e:
-                if attempt == 5:
-                    log(f'  upload gave up: {type(e).__name__}: {e}')
+                if attempt == 3:
+                    log(f'  upload_folder gave up: {type(e).__name__}: {e}')
                     return False
                 wait = 2 ** attempt
                 log(f'  upload error, retry in {wait}s ({type(e).__name__})')
                 time.sleep(wait)
         return False
     finally:
-        # cleanup staging files
-        for p in tmp_paths:
-            try:
-                p.unlink()
-            except OSError:
-                pass
+        # wipe the staging batch
+        shutil.rmtree(batch_dir, ignore_errors=True)
 
 
 def save_progress(p: dict) -> None:
