@@ -232,9 +232,8 @@ def main() -> int:
     for rel in candidates:
         if rel in done:
             continue
-        if not hf_head(f'{SOURCE_RESOLVE}/{rel}'):
-            log(f'  skip {rel}: not in source')
-            continue
+        # Skip HEAD on source — the router tells us these exist.
+        # Just check dest (much faster, fewer HEAD requests).
         if hf_head(f'{DEST_RESOLVE}/{rel}'):
             log(f'  skip {rel}: already in dest')
             done.add(rel)
