@@ -39,7 +39,7 @@ import time
 from pathlib import Path
 
 # ---- configuration (override via env) -----------------------------------
-REPO = os.environ.get('HF_REPO', 'hozifa1/noor-platform-shards')
+REPO = os.environ.get('HF_REPO', 'hozifa1/noor-platform-books')
 TOKEN = os.environ.get('HF_TOKEN')  # set this via Kaggle Secrets
 SOURCE = 'AuthenticIlm/Shamela4_Full_DB'
 SOURCE_URL = f'https://huggingface.co/datasets/{SOURCE}/resolve/main'
@@ -72,26 +72,47 @@ def log(msg: str) -> None:
 
 
 def load_progress() -> dict:
-    """Load progress.json. Local first, then HF as a fallback (in case the
-    Kaggle session was wiped but the run did upload progress to HF)."""
+    """Load progress.json. Local first, then HF progress file, and finally dynamic HF tree inspection."""
     if PROGRESS.exists():
         try:
             return json.loads(PROGRESS.read_text(encoding='utf-8'))
         except Exception:
             pass
-    # Try HF as a fallback
+    # Try HF progress file as a fallback
     try:
-        import urllib.request, urllib.parse
+        import urllib.request
         url = f'https://huggingface.co/datasets/{REPO}/resolve/main/_internal/progress.json'
         req = urllib.request.Request(url, headers={'User-Agent': 'noor-splitter/1.0'})
         with urllib.request.urlopen(req, timeout=15) as r:
             p = json.loads(r.read())
-            # Cache locally so subsequent reads don't need a round-trip
             PROGRESS.parent.mkdir(parents=True, exist_ok=True)
             PROGRESS.write_text(json.dumps(p, ensure_ascii=False), encoding='utf-8')
             return p
     except Exception:
         pass
+
+    # Dynamic fallback: query HF repository tree directly to discover all completed books
+    try:
+        from huggingface_hub import HfApi
+        api = HfApi()
+        log('Scanning Hugging Face repository tree for completed books...')
+        tree = api.list_repo_tree(REPO, path_in_repo='data/books/shamela', repo_type='dataset', recursive=False)
+        done_ids = []
+        for item in tree:
+            folder_name = item.path.split('/')[-1]
+            try:
+                done_ids.append(int(folder_name))
+            except ValueError:
+                pass
+        if done_ids:
+            log(f'Discovered {len(done_ids)} existing completed books on Hugging Face!')
+            p = {'done': sorted(done_ids), 'failed': {}}
+            PROGRESS.parent.mkdir(parents=True, exist_ok=True)
+            PROGRESS.write_text(json.dumps(p, ensure_ascii=False), encoding='utf-8')
+            return p
+    except Exception as e:
+        log(f'Warning: could not dynamically list HF tree: {e}')
+
     return {'done': [], 'failed': {}}
 
 
