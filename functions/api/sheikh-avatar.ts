@@ -59,7 +59,11 @@ const SHEIKH_META: Record<string, SheikhAvatarMeta> = {
 };
 
 function makeSvgFallback(name: string): string {
-  const initial = (name || '?').trim().charAt(0) || '?';
+  // Defensive: strip anything non-printable / non-letter to prevent any
+  // SVG-injection edge cases (even though the rest of the code only
+  // uses the first character, an explicit sanitize is cheap insurance).
+  const safeName = (name || '?').replace(/[^\p{L}\p{N}\s]/gu, '?').trim();
+  const initial = (safeName.charAt(0) || '?').toUpperCase();
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80">
 <defs>
   <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">

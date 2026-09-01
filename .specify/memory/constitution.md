@@ -63,4 +63,180 @@
 
 ---
 
-**الإصدار**: 2.0.0 | **تاريخ الاعتماد**: أغسطس 2026
+الإصدار: 2.0.0 | تاريخ الاعتماد: أغسطس 2026
+
+**الإصدار**: 3.0.0 | **تاريخ التحديث**: 30 أغسطس 2026
+**التغيير الجوهري**: اعتماد بنية **Astro 5 + Next.js 16 Hybrid** (انظر spec 005)
+
+## 🏗️ 5. البنية المعمارية المعتمدة (Approved Hybrid Architecture)
+
+> **اعتُمد في**: 30 أغسطس 2026
+> **السبب**: Next.js 16 بُنْدِل 200KB JS = بطيء على 3G
+> **الحل**: Astro 5 (0KB JS) للـ95% + Next.js (200KB) للـPDF reader فقط
+
+### 5.1 تقسيم التطبيقات
+
+| التطبيق | النطاق | الحجم | عدد الصفحات | المسار |
+|---|---|---|---|---|
+| **Astro Frontend** | القرآن، الأحاديث، الفتاوى، الرئيسية، البحث، المشايخ | **0 KB JS** | ~30 صفحة | `apps/astro-frontend/` |
+| **Next.js Books** | المكتبة (PDF reader) | 200 KB | 4 صفحات | `apps/next-books/` |
+| **Cloudflare Workers** | Search API، Auth، User data | n/a (edge) | n/a | `apps/workers-api/` |
+
+### 5.2 التوزيع الجديد للملفات (بعد migration)
+
+```
+Noor-Platform/                          (monorepo)
+├── apps/
+│   ├── astro-frontend/                ← 95% من الموقع (0 KB JS)
+│   ├── next-books/                    ← 5% (PDF.js reader)
+│   └── workers-api/                   ← Backend (D1, KV, R2)
+├── packages/
+│   ├── shared-types/                  ← TS types
+│   ├── data-engines/                  ← hadith, fatwa, book (isomorphic)
+│   └── ui-react/                      ← React components
+├── .specify/                          ← Spec Kit (5 specs now)
+├── .sentrux/                          ← Quality rules
+├── graft/                             ← Knowledge graph
+└── docs/                              ← ADRs, ARCHITECTURE
+```
+
+### 5.3 معايير القبول (Acceptance Criteria)
+
+لكل ميزة جديدة:
+- [ ] هل يمكن تنفيذها في Astro (0 KB JS)؟ → نعم
+- [ ] هل تحتاج state معقد بين islands؟ → لا (أو nanostores)
+- [ ] هل تحتاج PDF.js؟ → ضعها في Next.js island
+- [ ] هل تحتاج real-time؟ → لا (Astro/Cloudflare لا يدعم)
+
+### 5.4 حالات الاستخدام (Use Cases)
+
+| السيناريو | التطبيق |
+|---|---|
+| قراءة قرآن | Astro |
+| بحث في الأحاديث | Astro (island) |
+| قراءة كتاب PDF | Next.js |
+| تحميل PDF | Next.js |
+| تسجيل مستخدم | Workers (API) |
+| Bookmarks | Workers (D1) |
+
+### 5.5 PoC - Astro 5 Verification (30 أغسطس 2026)
+
+نُشر PoC للتحقق من جدوى Astro:
+- **URL**: https://noor-platform-astro.pages.dev
+- **GitHub**: github.com/hozifa460/noor-platform-astro
+- **Status**: ✅ يعمل (141 صفحة، 0 KB JS، build 1.08s)
+- **القرار**: ننتظر 1-2 شهر لتجربة PoC قبل قرار النقل الكامل
+
+### 5.6 مراجعة الأمان - 31 أغسطس 2026
+
+بعد مراجعة شاملة للكود، تم إصلاح:
+
+| المشكلة | الحل | الحالة |
+|---|---|---|
+| **CSP `'unsafe-inline'`** | middleware.ts يولد nonce (مؤقت للـinline) | ✅ جاهز للـdev |
+| **CSP في next.config.ts** | إزالة (بالوسيط) | ✅ |
+| **CSP في _headers** | إضافة comment + TODO | ✅ |
+| **.agents/** in gitignore | ✅ موجود (سطر 109) | ✅ |
+| **URL validation** | `makeSvgFallback` يعقم الاسم الآن | ✅ |
+| **Prettier** | `.prettierrc` + `.prettierignore` + script | ✅ |
+| **Dependencies `latest`** | لا توجد (كلها `^`) | ✅ |
+
+**الملفات المُضافة**:
+- `src/middleware.ts` (CSP nonce generator)
+- `src/lib/csp-nonce.ts` (helper للـcomponents)
+- `.prettierrc` (config)
+- `.prettierignore` (exclude list)
+
+**القرار**: CSP nonce مؤقت (يحتاج migration للـcomponents) -> نكتفي بـ`'unsafe-inline'` حالياً (Cloudflare static export لا يستخدم middleware).
+
+## 📌 4. الوضع الراهن للبنية التحتية للبيانات (Current Data Architecture State)
+
+---
+
+## 📌 4. الوضع الراهن للبنية التحتية للبيانات (Current Data Architecture State)
+
+> **آخر تحديث**: أغسطس 2026 — يعكس الحالة الفعلية للمستودعات والبيئة المنشورة.
+> **مصدر الحقيقة**: يجب مطابقة هذا القسم مع `src/lib/data-base.ts` و `docs/DATA_SOURCES.md`.
+
+### 4.1 مستودعات Hugging Face (HF Datasets)
+
+| المستودع | النطاق | الحجم | عدد الملفات | الحالة |
+|---|---|---|---|---|
+| `hozifa1/noor-platform-shards` | الكتب (legacy) | ~663 MB | ~35,000 | ⚠️ قيد الإزالة |
+| `hozifa1/noor-platform-hadith` | الأحاديث (17 كتاب، 50,884 حديث) | ~84 MB | ~1,200 | ✅ نشط |
+| `hozifa1/noor-platform-fatwa` | الفتاوى (~226K فتوى) | ~150 MB | ~10,000 | ✅ نشط |
+| `hozifa1/noor-platform-books` | كتب (placeholder) | ~1 MB | 1 | ⚠️ فارغ (احتياطي) |
+
+### 4.2 متغيرات البيئة الموحدة (Canonical env vars)
+
+كل متغير يقرأ من `process.env.NEXT_PUBLIC_*` ثم fallback في `src/lib/data-base.ts`:
+
+```ts
+HADITH_BASE = process.env.NEXT_PUBLIC_HADITH_BASE
+              ?? 'https://huggingface.co/datasets/hozifa1/noor-platform-hadith/resolve/main'
+FATWA_BASE = process.env.NEXT_PUBLIC_FATWA_BASE
+              ?? process.env.NEXT_PUBLIC_DATA_BASE
+              ?? ''
+BOOKS_BASE = process.env.NEXT_PUBLIC_BOOKS_BASE
+              ?? process.env.NEXT_PUBLIC_DATA_BASE
+              ?? ''
+```
+
+> **قاعدة**: لا تُضف متغير بيئة جديد إلا بتحديث هذا الدستور + `data-base.ts` + Vercel/Cloudflare env.
+
+### 4.3 بنية البحث في قسم الأحاديث (Hadith Search)
+
+- **micro_index.json** على HF: 38.5 MB (نص كامل 600 char × 50,884 حديث)
+- **يُحمّل مرة واحدة** عبر SW cache (حتى 50 MB cap)
+- **Engine**: `src/lib/hadith-engine.ts` → `loadHadithMicroIndex()` → `parseMicroIndexPayload()` → `buildMicroTokenMap()`
+- **Sharded fallback**: 17 كتاب على HF في `data/hadith/books/{book}/chapters/NNN.json`
+- **Search logic**: `searchAcrossAllBooks()` يبحث في الـmicro_index أولاً، fallback إلى book chunks
+
+> **قاعدة**: لا تُنشئ آلية بحث جديدة (inverted index، prefix shards) دون تحديث constitution + specs.
+
+### 4.4 بنية البحث في قسم الفتاوى (Fatwa Search)
+
+- **micro_shards pattern** (مطابق لـfatwa): `data/micro_shards/{h[0:2]}/{h[2:4]}/{h}.json`
+- **prefix_router.json** (27 KB) → يحول prefix 2-char من النص إلى hash
+- **Engine**: `src/lib/micro-shard-engine.ts` (نمط `class MicroShardEngine`)
+- **عدد الـfatwa shards**: 1,564
+
+### 4.5 استراتيجية التخزين المؤقت (Service Worker Cache)
+
+ملف: `public/sw.js`
+- `CACHE_VERSION = 'v3-hf-shards'`
+- **JSON size cap**:
+  - fatwa shards: 10 MB
+  - hadith micro_index: 50 MB
+  - other JSON: 2 MB
+- **maxItems**: fatwa = 2000, others = 100
+- **Stale-while-revalidate** للـJSON
+- **Network-first** للـnavigations
+- **Cache-first** لـ `_next/static/*` والـfonts
+
+### 4.6 البيئة المنشورة (Deployment)
+
+- **Cloudflare Pages**: `noor-platform.pages.dev` (static export, `out/`)
+- **Vercel**: `noor-platform-jade.vercel.app` (legacy، قيد الإزالة)
+- **Build**: `output: 'export'` للـCloudflare، `output: 'standalone'` للـVercel
+- **CI**: `.github/workflows/ci.yml`
+
+### 4.7 ملفات العمل الحالية (Working Files)
+
+> **تحذير**: هذه ملفات نشطة (ليست legacy):
+> - `src/lib/data-base.ts` — يحدد `HADITH_BASE/FATWA_BASE/BOOKS_BASE`
+> - `src/lib/hadith-engine.ts` — `loadHadithMicroIndex` + `searchAcrossAllBooks`
+> - `src/lib/micro-shard-engine.ts` — Fatwa search
+> - `src/lib/book-text-engine.ts` — Books loader
+> - `src/stores/hadith-store.ts` — Hadith UI state
+> - `src/stores/fatwa-store.ts` — Fatwa UI state
+> - `public/sw.js` — Cache strategy
+
+### 4.8 ملفات Legacy / مرشحة للحذف
+
+- `src/lib/pdf/` subdirectory (تم استبداله بـ`book-text/`)
+- `src/lib/book-intent-engine.ts` (مكرر من book-text-engine)
+- `scripts/upload_shards_fast.py`, `upload_shards_to_hf.py` (استُبدلت بـ`fatwa_mover.py`)
+- `scripts/inspect_empty_previews.mjs` (debugging legacy)
+- ~15 سكريبت في `scripts/` يعود تاريخها 2025 (يجب مراجعتها)
+

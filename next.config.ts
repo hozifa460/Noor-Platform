@@ -16,24 +16,10 @@ const securityHeaders = [
     value: "max-age=31536000; includeSubDomains; preload",
   },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(self)" },
-  {
-    key: "Content-Security-Policy",
-    value: [
-      "default-src 'self';",
-      `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://www.youtube.com https://s.ytimg.com;`,
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
-      "img-src 'self' data: blob: https:;",
-      "media-src 'self' blob: https:;",
-      "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com;",
-      "connect-src 'self' blob: data: https://everyayah.com https://*.everyayah.com https://huggingface.co https://*.huggingface.co https://raw.githubusercontent.com https://api.alquran.cloud https://api.qurancdn.com https://mp3quran.net https://*.mp3quran.net https://archive.org https://*.archive.org https://gitlab.com https://*.ytimg.com https://www.youtube.com https://*.upstash.io;",
-      "font-src 'self' data: https://fonts.gstatic.com;",
-      "worker-src 'self' blob:;",
-      "object-src 'none';",
-      "base-uri 'self';",
-      "form-action 'self';",
-      "frame-ancestors 'self';",
-    ].join(" "),
-  },
+  // CSP is now set by src/middleware.ts to support per-request nonces.
+  // This entry intentionally has no key/value to keep array length stable
+  // while documenting the change. The real CSP header is set in middleware.
+  { key: "X-CSP-Source", value: "middleware" },
 ];
 
 const isVercel = Boolean(process.env.VERCEL);

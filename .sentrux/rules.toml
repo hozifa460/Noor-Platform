@@ -1,55 +1,188 @@
 # Sentrux Architecture & Code Quality Rules for Noor Platform
 # Enforces clean layer boundaries, zero circular dependencies, and security invariants.
+# Last updated: 2026-08-30 (Astro + Next.js hybrid architecture)
 
 [project]
 name = "noor-platform"
 language = "typescript"
-framework = "nextjs"
-version = "1.0.0"
+framework = "astro+nextjs"
+version = "3.0.0"
 
 [metrics]
 target_score = 9500
 min_acceptable_score = 9000
 
+# ---------------------------------------------------------------------------
+# Architecture: Hybrid Astro 5 (95%) + Next.js 16 (5% PDF only)
+# Spec: .specify/specs/active/005-astro-architecture.md
+# ---------------------------------------------------------------------------
+[architecture]
+# Pages: Quran, Hadith, Fatwa, Search, Home, Sheikh, Live, Shorts, Videos
+# All go to Astro. Next.js handles ONLY /books/* routes.
+astro_pages = [
+  "/",
+  "/quran",
+  "/hadith",
+  "/fatwa",
+  "/search",
+  "/sheikh/*",
+  "/sheikhs",
+  "/live",
+  "/shorts",
+  "/videos",
+  "/articles",
+  "/radio",
+  "/downloads",
+  "/favorites",
+  "/history",
+  "/settings"
+]
+next_pages = [
+  "/books",
+  "/books/*"
+]
+
+# ---------------------------------------------------------------------------
+# Layer order: Types → Engines → Astro → React (Astro islands) → Next.js
+# (Strict: dependencies flow downward only)
+# ---------------------------------------------------------------------------
 [layers]
-# Strict architectural hierarchy: UI -> Hooks -> Stores -> Lib -> Types
 order = [
   "types",
-  "lib",
-  "stores",
-  "hooks",
-  "components",
-  "app"
+  "engines",     # packages/data-engines
+  "astro",       # apps/astro-frontend
+  "react",       # packages/ui-react (Astro islands)
+  "nextjs",      # apps/next-books
+  "workers"      # apps/workers-api
 ]
 
 [layers.definitions]
-types = ["src/lib/types.ts"]
-lib = ["src/lib/**"]
-stores = ["src/stores/**"]
-hooks = ["src/hooks/**"]
-components = ["src/components/**"]
-app = ["src/app/**"]
+types     = ["packages/shared-types/**"]
+engines   = ["packages/data-engines/**"]
+astro     = ["apps/astro-frontend/src/**"]
+react     = ["packages/ui-react/src/**"]
+nextjs    = ["apps/next-books/src/**"]
+workers   = ["apps/workers-api/src/**"]
 
+# Dependencies flow downward only. astro can import from {types, engines, react}.
+# astro CANNOT import from {nextjs, workers}.
+# workers CAN import from {types, engines} only.
+
+# ---------------------------------------------------------------------------
+# Bundle size budget
+# ---------------------------------------------------------------------------
+[bundle_budget]
+# Astro pages: zero JS by default. Islands: < 50 KB each.
+max_astro_island_kb = 50
+# Next.js /books: 200 KB (without PDF.js)
+max_next_initial_kb = 200
+# PDF.js is lazy-loaded, no initial budget
+pdfjs_lazy = true
+# Search micro_index: 38.5 MB total, lazy via SW
+micro_index_strategy = "sw_cached"
+
+# ---------------------------------------------------------------------------
+# Working files (DO NOT modify without spec update)
+# ---------------------------------------------------------------------------
+[working_files]
+critical = [
+  # Astro
+  "apps/astro-frontend/src/layouts/Layout.astro",
+  "apps/astro-frontend/src/pages/index.astro",
+  "apps/astro-frontend/src/pages/hadith/index.astro",
+  "apps/astro-frontend/src/pages/fatwa/index.astro",
+  "apps/astro-frontend/src/pages/quran/index.astro",
+  # Engines (shared between Astro + Next.js)
+  "packages/data-engines/src/hadith.ts",
+  "packages/data-engines/src/fatwa.ts",
+  "packages/data-engines/src/data-base.ts",
+  # Next.js (books only)
+  "apps/next-books/src/app/books/[id]/page.tsx",
+  "apps/next-books/src/components/PdfReader.tsx",
+  # Workers
+  "apps/workers-api/src/index.ts",
+  "apps/workers-api/wrangler.toml",
+  # Public
+  "public/sw.js",
+]
+
+# ---------------------------------------------------------------------------
+# Acyclicity
+# ---------------------------------------------------------------------------
 [rules.acyclicity]
 enforce = true
 max_circular_dependencies = 0
 
+# ---------------------------------------------------------------------------
+# Modularity
+# ---------------------------------------------------------------------------
 [rules.modularity]
 max_file_lines = 400
 max_function_lines = 100
 max_complexity = 15
 no_god_files = true
 
+# ---------------------------------------------------------------------------
+# Security invariants
+# ---------------------------------------------------------------------------
 [rules.security]
-# SSRF Protection: All external fetches in API routes must use validateSafeUrl()
 enforce_ssrf_guard = true
-# DoS Protection: No execSync in API routes; use execFileAsync only
 disallow_exec_sync = true
-# Rate Limiting: All API endpoints must invoke enforceRateLimit()
 require_rate_limiting = true
-# Input Sanitization: No unsanitized Arabic strings in headers or queries
 enforce_input_sanitization = true
+no_hardcoded_hf_token = true
+# Astro: don't expose secrets in client components
+no_client_secrets = true
+# New: 2026-08-31 - CSP nonce via middleware (fallback to unsafe-inline on Cloudflare)
+csp_nonce_via_middleware = true
+# New: 2026-08-31 - URL validation for user inputs
+input_sanitize_url = true
+# New: 2026-08-31 - Formatting via Prettier
+prettier_enabled = true
 
+# ---------------------------------------------------------------------------
+# Data architecture invariants
+# ---------------------------------------------------------------------------
+[rules.data_architecture]
+no_hardcoded_hf_urls = true
+centralize_env_vars = true
+max_public_data_file_size_mb = 5
+no_json_indices_in_src = true
+require_sw_version_bump = true
+# Astro: data fetching must go through packages/data-engines
+use_data_engines = true
+
+# ---------------------------------------------------------------------------
+# Cross-framework rules
+# ---------------------------------------------------------------------------
+[rules.cross_framework]
+# Astro CANNOT import from Next.js (build will fail)
+no_astro_imports_from_nextjs = true
+# Next.js CANNOT import from Astro (circular)
+no_nextjs_imports_from_astro = true
+# Both Astro + Next.js share packages/* (engines, types, ui)
+# Both use the same data-base.ts for HF URLs
+
+# ---------------------------------------------------------------------------
+# Files to flag (deprecated)
+# ---------------------------------------------------------------------------
+[deprecated]
+files = [
+  "src/lib/pdf/",
+  "src/lib/book-intent-engine.ts",
+  "scripts/upload_shards_fast.py",
+  "scripts/upload_shards_to_hf.py",
+  "scripts/inspect_empty_previews.mjs",
+  # After migration: old src/app/* will be moved to apps/astro-frontend/
+  "src/app/api/youtube-dates/",  # move to Workers
+  "src/app/api/proxy/",          # move to Workers
+  # Astro PoC (separate repo for now: github.com/hozifa460/noor-platform-astro)
+  # Will be merged into main app after validation
+]
+
+# ---------------------------------------------------------------------------
+# Testing
+# ---------------------------------------------------------------------------
 [testing]
 require_security_tests = true
 require_normalizer_tests = true
@@ -57,5 +190,22 @@ require_clean_build = true
 test_commands = [
   "npx tsx scripts/test_security_audit.mjs",
   "npx tsx scripts/test_arabic_normalizer.mjs",
-  "npx next build"
+  # After migration: separate test for each app
+  "cd apps/astro-frontend && npm run build",
+  "cd apps/next-books && npm run build",
+  "cd apps/workers-api && npm run build",
+]
+
+# ---------------------------------------------------------------------------
+# Change protocol
+# ---------------------------------------------------------------------------
+[change_protocol]
+when_modifying_working_file = [
+  "1. Read .specify/memory/constitution.md §5 (Hybrid Architecture)",
+  "2. Read matching spec in .specify/specs/active/00X-*.md",
+  "3. Check which app owns the file (Astro, Next.js, or Workers)",
+  "4. Verify the change doesn't break the cross-framework rules",
+  "5. Run test_commands for the affected app",
+  "6. Update the spec if behavior changed",
+  "7. Bump CACHE_VERSION in public/sw.js if data shape changed",
 ]

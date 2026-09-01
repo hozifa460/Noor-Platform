@@ -15,7 +15,9 @@
     "graft:build": "graft build",
     "graft:map": "graft map",
     "graft:check": "graft check",
-    "graft:viz": "graft viz"
+    "graft:viz": "graft viz",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,astro,json,md,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,astro,json,md,css}\""
   },
   "dependencies": {
     "@hookform/resolvers": "^5.1.1",

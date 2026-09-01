@@ -12,6 +12,10 @@
   X-DNS-Prefetch-Control: on
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
   Permissions-Policy: camera=(), microphone=(), geolocation=(self)
+  # CSP uses nonce for inline scripts (see src/middleware.ts).
+  # For static export (Cloudflare Pages), we keep 'unsafe-inline' as
+  # a fallback for the rare cases where middleware isn't active.
+  # TODO: remove this once all inline scripts are nonced.
   Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.youtube.com https://s.ytimg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; connect-src 'self' blob: data: https://everyayah.com https://*.everyayah.com https://huggingface.co https://*.huggingface.co https://raw.githubusercontent.com https://api.alquran.cloud https://api.qurancdn.com https://mp3quran.net https://*.mp3quran.net https://archive.org https://*.archive.org https://gitlab.com https://*.ytimg.com https://www.youtube.com https://*.upstash.io; font-src 'self' data: https://fonts.gstatic.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self';
 
 /_next/static/*

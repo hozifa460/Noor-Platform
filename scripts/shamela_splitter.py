@@ -72,48 +72,37 @@ def log(msg: str) -> None:
 
 
 def load_progress() -> dict:
-    """Load progress.json. Local first, then HF progress file, and finally dynamic HF tree inspection."""
-    if PROGRESS.exists():
-        try:
-            return json.loads(PROGRESS.read_text(encoding='utf-8'))
-        except Exception:
-            pass
-    # Try HF progress file as a fallback
-    try:
-        import urllib.request
-        url = f'https://huggingface.co/datasets/{REPO}/resolve/main/_internal/progress.json'
-        req = urllib.request.Request(url, headers={'User-Agent': 'noor-splitter/1.0'})
-        with urllib.request.urlopen(req, timeout=15) as r:
-            p = json.loads(r.read())
-            PROGRESS.parent.mkdir(parents=True, exist_ok=True)
-            PROGRESS.write_text(json.dumps(p, ensure_ascii=False), encoding='utf-8')
-            return p
-    except Exception:
-        pass
-
-    # Dynamic fallback: query HF repository tree directly to discover all completed books
+    """Always fetch the live ground truth from Hugging Face repository tree
+    and merge with any local progress, ensuring all uploaded books are skipped."""
+    remote_done = set()
     try:
         from huggingface_hub import HfApi
         api = HfApi()
         log('Scanning Hugging Face repository tree for completed books...')
         tree = api.list_repo_tree(REPO, path_in_repo='data/books/shamela', repo_type='dataset', recursive=False)
-        done_ids = []
         for item in tree:
             folder_name = item.path.split('/')[-1]
-            try:
-                done_ids.append(int(folder_name))
-            except ValueError:
-                pass
-        if done_ids:
-            log(f'Discovered {len(done_ids)} existing completed books on Hugging Face!')
-            p = {'done': sorted(done_ids), 'failed': {}}
-            PROGRESS.parent.mkdir(parents=True, exist_ok=True)
-            PROGRESS.write_text(json.dumps(p, ensure_ascii=False), encoding='utf-8')
-            return p
+            if folder_name.isdigit():
+                remote_done.add(int(folder_name))
+        log(f'Discovered {len(remote_done)} confirmed completed books on Hugging Face!')
     except Exception as e:
         log(f'Warning: could not dynamically list HF tree: {e}')
 
-    return {'done': [], 'failed': {}}
+    local_done = set()
+    failed = {}
+    if PROGRESS.exists():
+        try:
+            p = json.loads(PROGRESS.read_text(encoding='utf-8'))
+            local_done = set(p.get('done', []))
+            failed = p.get('failed', {})
+        except Exception:
+            pass
+
+    all_done = sorted(list(remote_done | local_done))
+    p = {'done': all_done, 'failed': failed}
+    PROGRESS.parent.mkdir(parents=True, exist_ok=True)
+    PROGRESS.write_text(json.dumps(p, ensure_ascii=False), encoding='utf-8')
+    return p
 
 
 def save_progress(p: dict) -> None:
