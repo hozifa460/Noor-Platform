@@ -15,6 +15,7 @@ import {
   ChevronRight,
   ChevronLeft,
   Headphones,
+  GraduationCap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +23,10 @@ import {
   SUPPORTED_TAFSIRS,
   fetchAyahTafsir,
 } from '@/lib/quran-tafsir-engine';
+import {
+  SUPPORTED_EERAB_BOOKS,
+  fetchAyahEerab,
+} from '@/lib/quran-eerab-engine';
 import {
   getAyahTranslation,
 } from '@/lib/quran-translation-engine';
@@ -61,12 +66,18 @@ export function AyahDetailModal({
   const activeReciter = useQuranStore((s) => s.activeReciter);
   const setActiveReciter = useQuranStore((s) => s.setActiveReciter);
 
-  const [activeTab, setActiveTab] = useState<'tafsir' | 'asbab' | 'translation' | 'memorize'>('tafsir');
+  const [activeTab, setActiveTab] = useState<'tafsir' | 'eerab' | 'asbab' | 'translation' | 'memorize'>('tafsir');
   const [selectedTafsirId, setSelectedTafsirId] = useState<number>(16); // Default: التفسير الميسر
   const [tafsirContent, setTafsirContent] = useState<string>('');
   const [loadedTafsirKey, setLoadedTafsirKey] = useState<string | null>(null);
   const tafsirKey = `${selectedTafsirId}-${surah.number}-${ayah.ayahNo}`;
   const loadingTafsir = loadedTafsirKey !== tafsirKey;
+
+  const [selectedEerabBookId, setSelectedEerabBookId] = useState<string>('i-rab-al-quran-li-al-darwish');
+  const [eerabContent, setEerabContent] = useState<string>('');
+  const [loadedEerabKey, setLoadedEerabKey] = useState<string | null>(null);
+  const eerabKey = `${selectedEerabBookId}-${surah.number}-${ayah.ayahNo}`;
+  const loadingEerab = loadedEerabKey !== eerabKey;
   
   const [selectedTranslation, setSelectedTranslation] = useState<QuranTranslationMeta>(QURAN_TRANSLATIONS[0]);
   const [translationText, setTranslationText] = useState<string>('');
@@ -118,6 +129,28 @@ export function AyahDetailModal({
       isMounted = false;
     };
   }, [selectedTafsirId, surah.number, ayah.ayahNo, tafsirKey]);
+
+  // Fetch I'rab on change
+  useEffect(() => {
+    let isMounted = true;
+    fetchAyahEerab(selectedEerabBookId, surah.number, ayah.ayahNo)
+      .then((res) => {
+        if (isMounted) {
+          setEerabContent(res.text);
+          setLoadedEerabKey(eerabKey);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setEerabContent('<p class="text-muted-foreground">تعذر جلب نص الإعراب.</p>');
+          setLoadedEerabKey(eerabKey);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedEerabBookId, surah.number, ayah.ayahNo, eerabKey]);
 
   // Fetch Translation on language or ayah change
   useEffect(() => {
@@ -250,7 +283,7 @@ export function AyahDetailModal({
           <button
             onClick={() => setActiveTab('tafsir')}
             className={cn(
-              'flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all border-b-2',
+              'flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all border-b-2 whitespace-nowrap',
               activeTab === 'tafsir'
                 ? 'border-primary text-primary bg-background'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -258,6 +291,19 @@ export function AyahDetailModal({
           >
             <BookOpen className="size-4" />
             <span>التفاسير المعتمدة</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('eerab')}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all border-b-2 whitespace-nowrap',
+              activeTab === 'eerab'
+                ? 'border-primary text-primary bg-background'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <GraduationCap className="size-4" />
+            <span>إعراب القرآن وبيانه</span>
           </button>
 
           <button
@@ -334,6 +380,50 @@ export function AyahDetailModal({
               <div
                 className="p-5 rounded-2xl bg-card border border-border/80 text-foreground text-sm sm:text-base leading-loose select-text"
                 dangerouslySetInnerHTML={{ __html: sanitizeTafsirHtml(tafsirContent) }}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Tab: Eerab al-Quran */}
+        {activeTab === 'eerab' && (
+          <div className="p-5 flex-1 overflow-y-auto space-y-4">
+            {/* Eerab Book Selector */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-muted/40 border border-border">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-muted-foreground">كتاب الإعراب:</span>
+                <select
+                  value={selectedEerabBookId}
+                  onChange={(e) => setSelectedEerabBookId(e.target.value)}
+                  className="px-3 py-1.5 rounded-xl bg-background border border-border text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  {SUPPORTED_EERAB_BOOKS.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      📜 {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="text-[11px] text-muted-foreground font-semibold">
+                {SUPPORTED_EERAB_BOOKS.find((b) => b.id === selectedEerabBookId)?.author}
+              </div>
+            </div>
+
+            {/* Book Description Alert */}
+            <div className="text-xs text-muted-foreground bg-primary/5 border border-primary/20 rounded-xl p-3 px-4">
+              💡 {SUPPORTED_EERAB_BOOKS.find((b) => b.id === selectedEerabBookId)?.description}
+            </div>
+
+            {/* Eerab Body */}
+            {loadingEerab ? (
+              <div className="py-12 text-center text-muted-foreground animate-pulse text-sm">
+                جاري تحميل إعراب الآية الشريفة وبيانها...
+              </div>
+            ) : (
+              <div
+                className="p-5 rounded-2xl bg-card border border-border/80 text-foreground text-sm sm:text-base leading-loose select-text"
+                dangerouslySetInnerHTML={{ __html: sanitizeTafsirHtml(eerabContent) }}
               />
             )}
           </div>

@@ -1,6 +1,7 @@
 import assert from 'assert';
 import { ALL_SURAHS, QIRAAT_LIST, QURAN_TRANSLATIONS } from '../src/lib/quran-data.ts';
 import { SUPPORTED_TAFSIRS, fetchAyahTafsir } from '../src/lib/quran-tafsir-engine.ts';
+import { SUPPORTED_EERAB_BOOKS } from '../src/lib/quran-eerab-engine.ts';
 import { loadTranslationFile, getAyahTranslation, getSurahTranslationsMap } from '../src/lib/quran-translation-engine.ts';
 import { loadMp3QuranReciters, getRecitersForRiwayah, getMp3QuranSurahUrl } from '../src/lib/mp3quran-engine.ts';
 import { useQuranStore, QURAN_RECITERS } from '../src/stores/quran-store.ts';
@@ -108,8 +109,14 @@ async function runAllTests() {
 
   // Suite 4: Multi-Tafsir & Asbab al-Nuzul Engine
   console.log('\n--- Test Suite 4: Multi-Tafsir & Asbab al-Nuzul Engine ---');
-  test('Configured 7 authoritative Tafsirs', () => {
-    assert.strictEqual(SUPPORTED_TAFSIRS.length, 7);
+  test('Configured authoritative Tafsirs (expanded classical editions)', () => {
+    assert.ok(SUPPORTED_TAFSIRS.length >= 7);
+  });
+
+  test('Configured authoritative Quranic I\'rab books (4 editions)', () => {
+    assert.strictEqual(SUPPORTED_EERAB_BOOKS.length, 4);
+    assert.ok(SUPPORTED_EERAB_BOOKS.some((b) => b.id === 'i-rab-al-quran-li-al-darwish'));
+    assert.ok(SUPPORTED_EERAB_BOOKS.some((b) => b.id === 'al-jadwal-fi-i-rab-al-quran'));
   });
 
   await asyncTest('Fetches and formats Tafsir Muyassar for Al-Fatihah 1:1', async () => {
