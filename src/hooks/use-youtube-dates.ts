@@ -43,10 +43,9 @@ export function useYouTubeDates(): UseYouTubeDatesResult {
     if (!fetchPromise) {
       fetchPromise = (async () => {
         try {
-          // /api/youtube-dates is a Vercel serverless function; on
-          // Cloudflare static export the route doesn't exist and the
-          // fetch will 404. The hook falls back to no dates in that
-          // case, so the UI sorts by file order.
+          // /api/youtube-dates is a Vercel Route Handler. If it fails
+          // (e.g. YOUTUBE_API_KEY unset) the hook falls back to no
+          // dates, so the UI sorts by file order.
           const res = await fetch('/api/youtube-dates');
           if (!res.ok) return {};
           const data = await res.json();

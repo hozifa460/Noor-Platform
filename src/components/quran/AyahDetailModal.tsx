@@ -38,6 +38,7 @@ import {
   type ReciterMeta,
 } from '@/stores/quran-store';
 import { cn } from '@/lib/utils';
+import { sanitizeTafsirHtml } from '@/lib/sanitize-html';
 import { toast } from 'sonner';
 
 interface AyahDetailModalProps {
@@ -332,7 +333,7 @@ export function AyahDetailModal({
             ) : (
               <div
                 className="p-5 rounded-2xl bg-card border border-border/80 text-foreground text-sm sm:text-base leading-loose select-text"
-                dangerouslySetInnerHTML={{ __html: tafsirContent }}
+                dangerouslySetInnerHTML={{ __html: sanitizeTafsirHtml(tafsirContent) }}
               />
             )}
           </div>

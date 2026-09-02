@@ -20,7 +20,7 @@
           "subtitle": "بث مباشر من المملكة العربية السعودية",
           "emoji": "📻",
           "audioUrl": "https://stream.radiojar.com/0tpy1h0kxtzuv",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/760299f9b153.jpg",
+          "imageUrl": "/images/covers/760299f9b153.jpg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -30,7 +30,7 @@
           "subtitle": "هيئة الشارقة للإذاعة والتلفزيون",
           "emoji": "📻",
           "audioUrl": "https://l3.itworkscdn.net/smcquranlive/quranradiolive/icecast.audio",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/8bcc93091c33.jpg",
+          "imageUrl": "/images/covers/8bcc93091c33.jpg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -40,7 +40,7 @@
           "subtitle": "بث مباشر من دولة الكويت",
           "emoji": "📻",
           "audioUrl": "https://radio.mp3islam.com/listen/quran_radio/radio.mp3",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/760299f9b153.jpg",
+          "imageUrl": "/images/covers/760299f9b153.jpg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -50,7 +50,7 @@
           "subtitle": "تلاوات متواصلة على مدار الساعة",
           "emoji": "📻",
           "audioUrl": "https://streams.radio.co/s0975ec186/listen",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -60,7 +60,7 @@
           "subtitle": "بث قرآني ودعوي مباشر",
           "emoji": "📻",
           "audioUrl": "https://al-ansaar.simplestreaming.co.za/listen/al-ansaar_radio/radio.mp3",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/eec795bf670e.jpg",
+          "imageUrl": "/images/covers/eec795bf670e.jpg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -70,7 +70,7 @@
           "subtitle": "إذاعة إسلامية شاملة",
           "emoji": "📻",
           "audioUrl": "https://eu4.fastcast4u.com/proxy/aabdul00?mp=/1",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec716583c961.jpg",
+          "imageUrl": "/images/covers/ec716583c961.jpg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -80,7 +80,7 @@
           "subtitle": "qurango.net",
           "emoji": "📻",
           "audioUrl": "https://qurango.net/radio/mix",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -90,7 +90,7 @@
           "subtitle": "تلاوات خاشعة وأدعية مأثورة",
           "emoji": "📻",
           "audioUrl": "https://qurango.net/radio/tarateel",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec716583c961.jpg",
+          "imageUrl": "/images/covers/ec716583c961.jpg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -100,7 +100,7 @@
           "subtitle": "آيات الرقية والشفاء من القرآن والسنة",
           "emoji": "📻",
           "audioUrl": "https://backup.qurango.net/radio/roqiah",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -110,7 +110,7 @@
           "subtitle": "حصن المسلم والأذكار المأثورة",
           "emoji": "📻",
           "audioUrl": "https://backup.qurango.net/radio/athkar_sabah_masa",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/eec795bf670e.jpg",
+          "imageUrl": "/images/covers/eec795bf670e.jpg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -120,7 +120,7 @@
           "subtitle": "تلاوات متكررة لسورة البقرة بأعذب الأصوات",
           "emoji": "📻",
           "audioUrl": "https://backup.qurango.net/radio/albaqarah",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -130,7 +130,7 @@
           "subtitle": "المنجية من عذاب القبر",
           "emoji": "📻",
           "audioUrl": "https://backup.qurango.net/radio/Surah_Al-Mulk",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -140,7 +140,7 @@
           "subtitle": "سير وقصص الأنبياء والمرسلين عليهم السلام",
           "emoji": "📻",
           "audioUrl": "https://backup.qurango.net/radio/alanbiya",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/eec795bf670e.jpg",
+          "imageUrl": "/images/covers/eec795bf670e.jpg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1128,7 +1128,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/salma",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1158,7 +1158,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/albaqarah",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1278,7 +1278,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/Surah_Al-Mulk",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1298,7 +1298,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/alanbiya",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/eec795bf670e.jpg",
+          "imageUrl": "/images/covers/eec795bf670e.jpg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1308,7 +1308,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/riyad",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1358,7 +1358,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://stream.radiojar.com/0tpy1h0kxtzuv",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/760299f9b153.jpg",
+          "imageUrl": "/images/covers/760299f9b153.jpg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1368,7 +1368,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/shmaeel",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/eec795bf670e.jpg",
+          "imageUrl": "/images/covers/eec795bf670e.jpg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1386,7 +1386,7 @@
           "subtitle": "قراءة أحاديث الجامع الصحيح للإمام البخاري",
           "emoji": "📻",
           "audioUrl": "https://backup.qurango.net/radio/saheh-bokharee",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/eec795bf670e.jpg",
+          "imageUrl": "/images/covers/eec795bf670e.jpg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1396,7 +1396,7 @@
           "subtitle": "قراءة أحاديث صحيح الإمام مسلم بن الحجاج",
           "emoji": "📻",
           "audioUrl": "https://backup.qurango.net/radio/saheh-muslim",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/eec795bf670e.jpg",
+          "imageUrl": "/images/covers/eec795bf670e.jpg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1406,7 +1406,7 @@
           "subtitle": "أحاديث سيد المرسلين للإمام النووي",
           "emoji": "📻",
           "audioUrl": "https://backup.qurango.net/radio/riyad",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1416,7 +1416,7 @@
           "subtitle": "تيسير الكريم الرحمن في تفسير كلام المنان",
           "emoji": "📻",
           "audioUrl": "https://backup.qurango.net/radio/tafseer",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1426,7 +1426,7 @@
           "subtitle": "صفات وأخلاق النبي صلى الله عليه وسلم للإمام الترمذي",
           "emoji": "📻",
           "audioUrl": "https://backup.qurango.net/radio/shmaeel",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/eec795bf670e.jpg",
+          "imageUrl": "/images/covers/eec795bf670e.jpg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1444,7 +1444,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/translation_quran_spanish_afs",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1454,7 +1454,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/translation_quran_albanian",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1464,7 +1464,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/translation_quran_tamazight",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1474,7 +1474,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/translation_quran_urdu_minsh",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1484,7 +1484,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/translation_quran_english_bsfr",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1494,7 +1494,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/translation_quran_english_walk_basit",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1504,7 +1504,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/translation_quran_portuguese",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1514,7 +1514,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/translation_quran_bosnia",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1524,7 +1524,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/translation_quran_Russia",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1534,7 +1534,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/translation_quran_chinese",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1544,7 +1544,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/translation_quran_farsi",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1554,7 +1554,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/translation_quran_french",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1564,7 +1564,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/translation_quran_kurdish",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1574,7 +1574,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/translation_quran_hungarian",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1584,7 +1584,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/translation_quran_greek",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"
@@ -1594,7 +1594,7 @@
           "subtitle": "بث مباشر 24 ساعة",
           "emoji": "🎙️",
           "audioUrl": "https://backup.qurango.net/radio/Translation_Quran_Hausa",
-          "imageUrl": "https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg",
+          "imageUrl": "/images/covers/ec19c2e44007.jpeg",
           "videoUrl": "",
           "videoSource": "radio",
           "mediaType": "audio"

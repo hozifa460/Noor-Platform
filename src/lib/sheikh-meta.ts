@@ -49,47 +49,47 @@ export const SHEIKH_META: Record<string, SheikhAvatarMeta> = {
   menshawy: {
     // الشيخ محمد صديق المنشاوي — قارئ القرآن المصري
     // (شاب بعمامة بيضاء وملابس بيضاء مزخرفة بالذهب، خلفية قرآنية)
-    imageUrl: 'https://sfile.chatglm.cn/images-ppt/e99ab0e3adf9.jpg',
+    imageUrl: '/images/covers/e99ab0e3adf9.jpg',
   },
   alshaarawy: {
     // الشيخ محمد متولي الشعراوي — عالم الدين المصري
     // (رجل في العقد السادس، شعر أبيض، لحية بيضاء، عمامة بيضاء، خلفية مكة)
-    imageUrl: 'https://sfile.chatglm.cn/images-ppt/7302075867a8.jpg',
+    imageUrl: '/images/covers/7302075867a8.jpg',
   },
   abd_albaset: {
     // الشيخ عبد الباسط عبد الصمد — قارئ القرآن المصري
     // (رجل بعمامة بيضاء بحافة حمراء، ملابس دينية، خلفية قرآنية)
-    imageUrl: 'https://sfile.chatglm.cn/images-ppt/6a013d154fbd.jpg',
+    imageUrl: '/images/covers/6a013d154fbd.jpg',
   },
   abo_ishak: {
     // الشيخ أبو إسحاق الحويني — عالم الدين المصري
     // (رجل بلحية وعمامة، يتحدث أمام ميكروفون)
-    imageUrl: 'https://sfile.chatglm.cn/images-ppt/19b03a5c91b5.jpg',
+    imageUrl: '/images/covers/19b03a5c91b5.jpg',
   },
   mostafa_mahmoud: {
     // الدكتور مصطفى محمود — المفكر المصري
     // (رجل بنظارة، ملابس رسمية، خلفية مكتب)
-    imageUrl: 'https://sfile.chatglm.cn/images-ppt/654539bea514.jpg',
+    imageUrl: '/images/covers/654539bea514.jpg',
   },
   Ayman_abd_alrehem: {
     // البشمهندس أيمن عبد الرحيم — الداعية المصري
-    imageUrl: 'https://sfile.chatglm.cn/images-ppt/8305d30d5abc.jpg',
+    imageUrl: '/images/covers/8305d30d5abc.jpg',
   },
   ayman_abd_alrehem: {
-    imageUrl: 'https://sfile.chatglm.cn/images-ppt/8305d30d5abc.jpg',
+    imageUrl: '/images/covers/8305d30d5abc.jpg',
   },
   majd_channel: {
     // قناة المجد للقرآن الكريم — شعار/شاشة القناة
-    imageUrl: 'https://sfile.chatglm.cn/images-ppt/6637513282d0.jpg',
+    imageUrl: '/images/covers/6637513282d0.jpg',
   },
   // Generic Islamic-themed images for non-individual channels
   social: {
     // مصحف شريف مع سبحة — صورة عامة مناسبة
-    imageUrl: 'https://sfile.chatglm.cn/images-ppt/ec19c2e44007.jpeg',
+    imageUrl: '/images/covers/ec19c2e44007.jpeg',
   },
   sky_tweets: {
     // مسجد نبوي شريف — صورة عامة مناسبة
-    imageUrl: 'https://sfile.chatglm.cn/images-ppt/eec795bf670e.jpg',
+    imageUrl: '/images/covers/eec795bf670e.jpg',
   },
 };
 

@@ -89,3 +89,11 @@ scripts/upload_micro_shards_flat.py
 staging/
 scripts/upload_micro_shards_flat.py
 staging-books/
+
+# AI agent scratch / local worklogs (not part of the product)
+/.agents/
+/.specify/
+worklog.md
+
+# Legacy self-hosting artifacts (deployment target is Vercel)
+Caddyfile

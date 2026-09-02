@@ -3,40 +3,21 @@
 import type { MediaItem } from './types';
 import { toast } from 'sonner';
 
-/**
- * Extracts the YouTube video ID from any YouTube URL form.
- */
-function extractYouTubeId(url: string): string | null {
-  try {
-    if (url.includes('youtu.be/')) {
-      const id = url.split('youtu.be/')[1]?.split(/[?&]/)[0];
-      return id && id.length === 11 ? id : null;
-    }
-    if (url.includes('youtube.com/watch')) {
-      const u = new URL(url);
-      const v = u.searchParams.get('v');
-      return v && v.length === 11 ? v : null;
-    }
-    if (url.includes('youtube.com/embed/') || url.includes('youtube.com/shorts/')) {
-      const id = url.split(/\/(?:embed|shorts)\//)[1]?.split(/[?&]/)[0];
-      return id && id.length === 11 ? id : null;
-    }
-    return null;
-  } catch {
-    return null;
-  }
+const YOUTUBE_RE = /(?:youtube\.com|youtu\.be)/i;
+
+function safeFilename(title: string, ext: string): string {
+  const base = title.replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 120) || 'noor-media';
+  return `${base}.${ext}`;
 }
 
 /**
- * Triggers a browser download for any media item.
+ * Triggers a browser download for a media item.
  *
- * For YouTube URLs: opens a dedicated download page (/download/[videoId])
- * that offers multiple download services with quality options.
+ * YouTube content is never downloaded through third-party rippers (legal and
+ * safety risk); we open the original video on YouTube instead.
  *
- * For direct URLs (archive.org, mp3, mp4, etc.): streams through /api/download
- * which proxies the file as an attachment.
- *
- * For offline use (IndexedDB), callers can use `downloadForOffline()` instead.
+ * Direct files (archive.org, mp3quran, mp4/mp3 CDNs) are downloaded straight
+ * from the origin via an anchor element — no proxying through our servers.
  */
 export function triggerDownload(item: MediaItem, format: 'audio' | 'video' = 'video'): void {
   const sourceUrl = item.videoUrl || item.audioUrl || item.youtubeUrl || item.liveUrl || item.pdfUrl;
@@ -45,81 +26,45 @@ export function triggerDownload(item: MediaItem, format: 'audio' | 'video' = 'vi
     return;
   }
 
-  const effectiveFormat: 'audio' | 'video' =
-    format === 'audio' || (!item.videoUrl && !item.youtubeUrl && !!item.audioUrl)
-      ? 'audio'
-      : 'video';
-
-  const isYouTube = /(?:youtube\.com|youtu\.be)/i.test(sourceUrl);
-
-  if (isYouTube) {
-    const videoId = extractYouTubeId(sourceUrl);
-    if (videoId) {
-      // Open the dedicated download page in a new tab.
-      // The page shows multiple download services (cobalt, y2mate, savefrom, etc.)
-      // and lets the user pick quality + format (MP4/MP3).
-      const downloadPageUrl = `/download/${videoId}`;
-      window.open(downloadPageUrl, '_blank');
-      toast.success('جاري فتح صفحة التنزيل...', {
-        description: 'اختر خدمة التنزيل والجودة المناسبة',
-        duration: 4000,
-      });
-      return;
-    }
+  if (YOUTUBE_RE.test(sourceUrl)) {
+    window.open(sourceUrl, '_blank', 'noopener,noreferrer');
+    toast.info('تم فتح المقطع على يوتيوب', {
+      description: 'التنزيل من يوتيوب متاح عبر تطبيق YouTube Premium الرسمي',
+      duration: 4000,
+    });
+    return;
   }
 
-  // Direct URL: stream through /api/download as an attachment.
-  const params = new URLSearchParams({
-    url: sourceUrl,
-    format: effectiveFormat,
-    filename: item.title.slice(0, 120),
-  });
-  const downloadUrl = `/api/download?${params.toString()}`;
+  const effectiveFormat: 'audio' | 'video' =
+    format === 'audio' || (!item.videoUrl && !!item.audioUrl) ? 'audio' : 'video';
+  const ext = item.pdfUrl && sourceUrl === item.pdfUrl ? 'pdf' : effectiveFormat === 'audio' ? 'mp3' : 'mp4';
 
-  // Use a hidden iframe so the browser downloads without navigating away.
-  const iframe = document.createElement('iframe');
-  iframe.style.display = 'none';
-  iframe.src = downloadUrl;
-  document.body.appendChild(iframe);
-  setTimeout(() => {
-    if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-  }, 60000);
+  const a = document.createElement('a');
+  a.href = sourceUrl;
+  a.download = safeFilename(item.title, ext);
+  a.rel = 'noopener noreferrer';
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 
-  const kindLabel = effectiveFormat === 'audio' ? 'الصوت' : 'الفيديو';
+  const kindLabel = ext === 'pdf' ? 'الكتاب' : effectiveFormat === 'audio' ? 'الصوت' : 'الفيديو';
   toast.success(`جاري تنزيل ${kindLabel}...`, { duration: 3000 });
 }
 
 /**
  * Downloads a media item and stores it in IndexedDB for offline access.
- * Used by the Downloads feature.
+ * Used by the Downloads feature. YouTube items are not supported.
  */
 export async function downloadForOffline(
   item: MediaItem,
   onProgress?: (progress: number) => void,
 ): Promise<{ blob: Blob; size: number }> {
-  const sourceUrl = item.videoUrl || item.audioUrl || item.youtubeUrl || item.liveUrl || item.pdfUrl;
-  if (!sourceUrl) {
-    throw new Error('لا يوجد ملف قابل للتنزيل');
+  const sourceUrl = item.videoUrl || item.audioUrl || item.liveUrl || item.pdfUrl;
+  if (!sourceUrl || YOUTUBE_RE.test(sourceUrl)) {
+    throw new Error('التحميل للاستخدام دون اتصال متاح فقط للملفات المباشرة (صوت/فيديو/كتب)');
   }
 
-  const isYouTube = /(?:youtube\.com|youtu\.be)/i.test(sourceUrl);
-
-  if (isYouTube) {
-    // YouTube downloads go through /api/download which tries yt-dlp.
-    // If yt-dlp is blocked, it returns a redirect to a helper service.
-    const params = new URLSearchParams({
-      url: sourceUrl,
-      format: 'video',
-      filename: item.title.slice(0, 120),
-    });
-    const res = await fetch(`/api/download?${params.toString()}`);
-    if (!res.ok) throw new Error(`فشل التنزيل: ${res.status}`);
-    const blob = await res.blob();
-    onProgress?.(1);
-    return { blob, size: blob.size };
-  }
-
-  // Direct URL: fetch with progress tracking.
   const res = await fetch(sourceUrl);
   if (!res.ok) throw new Error(`فشل التنزيل: ${res.status}`);
 
