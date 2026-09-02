@@ -2,9 +2,11 @@ import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV === "development";
 
-// Single deployment target: Vercel (serverless). Route handlers under
-// src/app/api/* are part of the build and protected by src/lib/security.ts
-// and src/lib/rate-limiter.ts.
+// Dual deployment target:
+// 1. Vercel (serverless): default output, route handlers in src/app/api/* active.
+// 2. Cloudflare Pages: static export (out/) via CF_PAGES, edge functions in functions/ active.
+const isVercel = Boolean(process.env.VERCEL);
+const isCloudflare = Boolean(process.env.CF_PAGES || process.env.CLOUDFLARE_PAGES);
 
 // Origins the browser is allowed to load images/media from. Keep this list
 // explicit — a bare `https:` wildcard would let any compromised data source
@@ -106,31 +108,41 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  async headers() {
-    return [
-      { source: "/:path*", headers: securityHeaders },
-      {
-        // Avatars and proxied assets are immutable per query key.
-        source: "/api/sheikh-avatar",
-        headers: [
-          { key: "Cache-Control", value: "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400" },
+  // On Cloudflare Pages (CF_PAGES=1), export static HTML into out/ with unoptimized images.
+  // On Vercel / Node server, keep default serverless output so API route handlers work.
+  ...(isCloudflare ? { output: "export" as const } : {}),
+  // Vercel-specific headers (on Cloudflare Pages, public/_headers is used instead)
+  ...(isVercel || !isCloudflare
+    ? {
+        async headers() {
+          return [
+            { source: "/:path*", headers: securityHeaders },
+            {
+              // Avatars and proxied assets are immutable per query key.
+              source: "/api/sheikh-avatar",
+              headers: [
+                { key: "Cache-Control", value: "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400" },
+              ],
+            },
+          ];
+        },
+      }
+    : {}),
+  images: isCloudflare
+    ? { unoptimized: true }
+    : {
+        formats: ["image/avif", "image/webp"],
+        remotePatterns: [
+          { protocol: "https", hostname: "i.ytimg.com" },
+          { protocol: "https", hostname: "yt3.ggpht.com" },
+          { protocol: "https", hostname: "**.googleusercontent.com" },
+          { protocol: "https", hostname: "archive.org" },
+          { protocol: "https", hostname: "**.archive.org" },
+          { protocol: "https", hostname: "huggingface.co" },
+          { protocol: "https", hostname: "**.hf.co" },
+          { protocol: "https", hostname: "raw.githubusercontent.com" },
         ],
       },
-    ];
-  },
-  images: {
-    formats: ["image/avif", "image/webp"],
-    remotePatterns: [
-      { protocol: "https", hostname: "i.ytimg.com" },
-      { protocol: "https", hostname: "yt3.ggpht.com" },
-      { protocol: "https", hostname: "**.googleusercontent.com" },
-      { protocol: "https", hostname: "archive.org" },
-      { protocol: "https", hostname: "**.archive.org" },
-      { protocol: "https", hostname: "huggingface.co" },
-      { protocol: "https", hostname: "**.hf.co" },
-      { protocol: "https", hostname: "raw.githubusercontent.com" },
-    ],
-  },
   typescript: {
     ignoreBuildErrors: false,
   },
