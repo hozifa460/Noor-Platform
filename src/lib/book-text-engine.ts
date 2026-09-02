@@ -1,6 +1,6 @@
 'use client';
 
-import { dataUrl, booksIndexUrl, booksShardUrl, isRemoteData } from './data-base';
+import { booksIndexUrl, isRemoteData } from './data-base';
 import { normalizeArabic } from '@/lib/arabic-normalizer';
 import type {
   EBookMetadata,
@@ -164,7 +164,7 @@ async function loadShamelaEBook(
   bookId: string,
   firstLetter?: string,
 ): Promise<EBookMetaResponse | null> {
-  const cleanId = bookId.replace(/^shamela-/, '');
+  const _cleanId = bookId.replace(/^shamela-/, '');
 
   type BookItem = {
     id?: string;
