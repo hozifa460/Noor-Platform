@@ -15,6 +15,7 @@ import {
   Settings,
   X,
   Scroll,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,7 @@ const MAIN_NAV: NavItem[] = [
   { view: 'home', href: '/', label: 'الرئيسية', labelEn: 'Home', icon: Home },
   { view: 'quran', href: '/quran', label: 'القرآن الكريم', labelEn: 'Holy Quran', icon: BookOpen },
   { view: 'hadith', href: '/hadith', label: 'الحديث النبوي', labelEn: 'Hadith', icon: Scroll },
+  { view: 'adhkar', href: '/adhkar', label: 'الأذكار وحصن المسلم', labelEn: 'Adhkar', icon: Sparkles },
   { view: 'sheikhs', href: '/sheikhs', label: 'المشايخ', labelEn: 'Sheikhs', icon: Users },
 ];
 
