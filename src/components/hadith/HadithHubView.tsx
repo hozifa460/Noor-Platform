@@ -7,6 +7,7 @@ import {
   Scroll,
   X,
   Library,
+  ShieldAlert,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ import { HADITH_BOOKS_LIST } from '@/lib/hadith-data';
 import { useHadithStore } from '@/stores/hadith-store';
 import { HadithCard } from './HadithCard';
 import { HadithDetailModal } from './HadithDetailModal';
+import { FakeHadithChecker } from './FakeHadithChecker';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -57,6 +59,7 @@ export function HadithHubView() {
   const [bookDrawerOpen, setBookDrawerOpen] = useState(false);
   const [chapterDrawerOpen, setChapterDrawerOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(30);
+  const [hubTab, setHubTab] = useState<'books' | 'checker'>('books');
 
   // Local responsive search input to guarantee 60fps typing without debounce lag
   const [localInput, setLocalInput] = useState(searchQuery);
@@ -190,10 +193,48 @@ export function HadithHubView() {
         </div>
       </header>
 
+      {/* Top Hub Navigation Bar: Books vs Fake Hadith Checker */}
+      <div className="border-b border-border/80 bg-card/70 backdrop-blur sticky top-16 z-30 px-3 sm:px-6 py-2.5">
+        <div className="max-w-5xl w-full mx-auto flex flex-wrap items-center justify-start gap-2">
+          <button
+            onClick={() => setHubTab('books')}
+            className={cn(
+              'px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all border',
+              hubTab === 'books'
+                ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                : 'bg-background text-muted-foreground border-border/80 hover:bg-muted hover:text-foreground'
+            )}
+          >
+            <BookOpen className="size-4" />
+            <span>دواوين السنة النبوية (17 كتاباً)</span>
+          </button>
+
+          <button
+            onClick={() => setHubTab('checker')}
+            className={cn(
+              'px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all border',
+              hubTab === 'checker'
+                ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                : 'bg-background text-muted-foreground border-border/80 hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400'
+            )}
+          >
+            <ShieldAlert className="size-4" />
+            <span>التحقق من صحة حديث (تحقق قبل النشر)</span>
+            <Badge variant="secondary" className="text-[10px] font-bold py-0 px-1.5 rounded-md bg-amber-500/20 text-amber-800 dark:text-amber-300 border-0">
+              جديد
+            </Badge>
+          </button>
+        </div>
+      </div>
+
       {/* Main Content Area */}
       <main className="flex-1 max-w-5xl w-full mx-auto p-3 sm:p-6 space-y-6">
-        {/* Book Header Hero Banner */}
-        <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-b from-primary/10 via-primary/5 to-transparent border border-primary/20 shadow-lg text-center space-y-2">
+        {hubTab === 'checker' ? (
+          <FakeHadithChecker />
+        ) : (
+          <>
+            {/* Book Header Hero Banner */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-b from-primary/10 via-primary/5 to-transparent border border-primary/20 shadow-lg text-center space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold mb-1">
             <BookOpen className="size-3.5" />
             <span>موسوعة الحديث النبوي الشريف</span>
@@ -402,6 +443,8 @@ export function HadithHubView() {
               </div>
             )}
           </div>
+        )}
+          </>
         )}
       </main>
 

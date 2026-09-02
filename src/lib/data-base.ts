@@ -129,5 +129,5 @@ export function hadithChapterUrl(label: string, chunkIndex: number): string {
 
 /** HadeethEnc sharh dataset (single file). */
 export function hadithSharhUrl(): string {
-  return hadithUrl('data/hadith/sharh/hadeethenc_sharh.json');
+  return hadithUrl('HadeethEnc_Sharh/hadeethenc_sharh.json');
 }
