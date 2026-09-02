@@ -2,6 +2,8 @@
 ### المنصة الإسلامية الشاملة للقرآن الكريم والحديث والمكتبة التراثية والفتاوى والإذاعات
 *The Comprehensive Modern Islamic Digital Hub for Quran, Hadith, Classical Heritage, Fatawa & 24/7 Radios*
 
+https://noor-platform-jade.vercel.app
+
 <div align="center">
 
 <img src="./public/logo.svg" alt="Noor Platform logo" width="130" />
