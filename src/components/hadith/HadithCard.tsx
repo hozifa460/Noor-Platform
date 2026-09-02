@@ -85,6 +85,10 @@ export function HadithCard({
                     ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
                     : gradeInfo.grade === 'حسن'
                     ? 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30'
+                    : gradeInfo.grade === 'ضعيف'
+                    ? 'bg-orange-500/10 text-orange-700 dark:text-orange-300 border-orange-500/30'
+                    : gradeInfo.grade === 'موضوع'
+                    ? 'bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/30'
                     : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30'
                 )}
               >

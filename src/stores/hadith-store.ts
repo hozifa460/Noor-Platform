@@ -13,6 +13,7 @@ import {
   type HadeethEncSharhItem,
   type GlobalSearchResultItem,
 } from '@/lib/hadith-engine';
+import { loadSunanGrades } from '@/lib/hadith-grade-engine';
 
 interface HadithState {
   activeBook: HadithBookMeta;
@@ -88,6 +89,10 @@ export const useHadithStore = create<HadithState>((set, get) => ({
   loadBookData: async (fileName: string) => {
     set({ loadingBook: true });
     try {
+      const activeBookId = get().activeBook?.id;
+      if (activeBookId) {
+        loadSunanGrades(activeBookId).catch(() => {});
+      }
       const data = await loadHadithBook(fileName);
       set({ bookData: data, loadingBook: false });
     } catch {

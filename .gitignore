@@ -67,6 +67,9 @@ public/data/micro_shards/*
 !public/data/micro_shards/showcase.json
 public/data/hadith/*
 !public/data/hadith/nawawi40.json
+!public/data/hadith/fake_hadiths.json
+!public/data/hadith/grades/
+!public/data/hadith/grades/*
 public/data/ebooks/*
 !public/data/ebooks/catalog.json
 
