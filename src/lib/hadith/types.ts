@@ -67,5 +67,6 @@ export interface MicroIndexEntry {
   i: number;
   c: number;
   t: string;
-  g: string;
+  g?: string;
+  _norm?: string;
 }

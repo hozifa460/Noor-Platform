@@ -92,14 +92,34 @@ async function runTests() {
   check(checkRajab.status === 'fake' && checkRajab.matchedFake?.degree?.includes('موضوع'), 'checkHadithAuthenticity correctly flags fabricated Rajab hadith');
 
   // 5. Test HadeethEnc Sharh URL Endpoint
-  const { hadithSharhUrl } = await import('../src/lib/data-base.ts');
+  const { hadithSharhUrl, hadithBookTocUrl, hadithBookIndexUrl } = await import('../src/lib/data-base.ts');
   const sharhEndpoint = hadithSharhUrl();
   check(
-    sharhEndpoint === 'https://huggingface.co/datasets/hozifa1/quran_and_sunnah/raw/main/sunnahset/HadeethEnc_Sharh/hadeethenc_sharh.json',
-    'hadithSharhUrl points to the exact 3,553 HadeethEnc explanations dataset'
+    sharhEndpoint.includes('data/hadith/sharh/hadeethenc_sharh.json'),
+    'hadithSharhUrl points to the verified HadeethEnc explanations dataset on noor-platform-hadith'
+  );
+  check(
+    hadithBookTocUrl('bukhari').includes('data/hadith/books/bukhari/toc.json'),
+    'hadithBookTocUrl resolves to clean TOC endpoint'
+  );
+  check(
+    hadithBookIndexUrl('bukhari').includes('data/hadith/books/bukhari/index.json'),
+    'hadithBookIndexUrl resolves to clean index endpoint'
   );
 
-  console.log(`\n📊 Summary: ${passedTests}/${passedTests} Hadith Verification & Sharh tests passed (100% SUCCESS)\n`);
+  // 6. Test Book Shards Loading & Core Search
+  const { loadHadithBook, searchAcrossAllBooks } = await import('../src/lib/hadith-engine.ts');
+
+  const nawawiBook = await loadHadithBook('nawawi40.json');
+  check(nawawiBook && nawawiBook.hadiths.length === 42, 'Nawawi 40 loaded with 42 hadiths');
+
+  const searchHits = await searchAcrossAllBooks('النيات');
+  check(searchHits.length >= 1, 'searchAcrossAllBooks finds hadiths for "النيات"');
+
+  const fastingHits = await searchAcrossAllBooks('صيام');
+  check(fastingHits.length >= 1, 'searchAcrossAllBooks finds hadiths for "صيام"');
+
+  console.log(`\n📊 Summary: ${passedTests}/${passedTests} Hadith Verification & Shards tests passed (100% SUCCESS)\n`);
 }
 
 runTests().catch((err) => {

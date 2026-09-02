@@ -9,6 +9,7 @@ import {
   hadithBookIndexUrl,
   hadithBookMetadataUrl,
   hadithChapterUrl,
+  hadithBookTocUrl,
   hadithSharhUrl,
 } from './data-base';
 
@@ -53,7 +54,7 @@ function prepareBookData(data: HadithBookData): HadithBookData {
   if (!data || !data.hadiths) return data;
   for (let i = 0; i < data.hadiths.length; i++) {
     const h = data.hadiths[i];
-    if (!h._norm) {
+    if (h && h.arabic && !h._norm) {
       h._norm = normalizeArabic(h.arabic);
     }
   }
@@ -108,6 +109,7 @@ export async function loadHadithBook(fileName: string): Promise<HadithBookData |
       if (data) {
         const prepared = prepareBookData(data);
         bookCache.set(fileName, prepared);
+        setCachedHadithBook(fileName, data).catch(() => {});
         return prepared;
       }
     } catch (err) {
@@ -168,9 +170,10 @@ export async function loadHadithBookFromShards(label: string): Promise<HadithBoo
   }
   if (!index || !index.chunkCount) return null;
 
-  // 2. Fetch metadata + all chapter chunks in parallel
-  const [metaRes, ...chunkResults] = await Promise.all([
+  // 2. Fetch metadata + toc + all chapter chunks in parallel
+  const [metaRes, tocRes, ...chunkResults] = await Promise.all([
     fetch(hadithBookMetadataUrl(label)).catch(() => null),
+    fetch(hadithBookTocUrl(label)).catch(() => null),
     ...Array.from({ length: index.chunkCount }, (_, i) =>
       fetch(hadithChapterUrl(label, i)).then(r => r.ok ? r.json() : null)
     ),
@@ -182,9 +185,6 @@ export async function loadHadithBookFromShards(label: string): Promise<HadithBoo
   }
   if (hadiths.length === 0) return null;
 
-  // 3. Build the assembled book. The legacy shape had metadata with
-  //    {arabic, english} nested objects; we coerce our flatter metadata
-  //    into that shape so existing UI code keeps working.
   type SlimMeta = {
     id?: number;
     length?: number;
@@ -199,31 +199,53 @@ export async function loadHadithBookFromShards(label: string): Promise<HadithBoo
     try { meta = (await (metaRes as Response).json()) as SlimMeta; } catch { /* */ }
   }
 
-  // 4. Group hadiths by chapterId into the `chapters` array the UI expects.
-  const chaptersMap = new Map<string, { id: number; count: number; firstHadithId?: number | string }>();
-  for (const h of hadiths) {
-    const ch = String(h.chapterId ?? '1');
-    const entry = chaptersMap.get(ch) ?? { id: Number(ch) || 0, count: 0 };
-    entry.count += 1;
-    if (entry.firstHadithId === undefined) {
-      entry.firstHadithId = h.id ?? h.idInBook;
-    }
-    chaptersMap.set(ch, entry);
+  type TocItem = {
+    id: number;
+    arabic?: string;
+    english?: string;
+    count?: number;
+    firstHadithId?: number;
+  };
+  let tocItems: TocItem[] = [];
+  if (tocRes && (tocRes as Response).ok) {
+    try { tocItems = (await (tocRes as Response).json()) as TocItem[]; } catch { /* */ }
   }
-  const bookId = meta.id ?? 0;
-  const chapters: import('./hadith/types').HadithChapter[] = Array.from(chaptersMap.values())
-    .sort((a, b) => a.id - b.id)
-    .map(c => ({
-      id: c.id,
+
+  const bookId = meta.id ?? 1;
+  let chapters: import('./hadith/types').HadithChapter[] = [];
+
+  if (tocItems.length > 0) {
+    chapters = tocItems.map((t) => ({
+      id: t.id,
       bookId,
-      arabic: '',  // chapter titles live in toc.json (not loaded here yet)
-      english: '',
+      arabic: t.arabic || `باب ${t.id}`,
+      english: t.english || '',
     }));
+  } else {
+    const chaptersMap = new Map<string, { id: number; count: number; firstHadithId?: number | string }>();
+    for (const h of hadiths) {
+      const ch = String(h.chapterId ?? '1');
+      const entry = chaptersMap.get(ch) ?? { id: Number(ch) || 0, count: 0 };
+      entry.count += 1;
+      if (entry.firstHadithId === undefined) {
+        entry.firstHadithId = h.id ?? h.idInBook;
+      }
+      chaptersMap.set(ch, entry);
+    }
+    chapters = Array.from(chaptersMap.values())
+      .sort((a, b) => a.id - b.id)
+      .map(c => ({
+        id: c.id,
+        bookId,
+        arabic: `باب ${c.id}`,
+        english: '',
+      }));
+  }
 
   const data: HadithBookData = {
-    id: meta.id ?? 0,
+    id: meta.id ?? 1,
     metadata: {
-      id: meta.id ?? 0,
+      id: meta.id ?? 1,
       length: meta.length ?? index.totalHadiths,
       arabic: {
         title: meta.title_ar ?? label,
@@ -394,12 +416,15 @@ function buildMicroTokenMap(entries: MicroIndexEntry[]): void {
   const walidList: number[] = [];
 
   for (let idx = 0; idx < entries.length; idx++) {
-    const text = entries[idx].t;
-    if (text.includes('والد') || text.includes('والدين') || text.includes('والديه')) {
+    const entry = entries[idx];
+    const textNorm = entry._norm || normalizeArabic(entry.t || '');
+    entry._norm = textNorm;
+
+    if (textNorm.includes('والد') || textNorm.includes('والدين') || textNorm.includes('والديه')) {
       walidList.push(idx);
     }
 
-    const tokens = text.split(/\s+/);
+    const tokens = textNorm.split(/\s+/);
     for (const t of tokens) {
       if (t.length >= 2) {
         let list = microTokenMap.get(t);
@@ -415,33 +440,15 @@ function buildMicroTokenMap(entries: MicroIndexEntry[]): void {
   walidIndicesCache = walidList;
 }
 
-/**
- * Loads the 50,000+ Hadith Micro-Index
- */
 async function loadHadithMicroIndex(): Promise<MicroIndexEntry[]> {
   if (microIndexCache) return microIndexCache;
 
-  // 1. PRIMARY: chunked dataset on HF (full 50,884 hadiths, 38.5MB)
-  if (HADITH_BASE) {
-    try {
-      const res = await fetch(hadithUrl('data/hadith/hadiths_micro_index.json'));
-      if (res.ok) {
-        const parsed = await res.json();
-        microIndexCache = parseMicroIndexPayload(parsed);
-        buildMicroTokenMap(microIndexCache);
-        return microIndexCache;
-      }
-    } catch (err) {
-      console.warn('[hadith] micro_index fetch from HF failed, falling back:', err);
-    }
-  }
-
-  // 2. Node local FS (build-time / dev)
+  // 1. Node local FS (build-time / SSR / tests)
   if (typeof window === 'undefined') {
     try {
       const fs = await import('fs');
       const path = await import('path');
-      const p = path.join(process.cwd(), 'public', 'data', 'hadith', 'hadiths_micro_index.json');
+      const p = path.join(process.cwd(), 'public', 'data', 'hadith', 'hadiths_core_index.json');
       if (fs.existsSync(p)) {
         const parsed = JSON.parse(fs.readFileSync(p, 'utf-8'));
         microIndexCache = parseMicroIndexPayload(parsed);
@@ -453,9 +460,9 @@ async function loadHadithMicroIndex(): Promise<MicroIndexEntry[]> {
     }
   }
 
-  // 3. Browser fallback: relative URL
+  // 2. Browser relative URL (/data/hadith/hadiths_core_index.json)
   try {
-    const res = await fetch('/data/hadith/hadiths_micro_index.json');
+    const res = await fetch('/data/hadith/hadiths_core_index.json');
     if (res.ok) {
       const parsed = await res.json();
       microIndexCache = parseMicroIndexPayload(parsed);
@@ -463,7 +470,22 @@ async function loadHadithMicroIndex(): Promise<MicroIndexEntry[]> {
       return microIndexCache;
     }
   } catch {
-    /* fallback */
+    /* proceed */
+  }
+
+  // 3. CDN / HF resolve
+  if (HADITH_BASE) {
+    try {
+      const res = await fetch(hadithUrl('data/hadith/hadiths_core_index.json'));
+      if (res.ok) {
+        const parsed = await res.json();
+        microIndexCache = parseMicroIndexPayload(parsed);
+        buildMicroTokenMap(microIndexCache);
+        return microIndexCache;
+      }
+    } catch (err) {
+      console.warn('[hadith] hadiths_core_index fetch failed:', err);
+    }
   }
 
   return [];
@@ -785,7 +807,8 @@ export async function searchAcrossAllBooks(
 
   for (const idx of poolIndices) {
     const entry = micro[idx];
-    const textNorm = entry.t;
+    const textNorm = entry._norm || normalizeArabic(entry.t || '');
+    entry._norm = textNorm;
 
     const isDirectMatch = textNorm.includes(normQuery);
     const isSemanticMatch = semanticTokens.length > 0 && semanticTokens.some((st) => textNorm.includes(st));
