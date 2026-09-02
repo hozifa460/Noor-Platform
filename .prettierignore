@@ -1,0 +1,19 @@
+# Prettier ignore - don't format these
+node_modules
+.next
+out
+dist
+build
+coverage
+.husky
+.cache
+public/sw.js
+public/data/
+graft/
+.sentrux/
+.specify/
+*.min.js
+*.d.ts
+pnpm-lock.yaml
+package-lock.json
+yarn.lock

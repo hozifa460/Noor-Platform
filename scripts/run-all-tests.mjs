@@ -11,6 +11,7 @@ const testSuites = [
   'scripts/test_hadith_integration.mjs',
   'scripts/test_quran_hub_integration.mjs',
   'scripts/test_radio_flow.mjs',
+  'scripts/test_adhkar_hub_integration.mjs',
 ];
 
 console.log('🚀 Running Noor Platform Comprehensive Quality & Regression Test Suite...\n');

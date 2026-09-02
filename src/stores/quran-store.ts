@@ -131,6 +131,8 @@ interface QuranState {
   playNextAyah: () => void;
 }
 
+const surahMemoryCache = new Map<number, SurahDetail>();
+
 export const useQuranStore = create<QuranState>((set, get) => ({
   activeQiraah: QIRAAT_LIST[0], // مصحف حفص عن عاصم
   activeSurah: ALL_SURAHS[0], // سورة الفاتحة
@@ -194,13 +196,21 @@ export const useQuranStore = create<QuranState>((set, get) => ({
   setFilterJuz: (filterJuz) => set({ filterJuz }),
 
   loadSurah: async (surahNumber: number) => {
+    // 1. Instant 0ms return if already loaded in memory
+    const memoryCached = surahMemoryCache.get(surahNumber);
+    if (memoryCached) {
+      set({ surahData: memoryCached, loadingSurah: false });
+      return;
+    }
+
     set({ loadingSurah: true });
     
-    // 1. Try local data first
+    // 2. High-speed local Edge asset (now committed and served by Vercel / Cloudflare CDN)
     try {
-      const res = await fetch(`/data/quran/surahs/${surahNumber}.json`);
+      const res = await fetch(`/data/quran/surahs/${surahNumber}.json`, { cache: 'force-cache' });
       if (res.ok) {
         const data = (await res.json()) as SurahDetail;
+        surahMemoryCache.set(surahNumber, data);
         set({ surahData: data, loadingSurah: false });
         return;
       }
@@ -208,12 +218,15 @@ export const useQuranStore = create<QuranState>((set, get) => ({
       /* fallback to CDN */
     }
 
-    // 2. Fallback to high-speed public Quran Cloud CDN
+    // 3. Fallback to public Quran Cloud CDN if local asset is unavailable
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
       const cdnRes = await fetch(
         `https://api.alquran.cloud/v1/surah/${surahNumber}/editions/quran-uthmani,en.sahih`,
-        { cache: 'force-cache' }
+        { cache: 'force-cache', signal: controller.signal }
       );
+      clearTimeout(timeoutId);
       if (cdnRes.ok) {
         const json = await cdnRes.json();
         if (json.code === 200 && Array.isArray(json.data) && json.data.length >= 2) {
@@ -242,6 +255,7 @@ export const useQuranStore = create<QuranState>((set, get) => ({
             ayahs,
           };
 
+          surahMemoryCache.set(surahNumber, constructedDetail);
           set({ surahData: constructedDetail, loadingSurah: false });
           return;
         }

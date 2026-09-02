@@ -16,19 +16,22 @@
 export const FATWA_BASE: string =
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FATWA_BASE) ||
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_DATA_BASE) ||
-  // Dev fallback (works offline against the local public/data tree)
-  '';
+  'https://huggingface.co/datasets/hozifa1/noor-platform-fatwa/raw/main';
 
 export const HADITH_BASE: string =
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_HADITH_BASE) ||
-  // Legacy default — points at the public mirror repo
-  'https://huggingface.co/datasets/hozifa1/quran_and_sunnah/resolve/main/sunnahset' ||
+  // Default — points at the public CDN mirror
+  'https://huggingface.co/datasets/hozifa1/quran_and_sunnah/raw/main/sunnahset' ||
   '';
 
 export const BOOKS_BASE: string =
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BOOKS_BASE) ||
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_DATA_BASE) ||
-  '';
+  'https://huggingface.co/datasets/hozifa1/noor-platform-books/raw/main';
+
+export const ADHKAR_BASE: string =
+  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_ADHKAR_BASE) ||
+  'https://huggingface.co/datasets/hozifa1/quran_and_sunnah/raw/main/adhkarset';
 
 const ensureTrailingSlash = (s: string) => (s.endsWith('/') ? s : s + '/');
 
@@ -51,6 +54,13 @@ export function booksUrl(path: string): string {
   const p = path.startsWith('/') ? path.slice(1) : path;
   if (!BOOKS_BASE) return `/${p}`;
   return ensureTrailingSlash(BOOKS_BASE) + p;
+}
+
+/** Resolve a path under the adhkar base. Falls back to /<path> if no base. */
+export function adhkarUrl(path: string): string {
+  const p = path.startsWith('/') ? path.slice(1) : path;
+  if (!ADHKAR_BASE) return `/${p}`;
+  return ensureTrailingSlash(ADHKAR_BASE) + p;
 }
 
 /** Shard URL with 2-level sharding (ab/cd/abcd1234.json) for BOTH subdirs.

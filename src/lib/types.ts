@@ -163,6 +163,7 @@ export type ViewKind =
   | 'radio'
   | 'fatwa'
   | 'books'
+  | 'adhkar'
   | 'articles'
   | 'favorites'
   | 'history'

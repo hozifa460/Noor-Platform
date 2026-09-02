@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, BookOpen, Scroll, Library, Radio, Search } from 'lucide-react';
+import { Home, BookOpen, Scroll, Library, Radio, Search, Sparkles } from 'lucide-react';
 import { useNavStore } from '@/stores/nav.store';
 import type { ViewKind } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -18,6 +18,7 @@ const NAV_ITEMS: NavItem[] = [
   { view: 'home', href: '/', label: 'الرئيسية', icon: Home },
   { view: 'quran', href: '/quran', label: 'القرآن', icon: BookOpen },
   { view: 'hadith', href: '/hadith', label: 'الحديث', icon: Scroll },
+  { view: 'adhkar', href: '/adhkar', label: 'الأذكار', icon: Sparkles },
   { view: 'books', href: '/books', label: 'المكتبة', icon: Library },
   { view: 'radio', href: '/radio', label: 'الإذاعات', icon: Radio },
   { view: 'search', href: '/search', label: 'بحث', icon: Search },
@@ -38,7 +39,7 @@ export function MobileNav() {
 
   return (
     <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 glass border-t border-border shadow-lg">
-      <div className="grid grid-cols-6 gap-0.5 px-1 py-1.5 safe-area-inset-bottom">
+      <div className="grid grid-cols-7 gap-0.5 px-1 py-1.5 safe-area-inset-bottom">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = isItemActive(item.href);

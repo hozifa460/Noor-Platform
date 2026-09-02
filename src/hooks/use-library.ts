@@ -83,8 +83,8 @@ export function useLibrarySync() {
       }
       useLibraryStore.getState().setArchiveFiles(archiveFiles);
 
-      // Prioritize top 30 primary files to avoid consuming excessive bandwidth
-      const queue = primaryFiles.slice(0, 35);
+      // Prioritize top 12 primary files on initial polite sync to prevent bandwidth congestion
+      const queue = primaryFiles.slice(0, 12);
       const sheikhMetaByFile = new Map<string, NormalizeResult['sheikhMeta']>();
 
       let pendingItems: MediaItem[] = [];
@@ -101,7 +101,7 @@ export function useLibrarySync() {
       // Gentle single-threaded sequential ingestion with micro-sleeps (Zero Bandwidth Hogging)
       for (const path of queue) {
         try {
-          const res = await fetchJsonWithFallback<unknown>(repos, path, 4000);
+          const res = await fetchJsonWithFallback<unknown>(repos, path, 2500);
           if (res.data !== null) {
             const { items, sheikhMeta } = normalizeContentFile(
               res.data,
@@ -120,23 +120,16 @@ export function useLibrarySync() {
             }
           }
         } catch {
-          /* skip cleanly */
+          /* skip individual file error gracefully */
         }
 
         // Polite micro-delay (30ms) to leave bandwidth 100% free for user actions
         await new Promise((r) => setTimeout(r, 30));
       }
 
-      // Final flush
       flushBuffer();
-
-      // Apply metadata to library
       if (sheikhMetaByFile.size > 0) {
-        const meta = new Map(useLibraryStore.getState().sheikhMetaByFile);
-        for (const [k, v] of sheikhMetaByFile.entries()) {
-          meta.set(k, v);
-        }
-        useLibraryStore.getState().setItems(useLibraryStore.getState().items, meta);
+        useLibraryStore.getState().setItems(useLibraryStore.getState().items, sheikhMetaByFile);
       }
 
       setLastSync(Date.now());
@@ -147,9 +140,21 @@ export function useLibrarySync() {
     }
   }, [setSyncing, setRepoStatus, setLastSync, queryClient]);
 
-  // Initial sync on mount
+  // Polite idle deferral: allow main UI render and page-specific requests to finish first
   useEffect(() => {
-    sync();
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      const handle = (window as unknown as { requestIdleCallback: (cb: () => void, opts: { timeout: number }) => number }).requestIdleCallback(() => {
+        sync();
+      }, { timeout: 2500 });
+      return () => {
+        if ('cancelIdleCallback' in window) {
+          (window as unknown as { cancelIdleCallback: (h: number) => void }).cancelIdleCallback(handle);
+        }
+      };
+    } else {
+      const timer = setTimeout(() => sync(), 1200);
+      return () => clearTimeout(timer);
+    }
   }, [sync]);
 
   // Background polling (relaxed)

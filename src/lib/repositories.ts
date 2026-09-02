@@ -116,7 +116,7 @@ export function huggingfaceRawUrl(repo: RepositorySource, filePath: string): str
   const cleanPath = filePath.replace(/^\/+/, '');
   // Encode URI components while preserving slashes
   const encodedPath = cleanPath.split('/').map(encodeURIComponent).join('/');
-  return `https://huggingface.co/datasets/${repo.owner}/${repo.repo}/resolve/${branch}/${encodedPath}`;
+  return `https://huggingface.co/datasets/${repo.owner}/${repo.repo}/raw/${branch}/${encodedPath}`;
 }
 
 /** Build the raw URL for a file in a GitHub repository (raw.githubusercontent.com). */

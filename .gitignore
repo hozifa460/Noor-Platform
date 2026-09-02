@@ -58,15 +58,17 @@ server.log
 graft/
 
 # Large dataset caches (exceeds GitHub limits)
-public/data/
-!public/data/radio/clean_catalog.json
-!public/data/radio/catalog.json
-!public/data/ebooks/catalog.json
+public/data/fatwas_manifest.json
+public/data/fatwa_answers/
+public/data/fatwa_browse/
+public/data/shards/
+public/data/micro_shards/*
 !public/data/micro_shards/prefix_router.json
 !public/data/micro_shards/showcase.json
+public/data/hadith/*
 !public/data/hadith/nawawi40.json
-!public/data/quran/mp3quran_reciters.json
-!public/data/quran/riwayaat_reciters_map.json
+public/data/ebooks/*
+!public/data/ebooks/catalog.json
 
 # Prisma removed (Aug 2026): app state is localStorage-only; never re-add binary DBs
 db/
