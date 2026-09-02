@@ -20,8 +20,8 @@ export const FATWA_BASE: string =
 
 export const HADITH_BASE: string =
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_HADITH_BASE) ||
-  // Default — points at the public CDN mirror
-  'https://huggingface.co/datasets/hozifa1/quran_and_sunnah/raw/main/sunnahset' ||
+  // Default — points at the verified high-performance Hadith CDN
+  'https://huggingface.co/datasets/hozifa1/noor-platform-hadith/resolve/main' ||
   '';
 
 export const BOOKS_BASE: string =
@@ -127,7 +127,12 @@ export function hadithChapterUrl(label: string, chunkIndex: number): string {
   return hadithUrl(`data/hadith/books/${label}/chapters/${i}.json`);
 }
 
+/** Per-book table of contents (hadith/books/<label>/toc.json). */
+export function hadithBookTocUrl(label: string): string {
+  return hadithUrl(`data/hadith/books/${label}/toc.json`);
+}
+
 /** HadeethEnc sharh dataset (single file). */
 export function hadithSharhUrl(): string {
-  return hadithUrl('HadeethEnc_Sharh/hadeethenc_sharh.json');
+  return hadithUrl('data/hadith/sharh/hadeethenc_sharh.json');
 }
