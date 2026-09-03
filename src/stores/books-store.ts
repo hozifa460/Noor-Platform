@@ -6,7 +6,7 @@ import { loadRepositories } from '@/lib/repositories';
 import { fetchJsonWithFallback } from '@/lib/fetcher';
 import { normalizeContentFile } from '@/lib/sheikh';
 import { fetchEBookCatalog } from '@/lib/book-text-engine';
-import { searchBooksWithIntent } from '@/lib/book-intent-engine';
+import { searchBooksWithIntent } from '@/lib/books/intent-engine';
 import {
   BOOK_CATEGORIES,
   BOOK_LANGUAGES,
@@ -21,7 +21,7 @@ import {
   cachedLoadShamelaCatalog,
   getInitialCachedBooks,
   LOCAL_CACHE_KEY,
-} from '@/lib/books-store-loader';
+} from '@/lib/books/store-loader';
 
 export type { BookCategory, BookLanguage };
 export { BOOK_CATEGORIES, BOOK_LANGUAGES, QURANIC_MUS_HAFS };

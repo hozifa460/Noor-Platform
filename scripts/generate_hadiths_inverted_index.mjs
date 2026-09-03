@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { HADITH_BOOKS_LIST } from '../src/lib/hadith-data.ts';
-import { normalizeArabic, tokenizeArabic } from '../src/lib/arabic-normalizer.ts';
+import { HADITH_BOOKS_LIST } from '../src/lib/hadith/data.ts';
+import { normalizeArabic, tokenizeArabic } from '../src/lib/arabic/normalizer.ts';
 
 const outputDir = path.join(process.cwd(), 'public', 'data', 'hadith');
 const microPath = path.join(outputDir, 'hadiths_micro_index.json');

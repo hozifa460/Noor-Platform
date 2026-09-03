@@ -9,7 +9,7 @@ import { useLibraryStore } from '@/stores/library.store';
 import { useNavStore } from '@/stores/nav.store';
 import { useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { arabicSearchMatch } from '@/lib/arabic-normalizer';
+import { arabicSearchMatch } from '@/lib/arabic/normalizer';
 
 export function SearchView() {
   const searchParams = useSearchParams();

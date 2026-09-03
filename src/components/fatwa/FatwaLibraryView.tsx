@@ -11,8 +11,8 @@ import { useIdClipboard } from '@/hooks/use-clipboard';
 import { FatwaHeroBanner } from './FatwaHeroBanner';
 import { FatwaFilterBar } from './FatwaFilterBar';
 import { FatwaCard } from './FatwaCard';
-import { scholarFilterQuery } from '@/lib/scholar-filter';
-import { normalizeArabic } from '@/lib/arabic-normalizer';
+import { scholarFilterQuery } from '@/lib/fatwa/scholar-filter';
+import { normalizeArabic } from '@/lib/arabic/normalizer';
 import type { MediaItem } from '@/lib/types';
 
 

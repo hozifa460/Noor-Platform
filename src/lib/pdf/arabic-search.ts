@@ -14,7 +14,7 @@
 import {
   stripTashkeel,
   normalizeArabic as canonicalNormalizeArabic,
-} from '@/lib/arabic-normalizer';
+} from '@/lib/arabic/normalizer';
 
 /**
  * Remove Arabic diacritics (tashkeel) from a string using the canonical normalizer.

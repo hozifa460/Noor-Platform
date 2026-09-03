@@ -6,11 +6,11 @@ import {
   stripTashkeel,
   stripHarakat,
   TASHKEEL_REGEX,
-} from '../src/lib/arabic-normalizer.ts';
+} from '../src/lib/arabic/normalizer.ts';
 import {
   getMorphologicalVariants,
   ISLAMIC_ROOT_VARIANTS,
-} from '../src/lib/arabic-dictionary.ts';
+} from '../src/lib/arabic/dictionary.ts';
 
 async function runArabicNormalizerTests() {
   console.log('🕌 Starting Arabic Search & Normalizer Tests...\n');

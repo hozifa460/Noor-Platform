@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { getAyahRecitersForQiraah, QURAN_RECITERS } from '@/stores/quran-store';
 import type { AyahItem, SurahMeta, QiraahMeta, ReciterMeta } from '@/types/quran';
-import type { RiwayahReciterEntry } from '@/lib/mp3quran-engine';
+import type { RiwayahReciterEntry } from '@/lib/quran/mp3quran-engine';
 
 interface QuickAyahMenuProps {
   ayah: AyahItem | null;

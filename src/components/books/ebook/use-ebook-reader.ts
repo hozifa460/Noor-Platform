@@ -20,11 +20,11 @@ import type {
   InBookSearchResult,
   BookHighlight,
   SectionParagraph,
-} from '@/lib/book-types';
+} from '@/lib/books/types';
 import type { MediaItem } from '@/lib/types';
 import { toast } from 'sonner';
 import type { ReadingTheme, TashkeelMode, FontFamily, SidebarTab } from './types';
-import { copyToClipboard } from '@/lib/clipboard';
+import { copyToClipboard } from '@/lib/shared/clipboard';
 import { useTextToSpeech } from '@/hooks/use-text-to-speech';
 
 export function useEBookReader(bookItem: MediaItem) {

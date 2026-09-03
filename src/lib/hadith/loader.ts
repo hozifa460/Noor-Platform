@@ -1,12 +1,12 @@
-import { normalizeArabic } from '../arabic-normalizer';
-import { getCachedHadithBook, setCachedHadithBook } from '../hadith-storage';
+import { normalizeArabic } from '../arabic/normalizer';
+import { getCachedHadithBook, setCachedHadithBook } from './storage';
 import {
   HADITH_BASE,
   hadithBookIndexUrl,
   hadithBookMetadataUrl,
   hadithChapterUrl,
   hadithBookTocUrl,
-} from '../data-base';
+} from '../shared/data-base';
 import type {
   HadithItem,
   HadithChapter,

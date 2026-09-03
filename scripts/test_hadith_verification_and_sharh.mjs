@@ -49,7 +49,7 @@ async function runTests() {
   }
 
   // 3. Test Hadith Grade Engine
-  const { getHadithGrade, loadSunanGrades } = await import('../src/lib/hadith-grade-engine.ts');
+  const { getHadithGrade, loadSunanGrades } = await import('../src/lib/hadith/grade-engine.ts');
 
   const bukhariGrade = getHadithGrade('bukhari', 1);
   check(bukhariGrade.grade === 'صحيح', 'Bukhari #1 is graded Sahih');
@@ -71,7 +71,7 @@ async function runTests() {
     searchFakeHadiths,
     checkHadithAuthenticity,
     FAKE_HADITH_CATEGORIES,
-  } = await import('../src/lib/fake-hadith-engine.ts');
+  } = await import('../src/lib/hadith/fake-engine.ts');
 
   check(Array.isArray(FAKE_HADITH_CATEGORIES) && FAKE_HADITH_CATEGORIES.length >= 6, 'FAKE_HADITH_CATEGORIES has >= 6 categories');
 
@@ -92,7 +92,7 @@ async function runTests() {
   check(checkRajab.status === 'fake' && checkRajab.matchedFake?.degree?.includes('موضوع'), 'checkHadithAuthenticity correctly flags fabricated Rajab hadith');
 
   // 5. Test HadeethEnc Sharh URL Endpoint
-  const { hadithSharhUrl, hadithBookTocUrl, hadithBookIndexUrl } = await import('../src/lib/data-base.ts');
+  const { hadithSharhUrl, hadithBookTocUrl, hadithBookIndexUrl } = await import('../src/lib/shared/data-base.ts');
   const sharhEndpoint = hadithSharhUrl();
   check(
     sharhEndpoint.includes('data/hadith/sharh/hadeethenc_sharh.json'),
@@ -108,7 +108,7 @@ async function runTests() {
   );
 
   // 6. Test Book Shards Loading & Core Search
-  const { loadHadithBook, searchAcrossAllBooks } = await import('../src/lib/hadith-engine.ts');
+  const { loadHadithBook, searchAcrossAllBooks } = await import('../src/lib/hadith/index.ts');
 
   const nawawiBook = await loadHadithBook('nawawi40.json');
   check(nawawiBook && nawawiBook.hadiths.length === 42, 'Nawawi 40 loaded with 42 hadiths');

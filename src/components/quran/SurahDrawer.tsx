@@ -5,7 +5,7 @@ import { Search, X, BookOpen } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ALL_SURAHS, type SurahMeta } from '@/lib/quran-data';
+import { ALL_SURAHS, type SurahMeta } from '@/lib/quran/data';
 import { cn } from '@/lib/utils';
 
 interface SurahDrawerProps {

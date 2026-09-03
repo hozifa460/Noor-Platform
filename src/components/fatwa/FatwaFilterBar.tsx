@@ -2,7 +2,7 @@
 
 import { Search, X, User } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { FATWA_CATEGORIES, SCHOLARS_LIST } from '@/lib/fatwa-index';
+import { FATWA_CATEGORIES, SCHOLARS_LIST } from '@/lib/fatwa/index-data';
 import { cn } from '@/lib/utils';
 
 interface FatwaFilterBarProps {

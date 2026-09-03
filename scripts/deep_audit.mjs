@@ -1,6 +1,6 @@
-import { loadHadithBook } from '../src/lib/hadith-engine.ts';
+import { loadHadithBook } from '../src/lib/hadith/index.ts';
 import { extractHadithMatn, normalizeArabicText } from './generate_hadiths_micro_index.mjs';
-import { normalizeArabic, arabicSearchMatch } from '../src/lib/arabic-normalizer.ts';
+import { normalizeArabic, arabicSearchMatch } from '../src/lib/arabic/normalizer.ts';
 
 async function deepAudit() {
   console.log('=== DEEP AUDIT OF FAMOUS HADITHS ACROSS 17 BOOKS ===\n');

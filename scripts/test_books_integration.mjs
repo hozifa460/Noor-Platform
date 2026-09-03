@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { useBooksStore, BOOK_CATEGORIES, BOOK_LANGUAGES } from '../src/stores/books-store.ts';
-import { arabicSearchMatch, arabicSearchScore } from '../src/lib/arabic-normalizer.ts';
+import { arabicSearchMatch, arabicSearchScore } from '../src/lib/arabic/normalizer.ts';
 
 async function runBooksIntegrationTests() {
   console.log('📚 Starting Deluxe Islamic Books Library Tests...\n');

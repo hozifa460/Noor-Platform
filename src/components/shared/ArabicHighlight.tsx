@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { getMorphologicalVariants } from '@/lib/arabic-dictionary';
+import { getMorphologicalVariants } from '@/lib/arabic/dictionary';
 
 export interface ArabicHighlightProps {
   text: string;

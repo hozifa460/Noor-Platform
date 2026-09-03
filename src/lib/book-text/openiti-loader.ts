@@ -1,4 +1,4 @@
-import { dataUrl, isRemoteData } from '@/lib/data-base';
+import { dataUrl, isRemoteData } from '@/lib/shared/data-base';
 import type {
   EBookMetadata,
   TableOfContentsItem,

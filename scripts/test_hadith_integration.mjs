@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import fs from 'fs';
 import path from 'path';
-import { HADITH_BOOKS_LIST } from '../src/lib/hadith-data.ts';
+import { HADITH_BOOKS_LIST } from '../src/lib/hadith/data.ts';
 import {
   loadHadithBook,
   loadHadeethEncSharh,
   findHadithSharh,
   searchHadithsInBook,
   searchAcrossAllBooks,
-} from '../src/lib/hadith-engine.ts';
-import { getHadithGrade } from '../src/lib/hadith-grade-engine.ts';
+} from '../src/lib/hadith/index.ts';
+import { getHadithGrade } from '../src/lib/hadith/grade-engine.ts';
 
 console.log('\n📜 Starting Hadith Encyclopedia (Sunnah Hub) Full Suite Tests...\n');
 

@@ -1,5 +1,5 @@
-import { HADITH_BOOKS_LIST } from '../src/lib/hadith-data.ts';
-import { loadHadithBook } from '../src/lib/hadith-engine.ts';
+import { HADITH_BOOKS_LIST } from '../src/lib/hadith/data.ts';
+import { loadHadithBook } from '../src/lib/hadith/index.ts';
 
 async function checkAllRawEmpty() {
   console.log('=== CHECKING EMPTY ARABIC IN RAW COLLECTIONS ===\n');

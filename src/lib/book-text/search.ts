@@ -1,4 +1,4 @@
-import { normalizeArabic } from '@/lib/arabic-normalizer';
+import { normalizeArabic } from '@/lib/arabic/normalizer';
 import { getBlob } from '../offline-db';
 import type { InBookSearchResult } from '../book-types';
 import { loadEBookMeta } from './chapters';

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { BookOpen, X, Search, Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import type { HadithChapter } from '@/lib/hadith-engine';
+import type { HadithChapter } from '@/lib/hadith';
 import { cn } from '@/lib/utils';
 
 interface HadithChapterSelectorModalProps {

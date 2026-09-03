@@ -14,13 +14,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 
-import { HADITH_BOOKS_LIST } from '../src/lib/hadith-data.ts';
+import { HADITH_BOOKS_LIST } from '../src/lib/hadith/data.ts';
 import {
   normalizeArabic,
   tokenizeArabic,
   arabicSearchMatch,
   arabicSearchScore,
-} from '../src/lib/arabic-normalizer.ts';
+} from '../src/lib/arabic/normalizer.ts';
 import {
   loadHadithBook,
   loadHadithMicroIndex,
@@ -28,8 +28,8 @@ import {
   findHadithSharh,
   searchHadithsInBook,
   searchAcrossAllBooks,
-} from '../src/lib/hadith-engine.ts';
-import { getHadithGrade } from '../src/lib/hadith-grade-engine.ts';
+} from '../src/lib/hadith/index.ts';
+import { getHadithGrade } from '../src/lib/hadith/grade-engine.ts';
 
 // ANSI Terminal Colors
 const C = {
