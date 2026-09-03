@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import type { HadithItem, HadithChapter } from '@/lib/hadith-engine';
 import type { HadithBookMeta } from '@/lib/hadith-data';
 import { getHadithGrade } from '@/lib/hadith-grade-engine';
+import { ArabicHighlight } from './ArabicHighlight';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -12,6 +13,7 @@ interface HadithCardProps {
   hadith: HadithItem;
   book: HadithBookMeta;
   chapter?: HadithChapter;
+  highlightQuery?: string;
   onOpenDetail: (hadith: HadithItem, book: HadithBookMeta, chapter?: HadithChapter) => void;
 }
 
@@ -19,6 +21,7 @@ export function HadithCard({
   hadith,
   book,
   chapter,
+  highlightQuery,
   onOpenDetail,
 }: HadithCardProps) {
   const [copied, setCopied] = useState(false);
@@ -141,7 +144,7 @@ export function HadithCard({
       {/* Hadith Arabic Body (Full Text) */}
       <div className="space-y-2">
         <p className="font-quran font-bold text-base sm:text-lg text-foreground leading-[2.3] select-text text-justify">
-          « {resolvedArabic.trim()} »
+          « <ArabicHighlight text={resolvedArabic.trim()} query={highlightQuery} /> »
         </p>
 
         {(hadith.arabic.endsWith('...') || hadith.arabic.length < 80) && (

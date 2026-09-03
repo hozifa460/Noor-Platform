@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { HADITH_BOOKS_LIST } from '@/lib/hadith-data';
 import { searchHadithsInBook } from '@/lib/hadith-engine';
+import { getHadithGrade } from '@/lib/hadith-grade-engine';
 import { useHadithStore } from '@/stores/hadith-store';
 import { HadithCard } from './HadithCard';
 import { HadithDetailModal } from './HadithDetailModal';
@@ -31,12 +32,27 @@ const BOOK_CATEGORIES = [
   { id: 'forties', name: 'الأربعينيات' },
 ];
 
+interface GradeFilterOption {
+  id: 'all' | 'sahih' | 'hasan' | 'daif';
+  name: string;
+  dotColor?: string;
+  activeClass?: string;
+}
+
+const GRADE_FILTERS: GradeFilterOption[] = [
+  { id: 'all', name: 'جميع الدرجات' },
+  { id: 'sahih', name: 'صحيح فقط', dotColor: 'bg-emerald-500', activeClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40' },
+  { id: 'hasan', name: 'حسن', dotColor: 'bg-sky-500', activeClass: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/40' },
+  { id: 'daif', name: 'ضعيف', dotColor: 'bg-amber-500', activeClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40' },
+];
+
 export function HadithHubView() {
   const activeBook = useHadithStore((s) => s.activeBook);
   const bookData = useHadithStore((s) => s.bookData);
   const selectedChapterId = useHadithStore((s) => s.selectedChapterId);
   const searchQuery = useHadithStore((s) => s.searchQuery);
   const categoryFilter = useHadithStore((s) => s.categoryFilter);
+  const gradeFilter = useHadithStore((s) => s.gradeFilter);
   const searchMode = useHadithStore((s) => s.searchMode);
   const loadingBook = useHadithStore((s) => s.loadingBook);
   const searchingGlobal = useHadithStore((s) => s.searchingGlobal);
@@ -52,6 +68,7 @@ export function HadithHubView() {
   const setSelectedChapterId = useHadithStore((s) => s.setSelectedChapterId);
   const setSearchQuery = useHadithStore((s) => s.setSearchQuery);
   const setCategoryFilter = useHadithStore((s) => s.setCategoryFilter);
+  const setGradeFilter = useHadithStore((s) => s.setGradeFilter);
   const setSearchMode = useHadithStore((s) => s.setSearchMode);
   const openHadithDetail = useHadithStore((s) => s.openHadithDetail);
   const closeHadithDetail = useHadithStore((s) => s.closeHadithDetail);
@@ -90,10 +107,10 @@ export function HadithHubView() {
     loadBookData(activeBook.fileName);
   }, [activeBook.fileName, loadBookData]);
 
-  // Reset pagination when search or chapter changes
+  // Reset pagination when search, chapter, or filters change
   useEffect(() => {
     setVisibleCount(30);
-  }, [searchQuery, selectedChapterId, activeBook.id, searchMode]);
+  }, [searchQuery, selectedChapterId, activeBook.id, searchMode, gradeFilter, categoryFilter]);
 
   const filteredBooksList = useMemo(() => {
     if (categoryFilter === 'all') return HADITH_BOOKS_LIST;
@@ -105,12 +122,67 @@ export function HadithHubView() {
 
   const inBookHadiths = useMemo(() => {
     if (searchMode === 'global' || !bookData || !bookData.hadiths) return [];
-    return searchHadithsInBook(
+    const base = searchHadithsInBook(
       bookData.hadiths,
       searchQuery,
       selectedChapterId === 'all' ? undefined : selectedChapterId
     );
-  }, [bookData, searchQuery, selectedChapterId, searchMode]);
+    if (gradeFilter === 'all') return base;
+    return base.filter((h) => {
+      const g = getHadithGrade(activeBook.id, h.idInBook).grade;
+      if (gradeFilter === 'sahih') return g === 'صحيح';
+      if (gradeFilter === 'hasan') return g === 'حسن';
+      if (gradeFilter === 'daif') return g === 'ضعيف' || g === 'موضوع';
+      return true;
+    });
+  }, [bookData, searchQuery, selectedChapterId, searchMode, gradeFilter, activeBook.id]);
+
+  const displayedGlobalResults = useMemo(() => {
+    if (searchMode !== 'global') return [];
+    return globalResults.filter((res) => {
+      // 1. Collection Category Filter
+      if (categoryFilter !== 'all') {
+        if (categoryFilter === 'jawami') {
+          if (res.book.category !== 'jawami' && res.book.category !== 'masanid') return false;
+        } else if (res.book.category !== categoryFilter) {
+          return false;
+        }
+      }
+      // 2. Grade Authenticity Filter
+      if (gradeFilter !== 'all') {
+        const g = getHadithGrade(res.book.id, res.hadith.idInBook).grade;
+        if (gradeFilter === 'sahih' && g !== 'صحيح') return false;
+        if (gradeFilter === 'hasan' && g !== 'حسن') return false;
+        if (gradeFilter === 'daif' && g !== 'ضعيف' && g !== 'موضوع') return false;
+      }
+      return true;
+    });
+  }, [searchMode, globalResults, categoryFilter, gradeFilter]);
+
+  const categoryCountMap = useMemo(() => {
+    if (searchMode !== 'global') return new Map<string, number>();
+    const map = new Map<string, number>();
+    map.set('all', globalResults.length);
+    for (const res of globalResults) {
+      const cat = (res.book.category === 'jawami' || res.book.category === 'masanid') ? 'jawami' : res.book.category;
+      map.set(cat, (map.get(cat) || 0) + 1);
+    }
+    return map;
+  }, [searchMode, globalResults]);
+
+  const handleCategoryClick = (catId: string) => {
+    setCategoryFilter(catId);
+    if (searchMode === 'in-book' && catId !== 'all') {
+      const booksInCat = HADITH_BOOKS_LIST.filter((b) =>
+        catId === 'jawami' ? (b.category === 'jawami' || b.category === 'masanid') : b.category === catId
+      );
+      if (!booksInCat.some((b) => b.id === activeBook.id) && booksInCat.length > 0) {
+        setActiveBook(booksInCat[0]);
+        toast.success(`تم فتح ${booksInCat[0].nameAr}`);
+      }
+    }
+  };
+
   const currentChapter = useMemo(() => {
     if (!bookData || selectedChapterId === 'all') return undefined;
     return bookData.chapters.find((c) => c.id === selectedChapterId);
@@ -274,22 +346,104 @@ export function HadithHubView() {
           </div>
         </div>
 
-        {/* Categories Pill Bar */}
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1">
-          {BOOK_CATEGORIES.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setCategoryFilter(cat.id)}
-              className={cn(
-                'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 border',
-                categoryFilter === cat.id
-                  ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                  : 'bg-card text-muted-foreground border-border hover:text-foreground'
-              )}
-            >
-              {cat.name}
-            </button>
-          ))}
+        {/* Dual Filter Bars: Collection Group + Quick Books Sub-Bar + Authenticity Grade */}
+        <div className="space-y-3 bg-card/60 border border-border/80 rounded-3xl p-3 sm:p-4 shadow-xs">
+          {/* 1. Collection Categories Pill Bar */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
+              <span className="text-[11px] font-bold text-muted-foreground shrink-0 pl-1">
+                الديوان:
+              </span>
+              {BOOK_CATEGORIES.map((cat) => {
+                const count = categoryCountMap.get(cat.id);
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => handleCategoryClick(cat.id)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 border flex items-center gap-1.5',
+                      categoryFilter === cat.id
+                        ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                        : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-muted/50'
+                    )}
+                  >
+                    <span>{cat.name}</span>
+                    {searchMode === 'global' && count !== undefined && (
+                      <span
+                        className={cn(
+                          'text-[10px] px-1.5 py-0.2 rounded-full font-extrabold',
+                          categoryFilter === cat.id
+                            ? 'bg-white/20 text-white'
+                            : 'bg-muted text-muted-foreground'
+                        )}
+                      >
+                        {count.toLocaleString('ar-EG')}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Quick Books Sub-Bar (In-Book Mode) */}
+            {searchMode === 'in-book' && categoryFilter !== 'all' && filteredBooksList.length > 0 && (
+              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1.5 px-2 bg-muted/40 rounded-2xl border border-border/60 animate-in fade-in duration-150">
+                <span className="text-[11px] font-bold text-primary shrink-0 pl-1">
+                  كتب الفئة:
+                </span>
+                {filteredBooksList.map((b) => {
+                  const isCurrent = activeBook.id === b.id;
+                  return (
+                    <button
+                      key={b.id}
+                      onClick={() => {
+                        setActiveBook(b);
+                        toast.success(`تم فتح ${b.nameAr}`);
+                      }}
+                      className={cn(
+                        'px-3 py-1 rounded-xl text-xs font-bold transition-all shrink-0 border flex items-center gap-1.5',
+                        isCurrent
+                          ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                          : 'bg-card text-foreground/90 border-border/80 hover:border-primary/40 hover:bg-card/90'
+                      )}
+                    >
+                      <span>{b.nameAr}</span>
+                      <span className="text-[10px] opacity-70">
+                        ({b.hadithCount.toLocaleString('ar-EG')})
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 2. Hadith Authenticity Grade Filter Bar */}
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pt-1.5 border-t border-border/50">
+            <span className="text-[11px] font-bold text-muted-foreground shrink-0 pl-1">
+              درجة الصحة:
+            </span>
+            {GRADE_FILTERS.map((gf) => {
+              const isSelected = gradeFilter === gf.id;
+              return (
+                <button
+                  key={gf.id}
+                  onClick={() => setGradeFilter(gf.id)}
+                  className={cn(
+                    'px-3 py-1 rounded-xl text-xs font-bold transition-all shrink-0 border flex items-center gap-1.5',
+                    isSelected
+                      ? (gf.activeClass || 'bg-primary text-primary-foreground border-primary shadow-xs')
+                      : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-muted/50'
+                  )}
+                >
+                  {gf.dotColor && (
+                    <span className={cn('size-2 rounded-full shrink-0', gf.dotColor)} />
+                  )}
+                  <span>{gf.name}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Loading State */}
@@ -311,8 +465,18 @@ export function HadithHubView() {
               <span>
                 نتائج البحث الشامل:{' '}
                 <strong className="text-foreground">
-                  {globalResults.length.toLocaleString('ar-EG')} حديث
+                  {displayedGlobalResults.length.toLocaleString('ar-EG')} حديث
                 </strong>
+                {categoryFilter !== 'all' && (
+                  <span className="mx-1 text-primary font-bold">
+                    (مفلترة حسب الفئة)
+                  </span>
+                )}
+                {gradeFilter !== 'all' && (
+                  <span className="mx-1 text-emerald-600 dark:text-emerald-400 font-bold">
+                    ({GRADE_FILTERS.find((g) => g.id === gradeFilter)?.name})
+                  </span>
+                )}
               </span>
 
               {searchQuery && (
@@ -325,19 +489,20 @@ export function HadithHubView() {
               )}
             </div>
 
-            {globalResults.length > 0 ? (
+            {displayedGlobalResults.length > 0 ? (
               <div className="space-y-4">
-                {globalResults.slice(0, visibleCount).map((res) => (
+                {displayedGlobalResults.slice(0, visibleCount).map((res) => (
                   <HadithCard
                     key={`${res.book.id}-${res.hadith.idInBook}`}
                     hadith={res.hadith}
                     book={res.book}
                     chapter={res.chapter}
+                    highlightQuery={searchQuery}
                     onOpenDetail={openHadithDetail}
                   />
                 ))}
 
-                {visibleCount < globalResults.length && (
+                {visibleCount < displayedGlobalResults.length && (
                   <div className="pt-6 text-center">
                     <Button
                       size="lg"
@@ -345,7 +510,7 @@ export function HadithHubView() {
                       onClick={() => setVisibleCount((prev) => prev + 30)}
                       className="rounded-2xl px-8 font-bold text-xs gap-2 shadow-sm bg-card hover:bg-muted"
                     >
-                      <span>تحميل المزيد ({globalResults.length - visibleCount} متبقٍ)</span>
+                      <span>تحميل المزيد ({displayedGlobalResults.length - visibleCount} متبقٍ)</span>
                     </Button>
                   </div>
                 )}
@@ -354,11 +519,11 @@ export function HadithHubView() {
               <div className="py-20 text-center space-y-3 bg-card rounded-3xl border border-border p-6">
                 <Scroll className="size-10 mx-auto text-muted-foreground/40" />
                 <h4 className="font-bold text-base text-foreground">
-                  {searchQuery ? 'لم نعثر على أحاديث مطابقة للبحث الشامل' : 'اكتب كلمة للبحث في جميع كتب السنة'}
+                  {searchQuery ? 'لم نعثر على أحاديث مطابقة لهذا الفلتر' : 'اكتب كلمة للبحث في جميع كتب السنة'}
                 </h4>
                 <p className="text-xs text-muted-foreground max-w-sm mx-auto">
                   {searchQuery
-                    ? 'جرب البحث بمرادفات أخرى أو بجزء من متن الحديث'
+                    ? 'جرب تغيير خيارات الفلتر (الديوان أو درجة الصحة) أو البحث بكلمات أخرى'
                     : 'محرك البحث الشامل يبحث في الصحيحين والسنن والمسانيد في آنٍ واحد.'}
                 </p>
               </div>
@@ -377,6 +542,11 @@ export function HadithHubView() {
                 </strong>
                 {selectedChapterId !== 'all' && currentChapter && (
                   <span className="mx-1">في {currentChapter.arabic}</span>
+                )}
+                {gradeFilter !== 'all' && (
+                  <span className="mx-1 text-emerald-600 dark:text-emerald-400 font-bold">
+                    ({GRADE_FILTERS.find((g) => g.id === gradeFilter)?.name})
+                  </span>
                 )}
               </span>
 
@@ -402,6 +572,7 @@ export function HadithHubView() {
                       hadith={hadith}
                       book={activeBook}
                       chapter={chapter}
+                      highlightQuery={searchQuery}
                       onOpenDetail={openHadithDetail}
                     />
                   );

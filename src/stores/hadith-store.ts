@@ -22,6 +22,7 @@ interface HadithState {
   selectedChapterId: number | 'all';
   searchQuery: string;
   categoryFilter: string;
+  gradeFilter: 'all' | 'sahih' | 'hasan' | 'daif';
   searchMode: 'in-book' | 'global';
   loadingBook: boolean;
   searchingGlobal: boolean;
@@ -41,6 +42,7 @@ interface HadithState {
   setSelectedChapterId: (chapterId: number | 'all') => void;
   setSearchQuery: (q: string) => void;
   setCategoryFilter: (cat: string) => void;
+  setGradeFilter: (grade: 'all' | 'sahih' | 'hasan' | 'daif') => void;
   setSearchMode: (mode: 'in-book' | 'global') => void;
   openHadithDetail: (hadith: HadithItem, book?: HadithBookMeta, chapter?: HadithChapter) => Promise<void>;
   closeHadithDetail: () => void;
@@ -55,6 +57,7 @@ export const useHadithStore = create<HadithState>((set, get) => ({
   selectedChapterId: 'all',
   searchQuery: '',
   categoryFilter: 'all',
+  gradeFilter: 'all',
   searchMode: 'in-book',
   loadingBook: false,
   searchingGlobal: false,
@@ -80,6 +83,7 @@ export const useHadithStore = create<HadithState>((set, get) => ({
     }
   },
   setCategoryFilter: (categoryFilter) => set({ categoryFilter }),
+  setGradeFilter: (gradeFilter) => set({ gradeFilter }),
   setSearchMode: (searchMode) => {
     set({ searchMode });
     if (searchMode === 'global' && get().searchQuery.trim().length >= 2) {
