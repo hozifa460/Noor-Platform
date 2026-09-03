@@ -144,9 +144,9 @@ export function HadithCard({
           « {resolvedArabic.trim()} »
         </p>
 
-        {hadith.arabic.length < 80 && resolvedArabic === hadith.arabic && (
-          <div className="flex items-center gap-1 text-[11px] text-primary font-bold animate-pulse">
-            <span>انقر لفتح كامل سند ومتن وشرح الحديث</span>
+        {(hadith.arabic.endsWith('...') || hadith.arabic.length < 80) && (
+          <div className="flex items-center gap-1 text-xs text-primary font-bold pt-1">
+            <span>انقر لفتح كامل نص الحديث ومتنه وسنده والشرح ←</span>
           </div>
         )}
       </div>
