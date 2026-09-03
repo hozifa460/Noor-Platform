@@ -85,8 +85,7 @@ export async function fetchHadithTranslation(
     const item = data?.hadiths?.[0];
     if (!item || !item.text) return null;
 
-    // Clean html tags if present in translation text
-    const cleanText = item.text.replace(/<[^>]*>/g, '').trim();
+    const cleanText = item.text.trim();
 
     const result: HadithTranslationResult = {
       langCode,
