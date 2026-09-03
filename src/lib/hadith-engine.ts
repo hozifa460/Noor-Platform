@@ -158,7 +158,10 @@ export async function loadHadithBook(fileName: string): Promise<HadithBookData |
  * Returns the assembled HadithBookData on success, or null on any failure
  * (caller should fall back to the legacy single-file paths).
  */
-export async function loadHadithBookFromShards(label: string): Promise<HadithBookData | null> {
+export async function loadHadithBookFromShards(
+  label: string,
+  options?: { loadAllImmediately?: boolean }
+): Promise<HadithBookData | null> {
   // 1. Fetch the book index (small — ~200 bytes)
   let index: { totalHadiths: number; chapterCount: number; chunkCount: number; fileName?: string };
   try {
@@ -170,20 +173,26 @@ export async function loadHadithBookFromShards(label: string): Promise<HadithBoo
   }
   if (!index || !index.chunkCount) return null;
 
-  // 2. Fetch metadata + toc + all chapter chunks in parallel
-  const [metaRes, tocRes, ...chunkResults] = await Promise.all([
+  // 2. Fetch metadata + toc + CHUNK 0 in parallel for instant UI render (< 60ms)
+  const isServer = typeof window === 'undefined';
+  const shouldLoadAll = options?.loadAllImmediately || isServer;
+
+  const [metaRes, tocRes, chunk0Res] = await Promise.all([
     fetch(hadithBookMetadataUrl(label)).catch(() => null),
     fetch(hadithBookTocUrl(label)).catch(() => null),
-    ...Array.from({ length: index.chunkCount }, (_, i) =>
-      fetch(hadithChapterUrl(label, i)).then(r => r.ok ? r.json() : null)
-    ),
+    fetch(hadithChapterUrl(label, 0)).catch(() => null),
   ]);
 
-  const hadiths: HadithItem[] = [];
-  for (const c of chunkResults) {
-    if (Array.isArray(c)) hadiths.push(...c);
+  let chunk0: HadithItem[] = [];
+  if (chunk0Res && (chunk0Res as Response).ok) {
+    try {
+      chunk0 = (await (chunk0Res as Response).json()) as HadithItem[];
+    } catch { /* */ }
   }
-  if (hadiths.length === 0) return null;
+
+  if (chunk0.length === 0) {
+    return null;
+  }
 
   type SlimMeta = {
     id?: number;
@@ -222,25 +231,10 @@ export async function loadHadithBookFromShards(label: string): Promise<HadithBoo
       english: t.english || '',
     }));
   } else {
-    const chaptersMap = new Map<string, { id: number; count: number; firstHadithId?: number | string }>();
-    for (const h of hadiths) {
-      const ch = String(h.chapterId ?? '1');
-      const entry = chaptersMap.get(ch) ?? { id: Number(ch) || 0, count: 0 };
-      entry.count += 1;
-      if (entry.firstHadithId === undefined) {
-        entry.firstHadithId = h.id ?? h.idInBook;
-      }
-      chaptersMap.set(ch, entry);
-    }
-    chapters = Array.from(chaptersMap.values())
-      .sort((a, b) => a.id - b.id)
-      .map(c => ({
-        id: c.id,
-        bookId,
-        arabic: `باب ${c.id}`,
-        english: '',
-      }));
+    chapters = [{ id: 1, bookId, arabic: 'جميع أحاديث الديوان', english: '' }];
   }
+
+  const hadiths: HadithItem[] = [...chunk0];
 
   const data: HadithBookData = {
     id: meta.id ?? 1,
@@ -260,6 +254,44 @@ export async function loadHadithBookFromShards(label: string): Promise<HadithBoo
     chapters,
     hadiths,
   };
+
+  // 3. Load remaining chunks (if any)
+  const remainingChunkIndices: number[] = [];
+  for (let i = 1; i < index.chunkCount; i++) {
+    remainingChunkIndices.push(i);
+  }
+
+  const fetchRemainingChunks = async () => {
+    // Fetch in small batches of 3 to avoid rate limits
+    for (let i = 0; i < remainingChunkIndices.length; i += 3) {
+      const batch = remainingChunkIndices.slice(i, i + 3);
+      const batchRes = await Promise.all(
+        batch.map((idx) =>
+          fetch(hadithChapterUrl(label, idx))
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null)
+        )
+      );
+      for (const c of batchRes) {
+        if (Array.isArray(c)) {
+          for (const item of c) {
+            if (item && item.arabic && !item._norm) {
+              item._norm = normalizeArabic(item.arabic);
+            }
+            data.hadiths.push(item);
+          }
+        }
+      }
+    }
+    // Save complete assembled book in IndexedDB
+    setCachedHadithBook(`${label}.json`, data).catch(() => {});
+  };
+
+  if (shouldLoadAll) {
+    await fetchRemainingChunks();
+  } else if (remainingChunkIndices.length > 0) {
+    fetchRemainingChunks().catch(() => {});
+  }
 
   return data;
 }
