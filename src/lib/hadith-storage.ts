@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = 'noor_hadith_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'hadith_books';
 
 function openHadithDB(): Promise<IDBDatabase | null> {

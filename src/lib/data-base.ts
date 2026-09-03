@@ -20,8 +20,8 @@ export const FATWA_BASE: string =
 
 export const HADITH_BASE: string =
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_HADITH_BASE) ||
-  // Default — points at the verified high-performance Hadith CDN
-  'https://huggingface.co/datasets/hozifa1/noor-platform-hadith/resolve/main' ||
+  // Default — points at the verified high-performance Hadith CDN (raw/main with direct 200 OK, 0 redirects)
+  'https://huggingface.co/datasets/hozifa1/noor-platform-hadith/raw/main' ||
   '';
 
 export const BOOKS_BASE: string =

@@ -64,6 +64,7 @@ export function useLibrarySync() {
       } catch {
         /* non-critical */
       }
+      setLastSync(Date.now());
 
       // 2. Fetch remote repos with polite, non-blocking throttling
       const repos = loadRepositories();
