@@ -8,6 +8,7 @@ import {
   X,
   Library,
   ShieldAlert,
+  RefreshCw,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -411,6 +412,25 @@ export function HadithHubView() {
                     </Button>
                   </div>
                 )}
+              </div>
+            ) : !bookData ? (
+              <div className="py-20 text-center space-y-3 bg-card rounded-3xl border border-border p-6">
+                <Scroll className="size-10 mx-auto text-muted-foreground/40" />
+                <h4 className="font-bold text-base text-foreground">جاري تجهيز أحاديث {activeBook.nameAr}...</h4>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                  إذا تأخر التحميل، يمكنك الضغط على زر إعادة المحاولة لجلب أحاديث الديوان فوراً.
+                </p>
+                <div className="pt-2 flex items-center justify-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => loadBookData(activeBook.fileName)}
+                    className="rounded-xl text-xs gap-1.5"
+                  >
+                    <RefreshCw className="size-3.5" />
+                    إعادة تحميل الديوان
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="py-20 text-center space-y-3 bg-card rounded-3xl border border-border p-6">

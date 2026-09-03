@@ -17,7 +17,7 @@ async function runTests() {
   check(fs.existsSync(fakeHadithsPath), 'public/data/hadith/fake_hadiths.json exists');
 
   const fakeHadiths = JSON.parse(fs.readFileSync(fakeHadithsPath, 'utf-8'));
-  check(Array.isArray(fakeHadiths) && fakeHadiths.length >= 25, `Contains >= 25 authoritative fake hadiths (found: ${fakeHadiths.length})`);
+  check(Array.isArray(fakeHadiths) && fakeHadiths.length >= 50, `Contains >= 50 authoritative fake hadiths (found: ${fakeHadiths.length})`);
 
   for (const item of fakeHadiths) {
     assert(typeof item.id === 'number', `Item ${item.id} has number id`);
