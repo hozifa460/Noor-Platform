@@ -1,32 +1,22 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   BookOpen,
-  Search,
-  X,
-  LayoutGrid,
-  List,
   Sparkles,
-  Globe,
-  Scroll,
   Layers,
-  Flame,
-  ChevronLeft,
+  Scroll,
+  Globe,
+  RefreshCw,
 } from 'lucide-react';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { BookCard } from './BookCard';
-import {
-  useBooksStore,
-  BOOK_CATEGORIES,
-  BOOK_LANGUAGES,
-} from '@/stores/books-store';
-import { FEATURED_ISLAMIC_CLASSICS, type FeaturedClassic } from '@/lib/featured-books';
+import { useBooksStore, BOOK_CATEGORIES } from '@/stores/books-store';
 import { usePlayerStore } from '@/stores/player.store';
+import { BookCard } from './BookCard';
+import { FeaturedClassicsRibbon } from './FeaturedClassicsRibbon';
+import { BooksFilterToolbar } from './BooksFilterToolbar';
 import type { MediaItem } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import type { FeaturedClassic } from '@/lib/featured-books';
 
 export function BooksLibraryView() {
   const books = useBooksStore((s) => s.books);
@@ -42,55 +32,53 @@ export function BooksLibraryView() {
   const setSearchQuery = useBooksStore((s) => s.setSearchQuery);
   const setViewMode = useBooksStore((s) => s.setViewMode);
   const getFilteredBooks = useBooksStore((s) => s.getFilteredBooks);
+
   const openPlayer = usePlayerStore((s) => s.open);
 
+  const [visibleCount, setVisibleCount] = useState(30);
   const [localSearch, setLocalSearch] = useState(searchQuery);
-  const [visibleCount, setVisibleCount] = useState(36);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     startLoading();
   }, [startLoading]);
 
-  // Debounce search query update to store (120ms)
+  const filteredBooks = getFilteredBooks();
+
+  // Reset pagination on filter change
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearchQuery(localSearch.trim());
-    }, 120);
-    return () => clearTimeout(timer);
-  }, [localSearch, setSearchQuery]);
+    setVisibleCount(30);
+  }, [searchQuery, selectedCategory, selectedLanguage]);
 
-  // Reset pagination on filter change (standard React pattern)
-  const [prevFilter, setPrevFilter] = useState({ selectedCategory, selectedLanguage, searchQuery });
-  if (
-    prevFilter.selectedCategory !== selectedCategory ||
-    prevFilter.selectedLanguage !== selectedLanguage ||
-    prevFilter.searchQuery !== searchQuery
-  ) {
-    setPrevFilter({ selectedCategory, selectedLanguage, searchQuery });
-    setVisibleCount(36);
-  }
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
 
-  const filteredBooks = useMemo(
-    () => getFilteredBooks(books, selectedCategory, selectedLanguage, searchQuery),
-    [getFilteredBooks, books, selectedCategory, selectedLanguage, searchQuery],
-  );
-  const displayedBooks = filteredBooks.slice(0, visibleCount);
+  const handleSearchChange = (val: string) => {
+    setLocalSearch(val);
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      setSearchQuery(val);
+    }, 250);
+  };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setSearchQuery(localSearch.trim());
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    setSearchQuery(localSearch);
+  };
+
+  const handleClearSearch = () => {
+    setLocalSearch('');
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    setSearchQuery('');
   };
 
   const handleOpenFeatured = (fc: FeaturedClassic) => {
-    // 1. Quran Mushaf Featured Item ONLY (actual Mushafs, not Tafsir books)
-    if (fc.id.startsWith('quran-') || (fc.artTag === 'quran' && !fc.id.includes('tafsir') && !fc.id.includes('shamela'))) {
-      const existing = books.find((b) => b.id === fc.id);
-      if (existing) {
-        openPlayer(existing);
-        return;
-      }
+    const quranId = (fc as unknown as { quranId?: string }).quranId;
+    if (quranId) {
       const quranItem: MediaItem = {
-        id: fc.id,
+        id: `mushaf-${quranId}`,
         title: fc.title,
         sheikhName: fc.author,
         section: 'books',
@@ -103,8 +91,12 @@ export function BooksLibraryView() {
       return;
     }
 
-    // 2. Classical Heritage Book Item (Tafsir, Hadith, Fiqh, Language)
-    const existing = books.find((b) => b.id === fc.id || (fc.shamelaId && (b as unknown as Record<string, unknown>).shamelaId === fc.shamelaId));
+    const existing = books.find(
+      (b) =>
+        b.id === fc.id ||
+        (fc.shamelaId &&
+          (b as unknown as Record<string, unknown>).shamelaId === fc.shamelaId)
+    );
     if (existing) {
       openPlayer(existing);
       return;
@@ -143,7 +135,7 @@ export function BooksLibraryView() {
           </h1>
 
           <p className="text-sm sm:text-base text-emerald-100/90 leading-relaxed mb-6 max-w-2xl">
-            أكثر من <strong className="text-amber-300 font-bold">8,589 مصنفاً محققاً وموافقاً للمطبوع</strong> من أمهات كتب التراث الإسلامي في العقيدة والحديث والفقه والتفسير واللغة والتاريخ، مع نصوص حية فائقة الدقة وفهارس شجرية وعزل الحواشي.
+            أكثر من <strong className="text-amber-300 font-bold">8,589 مصنفاً محققاً وموافقاً للمطبوع</strong> من أمهات كتب التراث الإسلامي في العقيدة والحديث والفقه والتفسير واللغة والتاريخ.
           </p>
 
           {/* Quick Metrics Badges */}
@@ -176,241 +168,115 @@ export function BooksLibraryView() {
         </div>
       </div>
 
-      {/* ─── Featured Classics Ribbon (أمهات الكتب الكبرى) ───────────── */}
+      {/* Featured Classics Ribbon */}
       {!searchQuery && (
-        <section className="space-y-4 pt-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="size-8 rounded-xl bg-amber-500/10 border border-amber-500/20 grid place-items-center text-amber-500">
-                <Flame className="size-4 text-amber-500 animate-pulse" />
-              </div>
-              <div>
-                <h2 className="text-lg sm:text-xl font-bold text-foreground flex items-center gap-2">
-                  <span>أمهات كتب التراث الكبرى</span>
-                  <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/30">
-                    روائع مختارة
-                  </Badge>
-                </h2>
-                <p className="text-xs text-muted-foreground">أوثق وأجل أمهات المصنفات الإسلامية المحققة موافقة للمطبوع</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-stretch gap-4 overflow-x-auto pb-4 pt-1 scrollbar-none snap-x snap-mandatory">
-            {FEATURED_ISLAMIC_CLASSICS.map((fc) => (
-              <div
-                key={fc.id}
-                onClick={() => handleOpenFeatured(fc)}
-                className="group relative w-64 sm:w-72 shrink-0 snap-start p-4 rounded-2xl border border-amber-500/20 bg-gradient-to-b from-card/90 to-card hover:border-amber-500/50 transition-all duration-300 shadow-md hover:shadow-xl cursor-pointer flex flex-col justify-between"
-              >
-                <div>
-                  {/* Top Tags */}
-                  <div className="flex items-center justify-between text-[11px] mb-2.5">
-                    <span className="inline-flex items-center gap-1 font-semibold text-amber-600 dark:text-amber-400">
-                      <span>{fc.icon}</span>
-                      <span>{fc.discipline}</span>
-                    </span>
-                    <Badge variant="secondary" className="text-[10px] font-mono">
-                      {fc.volumes} {fc.volumes > 1 ? 'مجلدات' : 'مجلد'}
-                    </Badge>
-                  </div>
-
-                  {/* Title & Author */}
-                  <h3 className="font-extrabold text-base text-foreground group-hover:text-primary transition-colors line-clamp-1 mb-1 leading-snug">
-                    {fc.title}
-                  </h3>
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2.5">
-                    <span className="line-clamp-1 font-medium">{fc.author}</span>
-                    <span className="text-[10px] opacity-75 shrink-0">({fc.authorDeath})</span>
-                  </div>
-
-                  {/* Summary */}
-                  <p className="text-[11px] text-muted-foreground/80 line-clamp-2 leading-relaxed">
-                    {fc.description}
-                  </p>
-                </div>
-
-                {/* Open Button */}
-                <div className="pt-3 mt-3 border-t border-border/60 flex items-center justify-between">
-                  <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold group-hover:underline flex items-center gap-1">
-                    قراءة فورية
-                    <ChevronLeft className="size-3 transition-transform group-hover:-translate-x-0.5" />
-                  </span>
-                  <span className="text-[10px] opacity-60 font-mono">موافق للمطبوع</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+        <FeaturedClassicsRibbon onOpenFeatured={handleOpenFeatured} />
       )}
 
-      {/* ─── Search & Intent Filter Toolbar ─────────────────────────── */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-card/70 p-4 sm:p-5 rounded-3xl border border-border/80 backdrop-blur-md shadow-sm">
-        {/* Smart Search Input */}
-        <form onSubmit={handleSearchSubmit} className="relative w-full md:max-w-xl">
-          <Search className="absolute right-4 top-1/2 -translate-y-1/2 size-5 text-amber-500/70" />
-          <Input
-            value={localSearch}
-            onChange={(e) => setLocalSearch(e.target.value)}
-            placeholder="ابحث باسم الكتاب، المؤلف (ابن تيمية، النووي)، اللقب (المغني، زاد المعاد)، أو الموضوع..."
-            className="pr-12 pl-10 h-12 text-sm bg-background/90 rounded-2xl border-border/80 focus:border-amber-500 transition-all shadow-inner"
-          />
-          {localSearch && (
+      {/* Search & Intent Filter Toolbar */}
+      <BooksFilterToolbar
+        localSearch={localSearch}
+        onSearchChange={handleSearchChange}
+        onSearchSubmit={handleSearchSubmit}
+        onClearSearch={handleClearSearch}
+        selectedCategory={selectedCategory}
+        onSelectCategory={setSelectedCategory}
+        selectedLanguage={selectedLanguage}
+        onSelectLanguage={setSelectedLanguage}
+        viewMode={viewMode}
+        onToggleViewMode={setViewMode}
+      />
+
+      {/* Books Content Section */}
+      <section className="space-y-4">
+        {/* Results Header */}
+        <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+          <span>
+            {searchQuery ? (
+              <>
+                نتائج البحث عن «<strong>{searchQuery}</strong>»: {filteredBooks.length.toLocaleString('ar-SA')} كتاب
+              </>
+            ) : (
+              <>
+                قسم {currentCategoryInfo?.name || 'جميع الكتب'}: {filteredBooks.length.toLocaleString('ar-SA')} كتاب
+              </>
+            )}
+          </span>
+
+          {searchQuery && (
             <button
-              type="button"
-              onClick={() => {
-                setLocalSearch('');
-                setSearchQuery('');
-              }}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+              onClick={handleClearSearch}
+              className="text-primary hover:underline font-bold cursor-pointer"
             >
-              <X className="size-4" />
+              مسح البحث
             </button>
-          )}
-        </form>
-
-        {/* Language Selector & View Toggle */}
-        <div className="flex items-center justify-between w-full md:w-auto gap-3">
-          {/* Language Selector */}
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1">
-            {BOOK_LANGUAGES.slice(0, 5).map((lang) => {
-              const active = selectedLanguage === lang.code;
-              return (
-                <button
-                  key={lang.code}
-                  onClick={() => setSelectedLanguage(lang.code)}
-                  className={cn(
-                    'px-3 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 border',
-                    active
-                      ? 'bg-secondary text-secondary-foreground border-secondary font-bold shadow-sm'
-                      : 'bg-background hover:bg-muted text-muted-foreground border-border/50'
-                  )}
-                >
-                  {lang.flag} {lang.name}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Grid/List View Toggles */}
-          <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-2xl border border-border shrink-0">
-            <Button
-              size="icon"
-              variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-              className="size-8 rounded-xl"
-              onClick={() => setViewMode('grid')}
-              aria-label="عرض شبكي"
-            >
-              <LayoutGrid className="size-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-              className="size-8 rounded-xl"
-              onClick={() => setViewMode('list')}
-              aria-label="عرض قائمة"
-            >
-              <List className="size-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Category Quick Filter Chips */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-        {BOOK_CATEGORIES.map((cat) => {
-          const active = selectedCategory === cat.id;
-          return (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-2xl text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-200 shrink-0 border',
-                active
-                  ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20 scale-[1.02]'
-                  : 'bg-card/70 hover:bg-card text-muted-foreground hover:text-foreground border-border/80'
-              )}
-            >
-              <span className="text-base">{cat.emoji}</span>
-              <span>{cat.name}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Category Info Header & Count */}
-      <div className="flex items-center justify-between border-b border-border/60 pb-3">
-        <div>
-          <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <span>{currentCategoryInfo?.emoji || '📚'}</span>
-            {searchQuery ? `نتائج البحث الذكي عن: «${searchQuery}»` : currentCategoryInfo?.name || 'جميع الكتب والمصاحف'}
-            <span className="text-sm font-normal text-muted-foreground">({filteredBooks.length.toLocaleString('ar-SA')} كتاب)</span>
-          </h2>
-          {currentCategoryInfo?.description && !searchQuery && (
-            <p className="text-xs text-muted-foreground mt-0.5">{currentCategoryInfo.description}</p>
           )}
         </div>
 
-        {loading && (
-          <Badge variant="outline" className="animate-pulse gap-1.5 text-xs">
-            <span className="size-2 rounded-full bg-emerald-500" />
-            جاري مزامنة الكتب...
-          </Badge>
+        {/* Loading Indicator */}
+        {loading && books.length === 0 && (
+          <div className="py-24 text-center space-y-3">
+            <RefreshCw className="size-8 animate-spin mx-auto text-primary" />
+            <p className="text-sm font-semibold text-muted-foreground">
+              جاري تحميل وتجهيز فهارس المكتبة الرقمية...
+            </p>
+          </div>
         )}
-      </div>
 
-      {/* ─── Books Content Grid / List ──────────────────────────────── */}
-      {displayedBooks.length > 0 ? (
-        <div>
-          {viewMode === 'grid' ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {displayedBooks.map((book) => (
-                <BookCard key={book.id} book={book} viewMode="grid" />
+        {/* Books Grid / List */}
+        {filteredBooks.length > 0 ? (
+          <>
+            <div
+              className={
+                viewMode === 'grid'
+                  ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6'
+                  : 'space-y-3'
+              }
+            >
+              {filteredBooks.slice(0, visibleCount).map((book) => (
+                <BookCard key={book.id} book={book} viewMode={viewMode} />
               ))}
             </div>
-          ) : (
-            <div className="space-y-3">
-              {displayedBooks.map((book) => (
-                <BookCard key={book.id} book={book} viewMode="list" />
-              ))}
-            </div>
-          )}
 
-          {/* Load More Button */}
-          {visibleCount < filteredBooks.length && (
-            <div className="text-center pt-8">
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => setVisibleCount((v) => v + 36)}
-                className="px-8 rounded-2xl gap-2 font-bold shadow-sm"
-              >
-                <BookOpen className="size-4" />
-                عرض المزيد من الكتب ({filteredBooks.length - visibleCount} كتاب متبقي)
-              </Button>
+            {visibleCount < filteredBooks.length && (
+              <div className="pt-8 text-center">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={() => setVisibleCount((prev) => prev + 30)}
+                  className="rounded-2xl px-8 font-bold text-xs gap-2 shadow-xs bg-card hover:bg-muted"
+                >
+                  <span>عرض المزيد ({filteredBooks.length - visibleCount} كتاب متبقٍ)</span>
+                </Button>
+              </div>
+            )}
+          </>
+        ) : (
+          !loading && (
+            <div className="py-24 text-center space-y-3 bg-card rounded-3xl border border-border p-6">
+              <BookOpen className="size-10 mx-auto text-muted-foreground/40" />
+              <h4 className="font-bold text-base text-foreground">لم نعثر على كتب مطابقة</h4>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                جرب تغيير خيارات الفلتر أو البحث بكلمات أخرى.
+              </p>
+              <div className="pt-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    handleClearSearch();
+                    setSelectedCategory('all');
+                    setSelectedLanguage('all');
+                  }}
+                  className="rounded-xl text-xs"
+                >
+                  إعادة ضبط الفلاتر
+                </Button>
+              </div>
             </div>
-          )}
-        </div>
-      ) : (
-        <div className="py-20 text-center rounded-3xl border border-dashed border-border bg-card/30">
-          <BookOpen className="size-12 mx-auto text-muted-foreground/30 mb-3" />
-          <h3 className="font-bold text-lg text-foreground mb-1">لا توجد كتب مطابقة لبحثك</h3>
-          <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-4">
-            جرب البحث باسم المؤلف (مثل: ابن تيمية، النووي) أو اسم الكتاب (مثل: المغني، زاد المعاد).
-          </p>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setSelectedCategory('all');
-              setSelectedLanguage('all');
-              setSearchQuery('');
-              setLocalSearch('');
-            }}
-          >
-            إعادة تعيين الفلاتر
-          </Button>
-        </div>
-      )}
+          )
+        )}
+      </section>
     </div>
   );
 }
