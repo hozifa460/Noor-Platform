@@ -27,7 +27,7 @@ export function FatwaHeroBanner() {
           <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-black/30 backdrop-blur-md border border-white/10">
             <FileQuestion className="size-4 text-teal-400" />
             <span>
-              <strong className="text-white font-bold">{BROWSE_TOTALS.total.toLocaleString('ar-SA')}</strong> فتوى محققة
+              <strong className="text-white font-bold">{(BROWSE_TOTALS.all ?? 226_580).toLocaleString('ar-SA')}</strong> فتوى محققة
             </span>
           </div>
           <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-black/30 backdrop-blur-md border border-white/10">
