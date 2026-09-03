@@ -1,9 +1,9 @@
 import assert from 'assert';
-import { ALL_SURAHS, QIRAAT_LIST, QURAN_TRANSLATIONS } from '../src/lib/quran/data.ts';
+import { ALL_SURAHS, QIRAAT_LIST } from '../src/lib/quran/data.ts';
 import { SUPPORTED_TAFSIRS, fetchAyahTafsir } from '../src/lib/quran/tafsir-engine.ts';
 import { SUPPORTED_EERAB_BOOKS } from '../src/lib/quran/eerab-engine.ts';
-import { loadTranslationFile, getAyahTranslation, getSurahTranslationsMap } from '../src/lib/quran/translation-engine.ts';
-import { loadMp3QuranReciters, getRecitersForRiwayah, getMp3QuranSurahUrl } from '../src/lib/quran/mp3quran-engine.ts';
+import { getAyahTranslation, getSurahTranslationsMap } from '../src/lib/quran/translation-engine.ts';
+import { loadMp3QuranReciters, getRecitersForRiwayah } from '../src/lib/quran/mp3quran-engine.ts';
 import { useQuranStore, QURAN_RECITERS } from '../src/stores/quran-store.ts';
 
 console.log('📖 Starting Comprehensive Holy Quran, Qira\'at, Multilingual & Audio Tests...\n');

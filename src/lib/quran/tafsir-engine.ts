@@ -1,3 +1,5 @@
+import { sanitizeTafsirHtml } from '@/lib/shared/sanitize-html';
+
 export interface TafsirOption {
   id: number;
   slug: string;
@@ -98,37 +100,11 @@ const surahTafsirCache = new Map<string, Array<{ text?: string }>>();
 const HF_TAFSIR_BASE = 'https://huggingface.co/datasets/hozifa1/quran_and_sunnah/raw/main/quranset/tafsir_api';
 
 /**
- * Zero-dependency robust HTML sanitizer for Tafsir text.
- * Strips all script, style, iframe, object, embed, svg, math, and unsafe tags/attributes to guarantee zero XSS.
+ * Robust HTML sanitizer for Tafsir text using DOMPurify.
  */
 function cleanTafsirHtml(raw: string): string {
   if (!raw || typeof raw !== 'string') return '';
-
-  // 1. Remove dangerous blocks and tags
-  let sanitized = raw
-    .replace(/<\s*(script|style|iframe|object|embed|link|svg|math|form|input|button|meta|base)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
-    .replace(/<\s*(script|style|iframe|object|embed|link|svg|math|form|input|button|meta|base)\b[^>]*\/?\s*>/gi, '');
-
-  // 2. Strip all inline event handlers (onerror, onload, onclick, on*, etc.) and javascript: or data: URIs
-  sanitized = sanitized
-    .replace(/\s*on\w+\s*=\s*(['"]).*?\1/gi, '')
-    .replace(/\s*on\w+\s*=\s*[^>\s]+/gi, '')
-    .replace(/(href|src)\s*=\s*(['"])(?:javascript|data|vbscript):.*?\2/gi, '');
-
-  // 3. Keep only allowed tags: <p>, <span>, <b>, <i>, <strong>, <em>, <br>
-  sanitized = sanitized.replace(/<\/?([a-z0-9]+)\b([^>]*)>/gi, (match, tag, attrs) => {
-    const t = tag.toLowerCase();
-    if (['p', 'span', 'b', 'i', 'strong', 'em', 'br'].includes(t)) {
-      if (t === 'br') return '<br />';
-      // Allow only safe class attributes
-      const classMatch = attrs.match(/\bclass\s*=\s*(['"])(.*?)\1/i);
-      const safeClass = classMatch ? ` class="${classMatch[2].replace(/[<>"']/g, '')}"` : '';
-      return match.startsWith('</') ? `</${t}>` : `<${t}${safeClass}>`;
-    }
-    return ''; // Discard all other tags
-  });
-
-  // 4. Normalize styling classes
+  const sanitized = sanitizeTafsirHtml(raw);
   return sanitized
     .replace(/<span class="arabic[^"]*">/gi, '<span class="text-primary font-bold font-amiri text-lg">')
     .replace(/<span class="green[^"]*">/gi, '<span class="text-emerald-600 font-bold">')

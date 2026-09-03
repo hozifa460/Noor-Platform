@@ -85,7 +85,7 @@ function buildLeafItem(
         const rawAuthor = parts[0].replace(/^\d+/, '').replace(/([A-Z])/g, ' $1').trim();
         const rawBook = parts[1].replace(/([A-Z])/g, ' $1').trim();
         title = rawBook || parts[1];
-        if (!bookAuthor) bookAuthor = rawAuthor || parts[0];
+        bookAuthor = rawAuthor || parts[0];
       }
     }
   }

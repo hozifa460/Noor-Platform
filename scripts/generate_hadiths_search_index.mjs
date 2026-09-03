@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { HADITH_BOOKS_LIST } from '../src/lib/hadith/data.ts';
-import { normalizeArabic, tokenizeArabic } from '../src/lib/arabic/normalizer.ts';
+import { normalizeArabic } from '../src/lib/arabic/normalizer.ts';
 
 const HF_SUNNAH_BASE =
   'https://huggingface.co/datasets/hozifa1/quran_and_sunnah/resolve/main/sunnahset/All_hadith_books';

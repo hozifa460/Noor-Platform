@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { HADITH_BOOKS_LIST } from '../src/lib/hadith/data.ts';
-import { normalizeArabic, tokenizeArabic, arabicSearchMatch } from '../src/lib/arabic/normalizer.ts';
+import { normalizeArabic, arabicSearchMatch } from '../src/lib/arabic/normalizer.ts';
 import { extractHadithMatn, normalizeArabicText } from './generate_hadiths_micro_index.mjs';
 
 const microIndexPath = path.join(process.cwd(), 'public', 'data', 'hadith', 'hadiths_micro_index.json');

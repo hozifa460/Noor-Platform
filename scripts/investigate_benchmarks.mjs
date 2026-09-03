@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { loadHadithBook } from '../src/lib/hadith/index.ts';
 import { extractHadithMatn, normalizeArabicText } from './generate_hadiths_micro_index.mjs';
-import { normalizeArabic, arabicSearchMatch } from '../src/lib/arabic/normalizer.ts';
+import { arabicSearchMatch } from '../src/lib/arabic/normalizer.ts';
 
 async function investigateFailures() {
   console.log('=== INVESTIGATING BENCHMARK ZERO-HITS ===\n');

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { HADITH_BOOKS_LIST } from '../src/lib/hadith/data.ts';
 import { getHadithGrade } from '../src/lib/hadith/grade-engine.ts';
-import { normalizeArabic, tokenizeArabic } from '../src/lib/arabic/normalizer.ts';
+import { normalizeArabic } from '../src/lib/arabic/normalizer.ts';
 
 const GRADE_DICTIONARY = ['صحيح', 'حسن', 'ضعيف', 'موضوع', 'مقبول'];
 const PREVIEW_MAX_LEN = 160; // 160 characters of full rich Matn!

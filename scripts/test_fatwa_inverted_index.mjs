@@ -1,6 +1,5 @@
-import { fatwaIndexManager, FATWA_CATEGORIES, SCHOLARS_LIST } from '../src/lib/fatwa/index-data.ts';
+import { fatwaIndexManager, SCHOLARS_LIST } from '../src/lib/fatwa/index-data.ts';
 import { extractAndExpandTokens } from '../src/lib/arabic/search-engine.ts';
-import { normalizeArabic } from '../src/lib/arabic/normalizer.ts';
 import { microShardEngine } from '../src/lib/micro-shard-engine.ts';
 import { BUILTIN_SEED_FATWAS } from '../src/lib/fatwa/seed-fatwas.ts';
 

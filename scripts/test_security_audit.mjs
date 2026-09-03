@@ -1,4 +1,4 @@
-import { validateSafeUrl, isAllowedHostname, isPrivateIp, sanitizeFilename } from '../src/lib/shared/security.ts';
+import { validateSafeUrl, isPrivateIp, sanitizeFilename } from '../src/lib/shared/security.ts';
 import { rateLimiter } from '../src/lib/shared/rate-limiter.ts';
 
 async function runSecurityTests() {

@@ -166,7 +166,6 @@ export async function checkHadithAuthenticity(query: string): Promise<Authentici
       normTitle.includes(normQuery)
     ) {
       matchedFake = item;
-      highestScore = 1.0;
       break;
     }
 
