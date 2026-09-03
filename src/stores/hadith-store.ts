@@ -36,6 +36,7 @@ interface HadithState {
   selectedHadithChapter?: HadithChapter;
   hadithSharh: HadeethEncSharhItem | null;
   loadingSharh: boolean;
+  detailInitialTab?: 'matn' | 'isnad' | 'translations' | 'sharh' | 'hints';
 
   // Actions
   setActiveBook: (book: HadithBookMeta) => void;
@@ -44,7 +45,12 @@ interface HadithState {
   setCategoryFilter: (cat: string) => void;
   setGradeFilter: (grade: 'all' | 'muttafaqun' | 'sahih' | 'hasan' | 'daif' | 'mawdu') => void;
   setSearchMode: (mode: 'in-book' | 'global') => void;
-  openHadithDetail: (hadith: HadithItem, book?: HadithBookMeta, chapter?: HadithChapter) => Promise<void>;
+  openHadithDetail: (
+    hadith: HadithItem,
+    book?: HadithBookMeta,
+    chapter?: HadithChapter,
+    initialTab?: 'matn' | 'isnad' | 'translations' | 'sharh' | 'hints'
+  ) => Promise<void>;
   closeHadithDetail: () => void;
   loadBookData: (fileName: string) => Promise<void>;
   getFilteredHadiths: () => HadithItem[];
@@ -69,6 +75,7 @@ export const useHadithStore = create<HadithState>((set, get) => ({
   selectedHadithChapter: undefined,
   hadithSharh: null,
   loadingSharh: false,
+  detailInitialTab: 'matn',
 
   setActiveBook: (activeBook) => {
     set({ activeBook, selectedChapterId: 'all', searchQuery: '', searchMode: 'in-book' });
@@ -120,7 +127,12 @@ export const useHadithStore = create<HadithState>((set, get) => ({
     }
   },
 
-  openHadithDetail: async (hadith: HadithItem, book?: HadithBookMeta, chapter?: HadithChapter) => {
+  openHadithDetail: async (
+    hadith: HadithItem,
+    book?: HadithBookMeta,
+    chapter?: HadithChapter,
+    initialTab: 'matn' | 'isnad' | 'translations' | 'sharh' | 'hints' = 'matn'
+  ) => {
     const targetBook = book || get().activeBook;
     let targetChapter =
       chapter ||
@@ -133,6 +145,7 @@ export const useHadithStore = create<HadithState>((set, get) => ({
       selectedHadith: resolvedHadith,
       selectedHadithBook: targetBook,
       selectedHadithChapter: targetChapter,
+      detailInitialTab: initialTab,
       hadithSharh: null,
       loadingSharh: true,
     });
