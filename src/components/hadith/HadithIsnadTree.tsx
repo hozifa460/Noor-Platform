@@ -20,7 +20,7 @@ import {
   ZoomOut,
   RotateCcw,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { useClipboard } from '@/hooks/use-clipboard';
 import type { HadithItem } from '@/types/hadith';
 import type { HadithBookMeta } from '@/lib/hadith-data';
 
@@ -41,7 +41,7 @@ export function HadithIsnadTree(props: HadithIsnadTreeProps) {
   const hadithNo = props.hadith ? props.hadith.idInBook : props.hadithNumber;
   const gradeText = props.grade;
 
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useClipboard();
   const [viewMode, setViewMode] = useState<'tree' | 'stepper'>('tree');
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [selectedBio, setSelectedBio] = useState<NarratorProfile | null>(null);
@@ -53,11 +53,9 @@ export function HadithIsnadTree(props: HadithIsnadTreeProps) {
   const handleCopySanad = () => {
     if (!isnadData.sanadText) return;
     const textToCopy = `« ${isnadData.sanadText} »\n\n[سند حديث رقم ${hadithNo || ''} - ${bookTitle}]\nدرجة الحديث: ${gradeText || 'محققة'}\nالمصدر: منصة النور`;
-    navigator.clipboard.writeText(textToCopy);
-    setCopied(true);
-    toast.success('تم نسخ نص السند وسلسلة الرواة بنجاح');
-    setTimeout(() => setCopied(false), 2000);
+    copy(textToCopy, 'تم نسخ نص السند وسلسلة الرواة بنجاح');
   };
+
 
   const handleOpenBio = (narratorName: string) => {
     const profile = findNarratorBio(narratorName, authorName);

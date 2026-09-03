@@ -30,6 +30,7 @@ import { useQuranAudio } from '@/hooks/use-quran-audio';
 import type { AyahItem } from '@/types/quran';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useIdClipboard } from '@/hooks/use-clipboard';
 
 export function QuranHubView() {
   const activeQiraah = useQuranStore((s) => s.activeQiraah);
@@ -62,7 +63,7 @@ export function QuranHubView() {
   const [reciterSearch, setReciterSearch] = useState('');
   const [selectedAyahForModal, setSelectedAyahForModal] = useState<AyahItem | null>(null);
   const [quickMenuAyah, setQuickMenuAyah] = useState<AyahItem | null>(null);
-  const [copiedAyah, setCopiedAyah] = useState<number | null>(null);
+  const { copiedId: copiedAyah, copy: copyAyah } = useIdClipboard<number>();
 
   const [riwayahReciters, setRiwayahReciters] = useState<RiwayahReciterEntry[]>([]);
   const [activeRiwayahReciter, setActiveRiwayahReciter] = useState<RiwayahReciterEntry | null>(null);
@@ -93,11 +94,9 @@ export function QuranHubView() {
   const handleCopyAyah = (ayah: AyahItem, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const text = `﴿ ${ayah.textAr} ﴾ [سورة ${activeSurah.nameAr}: ${ayah.ayahNo}]\n${showTranslation && ayah.textEn ? `\nTranslation: ${ayah.textEn}` : ''}\n\nالمصدر: منصة النور القرآنية`;
-    navigator.clipboard.writeText(text);
-    setCopiedAyah(ayah.ayahNo);
-    toast.success(`تم نسخ الآية رقم ${ayah.ayahNo}`);
-    setTimeout(() => setCopiedAyah(null), 2000);
+    copyAyah(ayah.ayahNo, text, `تم نسخ الآية رقم ${ayah.ayahNo}`);
   };
+
 
   const isVerseLevelAvailable = activeQiraah.id === 'hafs' || activeQiraah.id === 'warsh';
 

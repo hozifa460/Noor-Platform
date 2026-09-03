@@ -5,13 +5,29 @@
  */
 
 // Tashkeel / Harakat Unicode range: U+064B to U+065F, plus U+0670 (Superscript Alef)
-const TASHKEEL_REGEX = /[\u064B-\u065F\u0670\u06D6-\u06ED]/g;
+export const TASHKEEL_REGEX = /[\u064B-\u065F\u0670\u06D6-\u06ED]/g;
 // Tatweel / Kashida: U+0640
-const TATWEEL_REGEX = /\u0640/g;
+export const TATWEEL_REGEX = /\u0640/g;
 // Zero-width characters (ZWNJ, ZWJ, BOM, LRM, RLM)
-const ZERO_WIDTH_REGEX = /[\u200B-\u200F\uFEFF\u202A-\u202E\u00AD\u061C]/g;
+export const ZERO_WIDTH_REGEX = /[\u200B-\u200F\uFEFF\u202A-\u202E\u00AD\u061C]/g;
 // Punctuation and special symbols
-const PUNCTUATION_REGEX = /[،؛؟.,\/#!$%\^&\*;:{}=\-_`~()\[\]"«»“”‏\\]/g;
+export const PUNCTUATION_REGEX = /[،؛؟.,\/#!$%\^&\*;:{}=\-_`~()\[\]"«»“”‏\\]/g;
+
+/**
+ * Strips Arabic diacritics / tashkeel marks from text.
+ */
+export function stripTashkeel(text: string | null | undefined): string {
+  if (!text) return '';
+  return text.replace(TASHKEEL_REGEX, '');
+}
+
+/**
+ * Strips both tashkeel and tatweel (kashida).
+ */
+export function stripHarakat(text: string | null | undefined): string {
+  if (!text) return '';
+  return text.replace(TASHKEEL_REGEX, '').replace(TATWEEL_REGEX, '');
+}
 
 /**
  * Normalizes Arabic text for accurate search comparisons:

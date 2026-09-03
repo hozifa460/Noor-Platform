@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 
 interface UseTextToSpeechOptions {
@@ -10,9 +10,12 @@ interface UseTextToSpeechOptions {
 
 export function useTextToSpeech({ lang = 'ar-SA', rate = 0.85 }: UseTextToSpeechOptions = {}) {
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
@@ -20,15 +23,20 @@ export function useTextToSpeech({ lang = 'ar-SA', rate = 0.85 }: UseTextToSpeech
   }, []);
 
   const speak = useCallback(
-    (text: string) => {
+    (text: string, startMessage?: string | false) => {
       if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
         toast.error('المتصفح لا يدعم القراءة الصوتية');
         return;
       }
 
+      if (!text || !text.trim()) {
+        toast.warning('لا يوجد نص للقراءة');
+        return;
+      }
+
       if (isSpeaking) {
         window.speechSynthesis.cancel();
-        setIsSpeaking(false);
+        if (isMountedRef.current) setIsSpeaking(false);
         return;
       }
 
@@ -36,22 +44,33 @@ export function useTextToSpeech({ lang = 'ar-SA', rate = 0.85 }: UseTextToSpeech
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = lang;
       utterance.rate = rate;
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
+      utterance.onend = () => {
+        if (isMountedRef.current) setIsSpeaking(false);
+      };
+      utterance.onerror = () => {
+        if (isMountedRef.current) setIsSpeaking(false);
+      };
 
       window.speechSynthesis.speak(utterance);
-      setIsSpeaking(true);
-      toast.info('جاري قراءة النص صوتياً...');
+      if (isMountedRef.current) setIsSpeaking(true);
+      if (startMessage !== false) {
+        toast.info(startMessage || 'جاري قراءة النص صوتياً...');
+      }
     },
     [isSpeaking, lang, rate]
   );
 
-  const stop = useCallback(() => {
+  const stop = useCallback((stopMessage?: string) => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      setIsSpeaking(false);
+      if (isMountedRef.current) {
+        setIsSpeaking(false);
+      }
+      if (stopMessage) {
+        toast.info(stopMessage);
+      }
     }
   }, []);
 
-  return { isSpeaking, speak, stop };
+  return { isSpeaking, speak, stop, cancel: stop };
 }

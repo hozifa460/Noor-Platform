@@ -28,7 +28,7 @@ import { HadithSharhTab } from './detail-tabs/HadithSharhTab';
 import { HadithHintsTab } from './detail-tabs/HadithHintsTab';
 import { useTextToSpeech } from '@/hooks/use-text-to-speech';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+import { useClipboard } from '@/hooks/use-clipboard';
 
 interface HadithDetailModalProps {
   hadith: HadithItem;
@@ -59,7 +59,7 @@ export function HadithDetailModal({
     initialTab
   );
   const [showMatnSnippet, setShowMatnSnippet] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useClipboard();
   const [isMaximized, setIsMaximized] = useState(false);
   const [fontSize, setFontSize] = useState<number>(18);
 
@@ -99,11 +99,9 @@ export function HadithDetailModal({
     }
 
     text += `\n\nالمصدر: منصة النور - موسوعة الحديث النبوي الشريف`;
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    toast.success('تم نسخ نص الحديث والشرح والتخريج بنجاح');
-    setTimeout(() => setCopied(false), 2000);
+    copy(text, 'تم نسخ نص الحديث والشرح والتخريج بنجاح');
   };
+
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 animate-in fade-in duration-200">

@@ -1,18 +1,20 @@
 'use client';
 
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { FileQuestion, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFatwaStore } from '@/stores/fatwa-store';
 import { usePlayerStore } from '@/stores/player.store';
 import { useFatwaAnswers } from '@/hooks/use-fatwa-answers';
+import { useDebouncedSearch } from '@/hooks/use-debounced-search';
+import { useIdClipboard } from '@/hooks/use-clipboard';
 import { FatwaHeroBanner } from './FatwaHeroBanner';
 import { FatwaFilterBar } from './FatwaFilterBar';
 import { FatwaCard } from './FatwaCard';
 import { scholarFilterQuery } from '@/lib/scholar-filter';
 import { normalizeArabic } from '@/lib/arabic-normalizer';
 import type { MediaItem } from '@/lib/types';
-import { toast } from 'sonner';
+
 
 export function FatwaLibraryView() {
   const searching = useFatwaStore((s) => s.searching);
@@ -30,20 +32,26 @@ export function FatwaLibraryView() {
 
   const openPlayer = usePlayerStore((s) => s.open);
 
-  const [localSearch, setLocalSearch] = useState(searchQuery);
   const [visibleCount, setVisibleCount] = useState(30);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const { copiedId, copy: copyFatwa } = useIdClipboard<string>();
+
+  const {
+    localSearch,
+    handleSearchChange,
+    handleSearchSubmit,
+    handleClearSearch,
+  } = useDebouncedSearch({
+    value: searchQuery,
+    onSearchChange: setSearchQuery,
+    delay: 300,
+    onResetPagination: () => setVisibleCount(30),
+  });
 
   useEffect(() => {
     startLoading();
   }, [startLoading]);
 
-  // Sync local search when external search changes
-  useEffect(() => {
-    setLocalSearch(searchQuery);
-  }, [searchQuery]);
 
   // Determine active item list
   const activeList = useMemo(() => {
@@ -76,37 +84,11 @@ export function FatwaLibraryView() {
   // Hydrate answers using custom hook
   const { contentMap } = useFatwaAnswers(expandedId);
 
-  // Search input debounce handler
-  const handleSearchChange = (val: string) => {
-    setLocalSearch(val);
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    debounceTimerRef.current = setTimeout(() => {
-      setSearchQuery(val);
-      setVisibleCount(30);
-    }, 300);
-  };
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    setSearchQuery(localSearch);
-    setVisibleCount(30);
-  };
-
-  const handleClearSearch = () => {
-    setLocalSearch('');
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    setSearchQuery('');
-    setVisibleCount(30);
-  };
-
   const handleCopyFatwa = (item: MediaItem, question: string, answer: string) => {
     const text = `سؤال: ${question}\n\nالجواب: ${answer}\n\nالمصدر: ${item.sheikhName || 'فتوى معتمدة'} - منصة نور`;
-    navigator.clipboard.writeText(text);
-    setCopiedId(item.id);
-    toast.success('تم نسخ الفتوى والجواب بنجاح');
-    setTimeout(() => setCopiedId(null), 2000);
+    copyFatwa(item.id, text, 'تم نسخ الفتوى والجواب بنجاح');
   };
+
 
   const handleListenAudio = (item: MediaItem) => {
     openPlayer(item);

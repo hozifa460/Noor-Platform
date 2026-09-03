@@ -16,6 +16,7 @@ import { putBlob } from '@/lib/offline-db';
 import { triggerDownload, downloadForOffline } from '@/lib/download';
 import { pickPlayer } from '@/lib/player-resolver';
 import type { MediaItem } from '@/lib/types';
+import { copyToClipboard } from '@/lib/clipboard';
 import { toast } from 'sonner';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { EBookTextReader } from '@/components/books/EBookTextReader';
@@ -113,11 +114,9 @@ export function MediaPlayer({ item, onClose }: MediaPlayerProps) {
   const handleShare = () => {
     if (!item) return;
     const url = typeof window !== 'undefined' ? window.location.href : '';
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(url);
-      toast.success('تم نسخ الرابط');
-    }
+    copyToClipboard(url, 'تم نسخ الرابط');
   };
+
 
   if (!item) return null;
 

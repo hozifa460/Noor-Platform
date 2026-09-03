@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Search, AlertTriangle, RefreshCw } from 'lucide-react';
-import { toast } from 'sonner';
+import { useIdClipboard } from '@/hooks/use-clipboard';
 import {
   loadFakeHadiths,
   searchFakeHadiths,
@@ -26,7 +26,7 @@ export function FakeHadithChecker() {
   const [selectedCategory, setSelectedCategory] = useState<FakeHadithCategory>('all');
   const [checkResult, setCheckResult] = useState<AuthenticityCheckResult | null>(null);
   const [checking, setChecking] = useState(false);
-  const [copiedId, setCopiedId] = useState<number | null>(null);
+  const { copiedId, copy: copyWarning } = useIdClipboard<number>();
 
   const openHadithDetail = useHadithStore((s) => s.openHadithDetail);
 
@@ -62,11 +62,9 @@ export function FakeHadithChecker() {
       item.authenticAlternative ? `\n\n✅ البديل الصحيح الثابت:\n«${item.authenticAlternative}»` : ''
     }\n\nالمصدر: منصة نور - موسوعة الحديث النبوي الشريف`;
 
-    navigator.clipboard.writeText(text);
-    setCopiedId(item.id);
-    toast.success('تم نسخ رسالة التحذير لتنبيه الآخرين');
-    setTimeout(() => setCopiedId(null), 2000);
+    copyWarning(item.id, text, 'تم نسخ رسالة التحذير لتنبيه الآخرين');
   };
+
 
   const POPULAR_QUERIES = [
     'صوموا تصحوا',

@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Copy, Check, Globe, RefreshCw, Languages, AlertCircle } from 'lucide-react';
-import { toast } from 'sonner';
+import { useClipboard } from '@/hooks/use-clipboard';
 
 interface HadithTranslationsViewProps {
   bookId: string;
@@ -30,7 +30,7 @@ export function HadithTranslationsView({
   );
   const [loading, setLoading] = useState(false);
   const [translation, setTranslation] = useState<HadithTranslationResult | null>(null);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useClipboard();
 
   const isAvailable = isBookTranslationAvailable(bookId);
 
@@ -57,11 +57,9 @@ export function HadithTranslationsView({
   const handleCopy = () => {
     if (!translation?.text) return;
     const toCopy = `« ${translation.text} »\n\n[${bookName} - Hadith #${hadithNumber} (${selectedLang.nameEn})]\nSource: Noor Platform (منصة النور)`;
-    navigator.clipboard.writeText(toCopy);
-    setCopied(true);
-    toast.success(`تم نسخ الترجمة (${selectedLang.nameAr}) بنجاح`);
-    setTimeout(() => setCopied(false), 2000);
+    copy(toCopy, `تم نسخ الترجمة (${selectedLang.nameAr}) بنجاح`);
   };
+
 
   if (!isAvailable) {
     return (

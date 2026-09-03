@@ -6,6 +6,7 @@ import type {
   ThemeStyleConfig,
   MushafThemeStyleConfig,
 } from '@/types/reader';
+import { TASHKEEL_REGEX } from '@/lib/arabic-normalizer';
 
 export const THEME_STYLES: Record<ReadingTheme, ThemeStyleConfig> = {
   light: {
@@ -123,8 +124,9 @@ export const FONT_CLASSES: Record<FontFamily, string> = {
 export function filterTashkeel(text: string, mode: TashkeelMode): string {
   if (mode === 'full') return text;
   if (mode === 'none') {
-    return text.replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, '');
+    return text.replace(TASHKEEL_REGEX, '');
   }
   // Light: keep essential vowels, remove subtle tajweed/sukoon diacritics
   return text.replace(/[\u0640\u0652\u0670\u06D6-\u06ED]/g, '');
 }
+

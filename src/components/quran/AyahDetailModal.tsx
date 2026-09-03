@@ -38,7 +38,7 @@ import { AyahTranslationTab } from './ayah-tabs/AyahTranslationTab';
 import { AyahMemorizeTab } from './ayah-tabs/AyahMemorizeTab';
 import { useAyahAudioLoop } from '@/hooks/use-ayah-audio-loop';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+import { useClipboard } from '@/hooks/use-clipboard';
 
 interface AyahDetailModalProps {
   ayah: AyahItem;
@@ -79,7 +79,7 @@ export function AyahDetailModal({
   const translationKey = `${selectedTranslation.code}-${surah.number}-${ayah.ayahNo}`;
   const loadingTranslation = loadedTranslationKey !== translationKey;
 
-  const [copied, setCopied] = useState<boolean>(false);
+  const { copied, copy } = useClipboard();
 
   const availableAyahReciters = getAyahRecitersForQiraah(activeQiraah.id);
   const [customReciter, setCustomReciter] = useState<ReciterMeta | null>(null);
@@ -169,11 +169,9 @@ export function AyahDetailModal({
 
   const handleCopy = () => {
     const text = `﴿ ${ayah.textAr} ﴾\n[سورة ${surah.nameAr}: الآية ${ayah.ayahNo} - ${activeQiraah.name}]\n\nالتفسير (${SUPPORTED_TAFSIRS.find((t) => t.id === selectedTafsirId)?.name}):\n${tafsirContent.replace(/<[^>]+>/g, '')}\n\nالمصدر: منصة النور القرآنية`;
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    toast.success('تم نسخ نص الآية والتفسير بنجاح');
-    setTimeout(() => setCopied(false), 2000);
+    copy(text, 'تم نسخ نص الآية والتفسير بنجاح');
   };
+
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">

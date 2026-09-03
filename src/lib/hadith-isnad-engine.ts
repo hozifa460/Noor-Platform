@@ -1,3 +1,5 @@
+import { stripHarakat } from '@/lib/arabic-normalizer';
+
 export interface IsnadNode {
   order: number;
   role: 'المصنف' | 'شيخ المصنف' | 'راوٍ' | 'التابعي' | 'الصحابي الجليل' | 'خاتم الأنبياء ﷺ';
@@ -62,10 +64,6 @@ const SAHABAH_PATTERNS = [
   /أب[وي]\s+أيوب(\s+الأنصاري)?/,
   /أب[وي]\s+ذر(\s+الغفاري)?/,
 ];
-
-function stripHarakat(text: string): string {
-  return text.replace(/[\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g, '');
-}
 
 /**
  * Parses and reconstructs the Isnad (chain of narrators) from hadith text.
