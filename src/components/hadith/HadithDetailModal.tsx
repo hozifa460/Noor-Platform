@@ -17,6 +17,7 @@ import {
   Minimize2,
   ZoomIn,
   ZoomOut,
+  GitFork,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +25,8 @@ import type { HadithItem, HadithChapter, HadeethEncSharhItem } from '@/lib/hadit
 import type { HadithBookMeta } from '@/lib/hadith-data';
 import { getHadithGrade } from '@/lib/hadith-grade-engine';
 import { ArabicHighlight } from './ArabicHighlight';
+import { HadithIsnadTree } from './HadithIsnadTree';
+import { HadithTranslationsView } from './HadithTranslationsView';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -50,7 +53,7 @@ export function HadithDetailModal({
   onPrev,
   onNext,
 }: HadithDetailModalProps) {
-  const [activeTab, setActiveTab] = useState<'sharh' | 'matn' | 'hints' | 'english'>('sharh');
+  const [activeTab, setActiveTab] = useState<'sharh' | 'isnad' | 'translations' | 'hints'>('sharh');
   const [copied, setCopied] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -281,20 +284,46 @@ export function HadithDetailModal({
           <button
             onClick={() => setActiveTab('sharh')}
             className={cn(
-              'flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all border-b-2 whitespace-nowrap',
+              'flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all border-b-2 whitespace-nowrap cursor-pointer',
               activeTab === 'sharh'
                 ? 'border-primary text-primary bg-background shadow-sm'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             )}
           >
             <BookOpen className="size-4" />
-            <span>الشرح والبيان وغريب الألفاظ</span>
+            <span>الشرح والبيان</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('isnad')}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all border-b-2 whitespace-nowrap cursor-pointer',
+              activeTab === 'isnad'
+                ? 'border-primary text-primary bg-background shadow-sm'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <GitFork className="size-4" />
+            <span>شجرة السند والرواة</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('translations')}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all border-b-2 whitespace-nowrap cursor-pointer',
+              activeTab === 'translations'
+                ? 'border-primary text-primary bg-background shadow-sm'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Globe className="size-4" />
+            <span>الترجمات العالمية (7 لغات)</span>
           </button>
 
           <button
             onClick={() => setActiveTab('hints')}
             className={cn(
-              'flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all border-b-2 whitespace-nowrap',
+              'flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all border-b-2 whitespace-nowrap cursor-pointer',
               activeTab === 'hints'
                 ? 'border-primary text-primary bg-background shadow-sm'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -303,21 +332,6 @@ export function HadithDetailModal({
             <Sparkles className="size-4" />
             <span>الفوائد والاستنباطات ({sharh?.hints?.length || 0})</span>
           </button>
-
-          {hadith.english?.text && (
-            <button
-              onClick={() => setActiveTab('english')}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all border-b-2 whitespace-nowrap',
-                activeTab === 'english'
-                  ? 'border-primary text-primary bg-background shadow-sm'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <Globe className="size-4" />
-              <span>الترجمة الإنجليزية</span>
-            </button>
-          )}
         </div>
 
         {/* 4. Main Scrollable Content Area */}
@@ -405,20 +419,27 @@ export function HadithDetailModal({
             </div>
           )}
 
-          {/* Tab 3: English Translation */}
-          {activeTab === 'english' && hadith.english && (
-            <div className="p-6 sm:p-8 rounded-3xl bg-card border border-border/80 space-y-4 max-w-4xl mx-auto text-left" dir="ltr">
-              {hadith.english.narrator && (
-                <div className="text-sm font-bold text-primary pb-2 border-b border-border/60">
-                  {hadith.english.narrator}
-                </div>
-              )}
-              <p
-                style={{ fontSize: `${fontSize}px` }}
-                className="leading-relaxed text-foreground select-text font-medium text-justify"
-              >
-                {hadith.english.text}
-              </p>
+          {/* Tab 2: Visual Isnad Tree */}
+          {activeTab === 'isnad' && (
+            <div className="max-w-4xl mx-auto">
+              <HadithIsnadTree
+                arabic={hadith.arabic}
+                bookAuthor={book.nameAr}
+                bookName={book.nameAr}
+                hadithNumber={hadith.idInBook}
+                grade={gradeInfo.grade}
+              />
+            </div>
+          )}
+
+          {/* Tab 3: Multi-Language Global Translations */}
+          {activeTab === 'translations' && (
+            <div className="max-w-4xl mx-auto">
+              <HadithTranslationsView
+                bookId={book.id}
+                bookName={book.nameAr}
+                hadithNumber={hadith.idInBook}
+              />
             </div>
           )}
         </div>
