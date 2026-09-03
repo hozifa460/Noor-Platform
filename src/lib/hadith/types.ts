@@ -60,6 +60,8 @@ export interface GlobalSearchResultItem {
   hadith: HadithItem;
   book: HadithBookMeta;
   chapter?: HadithChapter;
+  isSemanticMatch?: boolean;
+  semanticTopic?: string;
 }
 
 export interface MicroIndexEntry {

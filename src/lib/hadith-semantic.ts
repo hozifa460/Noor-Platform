@@ -170,6 +170,19 @@ export const HADITH_INTENT_CLUSTERS: Record<string, { terms: string[]; canonical
     canonical: ['حق المسلم على المسلم خمس رد السلام وعياده المريض واتباع الجنائز واجابه الدعوه وتشميت العاطس', 'ما زال جبريل يوصيني بالجار حتى ظننت انه سيورثه', 'من كان يؤمن بالله واليوم الاخر فليكرم ضيفه'],
   },
 
+  'الصبر والمصائب والابتلاء': {
+    terms: ['الصبر', 'الصبر على المصائب', 'فضل الصبر', 'الابتلاء', 'المصائب', 'المرض', 'موت الولد', 'فقد الحبيب', 'الرضا بالقضاء'],
+    canonical: ['ما يصيب المسلم من نصب ولا وصب ولا هم ولا حزن ولا اذى ولا غم حتى الشوكه يشاكها الا كفر الله بها من خطاياه', 'انما الصبر عند الصدمه الاولى', 'ابنوا لعبدي بيتا في الجنه وسموه بيت الحمد', 'عجبا لامر المؤمن ان امره كله خير'],
+  },
+  'فضل صلاة الفجر والصبح': {
+    terms: ['صلاة الفجر', 'صلاة الصبح', 'فضل صلاة الفجر', 'ركعتا الفجر', 'البردين'],
+    canonical: ['ركعتا الفجر خير من الدنيا وما فيها', 'من صلى البردين دخل الجنه', 'من صلى الصبح فهو في ذمه الله', 'بشر المشائين في الظلم الى المساجد بالنور التام'],
+  },
+  'إماطة الأذى والآداب العامة': {
+    terms: ['اماطة الاذى', 'النظافة', 'اداب الطريق', 'حسن المعاملة', 'الرفق'],
+    canonical: ['اماطه الاذى عن الطريق صدقه', 'بينما رجل يمشي بطريق وجد غصن شوك على الطريق فاخره فشكر الله له فغفر له', 'ان الرفق لا يكون في شيء الا زانه ولا ينزع من شيء الا شانه'],
+  },
+
   // --- 8. الأذكار والأدعية والرقية ---
   'سيد الاستغفار والتوبة': {
     terms: ['سيد الاستغفار', 'افضل الاستغفار', 'دعاء التوبة', 'فضل الاستغفار'],
@@ -390,3 +403,41 @@ export function expandSemanticTerms(query: string): string[] {
   }
   return result;
 }
+
+export interface SemanticConceptResolution {
+  topic: string;
+  corePhrases: string[];
+}
+
+/**
+ * Maps a natural search query or topic to its thematic concept and canonical prophetic phrases.
+ */
+export function resolveSemanticConcept(query: string): SemanticConceptResolution | null {
+  const normQuery = normalizeArabic(query.trim());
+  if (normQuery.length < 2) return null;
+
+  for (const [topic, data] of Object.entries(HADITH_INTENT_CLUSTERS)) {
+    const normTopic = normalizeArabic(topic);
+    const matchesTopic = normQuery.includes(normTopic) || normTopic.includes(normQuery);
+    const matchesTerm =
+      !matchesTopic &&
+      data.terms.some((t) => {
+        const nt = normalizeArabic(t);
+        return normQuery === nt || normQuery.includes(nt) || nt.includes(normQuery);
+      });
+
+    if (matchesTopic || matchesTerm) {
+      const corePhrases = data.canonical
+        .map(normalizeArabic)
+        .filter((c) => c.length >= 10);
+
+      return {
+        topic,
+        corePhrases,
+      };
+    }
+  }
+
+  return null;
+}
+

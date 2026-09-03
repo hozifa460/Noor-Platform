@@ -14,6 +14,8 @@ interface HadithCardProps {
   book: HadithBookMeta;
   chapter?: HadithChapter;
   highlightQuery?: string;
+  isSemanticMatch?: boolean;
+  semanticTopic?: string;
   onOpenDetail: (hadith: HadithItem, book: HadithBookMeta, chapter?: HadithChapter) => void;
 }
 
@@ -22,6 +24,8 @@ export function HadithCard({
   book,
   chapter,
   highlightQuery,
+  isSemanticMatch,
+  semanticTopic,
   onOpenDetail,
 }: HadithCardProps) {
   const [copied, setCopied] = useState(false);
@@ -97,6 +101,15 @@ export function HadithCard({
               >
                 {gradeInfo.grade}
               </Badge>
+
+              {isSemanticMatch && semanticTopic && (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] font-bold bg-amber-500/15 text-amber-900 dark:text-amber-200 border-amber-500/35 gap-1 py-0 px-1.5 rounded-lg"
+                >
+                  <span>💡 تطابق بالمعنى: {semanticTopic}</span>
+                </Badge>
+              )}
             </div>
             {chapter && (
               <span className="text-[11px] text-muted-foreground block line-clamp-1">
