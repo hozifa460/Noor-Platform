@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { HADITH_BOOKS_LIST, type HadithBookMeta } from '@/lib/hadith-data';
 import {
   loadHadithBook,
+  loadSpecificHadith,
   findHadithSharh,
   searchHadithsInBook,
   searchAcrossAllBooks,
@@ -132,26 +133,21 @@ export const useHadithStore = create<HadithState>((set, get) => ({
       loadingSharh: true,
     });
 
-    // 1. Asynchronously fetch full book to load complete text if only a short preview was passed
+    // 1. Asynchronously fetch full hadith from its exact chunk to guarantee 100% complete text
     try {
-      const fullBookData = await loadHadithBook(targetBook.fileName);
-      if (fullBookData && fullBookData.hadiths) {
-        const fullItem = fullBookData.hadiths.find(
-          (h) => h.idInBook === hadith.idInBook || h.id === hadith.id
-        );
-        if (fullItem && fullItem.arabic && fullItem.arabic.length > hadith.arabic.length) {
-          resolvedHadith = fullItem;
-          if (!targetChapter && fullBookData.chapters) {
-            targetChapter = fullBookData.chapters.find((c) => c.id === fullItem.chapterId);
-          }
-          set({
-            selectedHadith: resolvedHadith,
-            selectedHadithChapter: targetChapter,
-          });
+      const fullItem = await loadSpecificHadith(targetBook.id, hadith.idInBook);
+      if (fullItem && fullItem.arabic && fullItem.arabic.length >= hadith.arabic.length) {
+        resolvedHadith = fullItem;
+        if (!targetChapter && get().bookData?.chapters) {
+          targetChapter = get().bookData?.chapters.find((c) => c.id === fullItem.chapterId);
         }
+        set({
+          selectedHadith: resolvedHadith,
+          selectedHadithChapter: targetChapter,
+        });
       }
     } catch {
-      /* fallback to snippet */
+      /* fallback to available snippet */
     }
 
     // 2. Fetch Sharh & Explanations from HadeethEnc
