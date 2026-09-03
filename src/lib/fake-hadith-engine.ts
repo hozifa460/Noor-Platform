@@ -68,13 +68,29 @@ export async function loadFakeHadiths(): Promise<FakeHadithItem[]> {
     }
   }
 
-  // 2. Browser fetch with force-cache
+  // 2. Browser fetch with cache-busting version query
   try {
-    const res = await fetch('/data/hadith/fake_hadiths.json', { cache: 'force-cache' });
+    const res = await fetch('/data/hadith/fake_hadiths.json?v=60', { cache: 'no-cache' });
     if (res.ok) {
       const data = (await res.json()) as FakeHadithItem[];
-      fakeHadithsCache = data;
-      return data;
+      if (Array.isArray(data) && data.length > 0) {
+        fakeHadithsCache = data;
+        return data;
+      }
+    }
+  } catch {
+    /* fallback */
+  }
+
+  // 3. Remote CDN fallback
+  try {
+    const res = await fetch('https://huggingface.co/datasets/hozifa1/noor-platform-hadith/raw/main/data/hadith/fake_hadiths.json');
+    if (res.ok) {
+      const data = (await res.json()) as FakeHadithItem[];
+      if (Array.isArray(data) && data.length > 0) {
+        fakeHadithsCache = data;
+        return data;
+      }
     }
   } catch {
     /* fallback */
