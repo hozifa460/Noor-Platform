@@ -112,8 +112,9 @@ async function testRadioFlow() {
         console.log(`  ℹ️ REMOTE STATUS: ${s.name} (HTTP ${res.status})`);
       }
     } catch {
-      clearTimeout(timer);
       console.log(`  ℹ️ REMOTE PING TIMEOUT: ${s.name}`);
+    } finally {
+      clearTimeout(timer);
     }
   }
 
