@@ -1,5 +1,3 @@
-import { normalizeArabic } from './arabic-normalizer';
-
 export interface IsnadNode {
   order: number;
   role: 'المصنف' | 'شيخ المصنف' | 'راوٍ' | 'التابعي' | 'الصحابي الجليل' | 'خاتم الأنبياء ﷺ';
@@ -60,70 +58,58 @@ const SAHABAH_PATTERNS = [
   /زيد\s+بن\s+ثابت/,
   /البراء\s+بن\s+عازب/,
   /أبي\s+بن\s+كعب/,
+  /معاوية(\s+بن\s+أبي\s+سفيان)?/,
+  /أب[وي]\s+أيوب(\s+الأنصاري)?/,
+  /أب[وي]\s+ذر(\s+الغفاري)?/,
 ];
 
-const SANAD_MATN_SPLITTERS = [
-  /أَنَّ رَسُولَ اللَّهِ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ قَالَ/i,
-  /أن رسول الله صلى الله عليه وسلم قال/i,
-  /عَنْ رَسُولِ اللَّهِ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ قَالَ/i,
-  /عن رسول الله صلى الله عليه وسلم قال/i,
-  /عَنِ النَّبِيِّ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ قَالَ/i,
-  /عن النبي صلى الله عليه وسلم قال/i,
-  /قَالَ رَسُولُ اللَّهِ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ/i,
-  /قال رسول الله صلى الله عليه وسلم/i,
-  /قَالَ النَّبِيُّ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ/i,
-  /قال النبي صلى الله عليه وسلم/i,
-  /سَمِعْتُ رَسُولَ اللَّهِ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ يَقُولُ/i,
-  /سمعت رسول الله صلى الله عليه وسلم يقول/i,
-  /سَمِعْتُ رَسُولَ اللَّهِ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ/i,
-  /سمعت رسول الله صلى الله عليه وسلم/i,
-  /سَمِعْتُ النَّبِيَّ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ/i,
-  /سمعت النبي صلى الله عليه وسلم/i,
-  /صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ :/i,
-  /صلى الله عليه وسلم :/i,
-];
+function stripHarakat(text: string): string {
+  return text.replace(/[\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g, '');
+}
 
 /**
  * Parses and reconstructs the Isnad (chain of narrators) from hadith text.
  */
 export function parseHadithIsnad(arabicText: string, bookAuthor = 'الإمام'): ParsedIsnad {
-  const trimmed = arabicText.trim();
+  // Normalize text by stripping harakat for robust regex matching
+  const clean = stripHarakat(arabicText).trim();
+
+  const splitters = [
+    /أن رسول الله صلى الله عليه وسلم قال/i,
+    /عن رسول الله صلى الله عليه وسلم قال/i,
+    /عن النبي صلى الله عليه وسلم قال/i,
+    /قال رسول الله صلى الله عليه وسلم/i,
+    /قال النبي صلى الله عليه وسلم/i,
+    /سمعت رسول الله صلى الله عليه وسلم يقول/i,
+    /سمعت رسول الله صلى الله عليه وسلم/i,
+    /سمعت النبي صلى الله عليه وسلم/i,
+    /صلى الله عليه وسلم :/i,
+    /صلى الله عليه وسلم/i,
+  ];
 
   let sanadPart = '';
-  let matnPart = trimmed;
+  let matnPart = clean;
 
-  // 1. Find the split point between Sanad and Matn
-  for (const splitter of SANAD_MATN_SPLITTERS) {
-    const match = splitter.exec(trimmed);
+  for (const splitter of splitters) {
+    const match = splitter.exec(clean);
     if (match && match.index > 15) {
-      sanadPart = trimmed.slice(0, match.index + match[0].length);
-      matnPart = trimmed.slice(match.index + match[0].length);
+      sanadPart = clean.slice(0, match.index + match[0].length);
+      matnPart = clean.slice(match.index + match[0].length);
       break;
     }
   }
 
-  // Fallback split point: check for generic صلى الله عليه وسلم before 60% of text
-  if (!sanadPart) {
-    const pbuhMatch = /صلى\s+الله\s+عليه\s+وسلم/i.exec(trimmed);
-    if (pbuhMatch && pbuhMatch.index > 25 && pbuhMatch.index < trimmed.length * 0.6) {
-      sanadPart = trimmed.slice(0, pbuhMatch.index + pbuhMatch[0].length);
-      matnPart = trimmed.slice(pbuhMatch.index + pbuhMatch[0].length);
-    }
-  }
-
   if (!sanadPart || sanadPart.length < 20) {
-    // Hadiths without formal chain (or matn-only representations)
     return {
       hasSanad: false,
       nodes: [],
       sanadText: '',
-      matnText: trimmed,
+      matnText: clean,
       narratorCount: 0,
       chainTypeArabic: 'متن مباشر',
     };
   }
 
-  // 2. Extract narrator tokens using Tahammul keywords
   const keywords = ['حدثنا', 'حدثني', 'أخبرنا', 'أخبرني', 'أنبأنا', 'سمعت', 'أنه سمع', 'عن'];
   const pattern = new RegExp(`(?:^|\\s)(${keywords.join('|')})(?:\\s+|:)`, 'g');
 
@@ -136,15 +122,16 @@ export function parseHadithIsnad(arabicText: string, bookAuthor = 'الإمام'
   const nodes: IsnadNode[] = [];
   let order = 1;
 
-  // Node 1: Author of the collection
+  // 1. Author of the collection
   nodes.push({
     order: order++,
     role: 'المصنف',
     name: bookAuthor,
     phrase: 'خرّج وروى',
+    isSahabi: false,
   });
 
-  // Intermediate narrator nodes
+  // 2. Sequential narrator nodes
   for (let i = 0; i < rawMatches.length; i++) {
     const current = rawMatches[i];
     const nextIndex = i + 1 < rawMatches.length ? rawMatches[i + 1].index : sanadPart.length;
@@ -152,7 +139,6 @@ export function parseHadithIsnad(arabicText: string, bookAuthor = 'الإمام'
 
     let name = chunk.replace(new RegExp(`^\\s*${current.keyword}[:\\s]*`, 'g'), '').trim();
 
-    // Clean extraneous words
     name = name
       .replace(/^قال\s*[:،]?\s*/g, '')
       .replace(/،\s*قال\s*[:،]?\s*/g, '')
@@ -160,18 +146,18 @@ export function parseHadithIsnad(arabicText: string, bookAuthor = 'الإمام'
       .replace(/صلى\s+الله\s+عليه\s+وسلم/g, '')
       .replace(/على\s+المنبر/g, '')
       .replace(/يقول\s*[:،]?\s*/g, '')
-      .replace(/[،:«»\-]/g, '')
+      .replace(/[«»"،:.\-]/g, '')
       .trim();
 
-    // Skip empty or generic Prophet mentions
     if (
       name.length >= 3 &&
       !name.startsWith('رسول الله') &&
       !name.startsWith('النبي') &&
       !name.startsWith('أن رسول')
     ) {
-      const normName = normalizeArabic(name);
-      const isSahabi = SAHABAH_PATTERNS.some((pat) => pat.test(normName) || pat.test(name));
+      // Sahabah are typically near the end of the chain (closest to the Prophet)
+      const isPotentialSahabi = i >= Math.max(1, rawMatches.length - 2);
+      const isSahabi = isPotentialSahabi && SAHABAH_PATTERNS.some((pat) => pat.test(name));
 
       let role: IsnadNode['role'] = 'راوٍ';
       if (nodes.length === 1) {
@@ -192,12 +178,13 @@ export function parseHadithIsnad(arabicText: string, bookAuthor = 'الإمام'
     }
   }
 
-  // Final Node: The Prophet Muhammad ﷺ
+  // 3. The Prophet Muhammad ﷺ
   nodes.push({
     order: order++,
     role: 'خاتم الأنبياء ﷺ',
     name: 'سيدنا رسول الله محمد ﷺ',
     phrase: 'قال وبلّغ',
+    isSahabi: false,
   });
 
   const narratorCount = Math.max(1, nodes.length - 2);
