@@ -3,7 +3,7 @@
 import { Copy, Check, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import type { FakeHadithItem } from '@/lib/fake-hadith-engine';
+import type { FakeHadithItem } from '@/lib/hadith/fake-engine';
 
 interface FakeHadithCardProps {
   item: FakeHadithItem;

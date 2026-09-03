@@ -1,4 +1,4 @@
-import type { HadithBookMeta } from "../hadith-data";
+import type { HadithBookMeta } from "./data";
 
 export interface HadithEnglish {
   narrator?: string;

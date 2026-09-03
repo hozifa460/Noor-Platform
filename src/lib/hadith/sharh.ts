@@ -1,7 +1,7 @@
-import { normalizeArabic } from '../arabic-normalizer';
-import { getCachedHadithBook, setCachedHadithBook } from '../hadith-storage';
-import { BUILTIN_SEED_SHARH } from '../seed-hadith-sharh';
-import { HADITH_BASE, hadithSharhUrl } from '../data-base';
+import { normalizeArabic } from '../arabic/normalizer';
+import { getCachedHadithBook, setCachedHadithBook } from './storage';
+import { BUILTIN_SEED_SHARH } from './seed-sharh';
+import { HADITH_BASE, hadithSharhUrl } from '../shared/data-base';
 import type { HadeethEncSharhItem } from './types';
 import { extractCleanMatn, COMMON_STOP_WORDS } from './matn';
 

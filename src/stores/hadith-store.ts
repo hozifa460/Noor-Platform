@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { HADITH_BOOKS_LIST, type HadithBookMeta } from '@/lib/hadith-data';
+import { HADITH_BOOKS_LIST, type HadithBookMeta } from '@/lib/hadith/data';
 import {
   loadHadithBook,
   loadSpecificHadith,
@@ -13,8 +13,8 @@ import {
   type HadithChapter,
   type HadeethEncSharhItem,
   type GlobalSearchResultItem,
-} from '@/lib/hadith-engine';
-import { loadSunanGrades } from '@/lib/hadith-grade-engine';
+} from '@/lib/hadith';
+import { loadSunanGrades } from '@/lib/hadith/grade-engine';
 
 interface HadithState {
   activeBook: HadithBookMeta;

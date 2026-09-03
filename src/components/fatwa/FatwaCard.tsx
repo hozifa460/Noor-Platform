@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArabicHighlight } from '@/components/shared/ArabicHighlight';
-import { cleanFatwaText } from '@/lib/fatwa-text';
+import { cleanFatwaText } from '@/lib/fatwa/text';
 import type { MediaItem } from '@/lib/types';
 import type { FatwaContentResult } from '@/types/fatwa';
 import { cn } from '@/lib/utils';

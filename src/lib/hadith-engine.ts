@@ -1,28 +1,60 @@
-/**
- * Unified Hadith Engine Facade (Clean Architecture).
- * Re-exports loaders, search engines, and sharh matchers for 100% backward compatibility.
- */
-
-export * from './hadith/types';
-export * from './hadith/matn';
-
+export * from './hadith';
+export type {
+  HadithEnglish,
+  HadithItem,
+  HadithChapter,
+  HadithBookMetadata,
+  HadithBookData,
+  HadeethEncSharhItem,
+  GlobalSearchResultItem,
+  MicroIndexEntry,
+  HadithBookMeta,
+  HadithGradeInfo,
+  IsnadNode,
+  ParsedIsnad,
+  NarratorProfile,
+  IntentMatch,
+  SemanticConceptResolution,
+  FakeHadithCategory,
+  FakeHadithCategoryMeta,
+  FakeHadithItem,
+  AuthenticityCheckResult,
+  SupportedTranslationLanguage,
+  HadithTranslationResult,
+} from './hadith';
 export {
+  COMMON_STOP_WORDS,
+  extractCleanMatn,
+  prepareBookData,
   loadHadithBook,
   loadHadithBookFromShards,
   loadSpecificHadith,
-  prepareBookData,
-} from './hadith/loader';
-
-export {
-  loadHadeethEncSharh,
   buildSharhInvertedIndex,
+  loadHadeethEncSharh,
   findHadithSharh,
   getSharhByHadithId,
-} from './hadith/sharh';
-
-export {
+  parseMicroIndexPayload,
+  loadHadithMicroIndex,
   searchHadithsInBook,
   searchAcrossAllBooks,
-  loadHadithMicroIndex,
-  parseMicroIndexPayload,
-} from './hadith/search';
+  HADITH_BOOKS_LIST,
+  loadSunanGrades,
+  getHadithGrade,
+  isMuttafaqunAlayh,
+  parseHadithIsnad,
+  findNarratorBio,
+  HADITH_INTENT_CLUSTERS,
+  extractQueryCore,
+  expandSemanticTerms,
+  resolveSemanticConcept,
+  FAKE_HADITH_CATEGORIES,
+  loadFakeHadiths,
+  searchFakeHadiths,
+  checkHadithAuthenticity,
+  SUPPORTED_TRANSLATION_LANGUAGES,
+  isBookTranslationAvailable,
+  fetchHadithTranslation,
+  getCachedHadithBook,
+  setCachedHadithBook,
+  BUILTIN_SEED_SHARH,
+} from './hadith';

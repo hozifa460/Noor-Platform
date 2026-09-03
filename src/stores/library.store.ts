@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import type { MediaItem, Sheikh } from '@/lib/types';
 import { buildSheikhs, dedupeItems, type NormalizeResult } from '@/lib/sheikh';
-import { arabicSearchMatch, arabicSearchScore } from '@/lib/arabic-normalizer';
+import { arabicSearchMatch, arabicSearchScore } from '@/lib/arabic/normalizer';
 
 interface LibraryState {
   /** All loaded media items (merged + deduplicated). */

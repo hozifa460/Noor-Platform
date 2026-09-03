@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { enforceRateLimitAsync } from '@/lib/rate-limiter';
-import { validateSafeUrl } from '@/lib/security';
+import { enforceRateLimitAsync } from '@/lib/shared/rate-limiter';
+import { validateSafeUrl } from '@/lib/shared/security';
 import { createStructuredLogger, generateRequestId } from '@/lib/observability';
 
 export const runtime = 'nodejs';

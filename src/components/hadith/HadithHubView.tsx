@@ -11,8 +11,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { searchHadithsInBook } from '@/lib/hadith-engine';
-import { getHadithGrade, isMuttafaqunAlayh } from '@/lib/hadith-grade-engine';
+import { searchHadithsInBook } from '@/lib/hadith';
+import { getHadithGrade, isMuttafaqunAlayh } from '@/lib/hadith/grade-engine';
 import { useHadithStore } from '@/stores/hadith-store';
 import { HadithCard } from './HadithCard';
 import { HadithDetailModal } from './HadithDetailModal';

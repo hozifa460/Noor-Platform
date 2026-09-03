@@ -1,4 +1,4 @@
-import { fatwaIndexManager } from '../src/lib/fatwa-index.ts';
+import { fatwaIndexManager } from '../src/lib/fatwa/index-data.ts';
 import fs from 'fs';
 import path from 'path';
 

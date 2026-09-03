@@ -1,4 +1,4 @@
-import { normalizeArabic } from "../arabic-normalizer";
+import { normalizeArabic } from "../arabic/normalizer";
 
 export const COMMON_STOP_WORDS = new Set([
   "في", "من", "ما", "لا", "الي", "علي", "هو", "هي", "هم", "هن", "ثم", "او", "ان", "انما",

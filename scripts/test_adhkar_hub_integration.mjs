@@ -50,7 +50,7 @@ async function runTests() {
   check(totalAudios >= 260, `Total audio files mapped is >= 260 (found: ${totalAudios})`);
 
   // 2. Test Engine
-  const { searchAdhkar, getDhikrAudioUrl, QUICK_ADHKAR_TABS } = await import('../src/lib/quran-adhkar-engine.ts');
+  const { searchAdhkar, getDhikrAudioUrl, QUICK_ADHKAR_TABS } = await import('../src/lib/adhkar/engine.ts');
 
   check(Array.isArray(QUICK_ADHKAR_TABS) && QUICK_ADHKAR_TABS.length >= 6, 'QUICK_ADHKAR_TABS has >= 6 quick categories');
 

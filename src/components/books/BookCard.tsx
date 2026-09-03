@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import { usePlayerStore } from '@/stores/player.store';
 import { useFavoritesStore } from '@/stores/favorites.store';
-import { downloadForOffline } from '@/lib/download';
+import { downloadForOffline } from '@/lib/shared/download';
 import { downloadBookTextFile } from '@/lib/book-text-engine';
-import { isQuranBook, isPureTextBook, isOpenItiBook, isShamelaBook } from '@/lib/book-utils';
+import { isQuranBook, isPureTextBook, isOpenItiBook, isShamelaBook } from '@/lib/books/utils';
 import { BookGridCard } from './cards/BookGridCard';
 import { BookListCard } from './cards/BookListCard';
 import type { MediaItem } from '@/lib/types';

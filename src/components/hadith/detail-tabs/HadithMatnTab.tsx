@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArabicHighlight } from '@/components/shared/ArabicHighlight';
 import type { HadithItem } from '@/types/hadith';
-import type { HadithBookMeta } from '@/lib/hadith-data';
+import type { HadithBookMeta } from '@/lib/hadith/data';
 
 interface HadithMatnTabProps {
   hadith: HadithItem;

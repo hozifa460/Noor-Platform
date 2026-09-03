@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useDownloadsStore } from '@/stores/downloads.store';
 import { useLibraryStore } from '@/stores/library.store';
 import { usePlayerStore } from '@/stores/player.store';
-import { deleteBlob, clearBlobs } from '@/lib/offline-db';
+import { deleteBlob, clearBlobs } from '@/lib/shared/offline-db';
 import { toast } from 'sonner';
 
 function formatBytes(b: number): string {

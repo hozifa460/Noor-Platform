@@ -8,7 +8,7 @@ import {
   type SurahMeta,
   type QiraahMeta,
   type QuranTranslationMeta,
-} from '@/lib/quran-data';
+} from '@/lib/quran/data';
 import type { MediaItem } from '@/lib/types';
 
 export interface AyahItem {

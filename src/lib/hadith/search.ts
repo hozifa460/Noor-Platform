@@ -1,7 +1,7 @@
-import { normalizeArabic, tokenizeArabic, matchSingleTokenFast } from '../arabic-normalizer';
-import { expandSemanticTerms, resolveSemanticConcept } from '../hadith-semantic';
-import { HADITH_BOOKS_LIST } from '../hadith-data';
-import { HADITH_BASE, hadithUrl } from '../data-base';
+import { normalizeArabic, tokenizeArabic, matchSingleTokenFast } from '../arabic/normalizer';
+import { expandSemanticTerms, resolveSemanticConcept } from './semantic';
+import { HADITH_BOOKS_LIST } from './data';
+import { HADITH_BASE, hadithUrl } from '../shared/data-base';
 import type {
   HadithItem,
   GlobalSearchResultItem,

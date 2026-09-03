@@ -1,7 +1,7 @@
 'use client';
 
-import { SUPPORTED_EERAB_BOOKS } from '@/lib/quran-eerab-engine';
-import { sanitizeTafsirHtml } from '@/lib/sanitize-html';
+import { SUPPORTED_EERAB_BOOKS } from '@/lib/quran/eerab-engine';
+import { sanitizeTafsirHtml } from '@/lib/shared/sanitize-html';
 
 interface AyahEerabTabProps {
   selectedEerabBookId: string;

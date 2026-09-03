@@ -3,7 +3,7 @@
  */
 
 export * from '@/lib/hadith/types';
-export * from '@/lib/fake-hadith-engine';
+export * from '@/lib/hadith/fake-engine';
 
 export interface NarratorScholarlyOpinion {
   scholar: string;

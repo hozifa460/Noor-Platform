@@ -1,5 +1,5 @@
-import { validateSafeUrl, isAllowedHostname, isPrivateIp, sanitizeFilename } from '../src/lib/security.ts';
-import { rateLimiter } from '../src/lib/rate-limiter.ts';
+import { validateSafeUrl, isPrivateIp, sanitizeFilename } from '../src/lib/shared/security.ts';
+import { rateLimiter } from '../src/lib/shared/rate-limiter.ts';
 
 async function runSecurityTests() {
   console.log('🔒 Starting Security & SSRF Validation Tests...\n');
@@ -145,7 +145,7 @@ async function runSecurityTests() {
 
   // 8. Client IP Sanitization & Trusted Proxy Enforcement
   console.log('\n--- Test Suite 8: Client IP Sanitization & Trusted Proxy Enforcement ---');
-  const { getClientIp } = await import('../src/lib/rate-limiter.ts');
+  const { getClientIp } = await import('../src/lib/shared/rate-limiter.ts');
 
   // Test 8A: Untrusted environment (direct connection) ignores spoofed headers
   delete process.env.TRUSTED_PROXY;

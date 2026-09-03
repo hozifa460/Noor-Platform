@@ -92,7 +92,7 @@ async function runMushafTests() {
 
   // 3. Test Tafsir Engine
   console.log('\n--- Testing Ayah Tafsir Engine ---');
-  const { fetchAyahTafsir, SUPPORTED_TAFSIRS } = await import('../src/lib/quran-tafsir-engine.ts');
+  const { fetchAyahTafsir, SUPPORTED_TAFSIRS } = await import('../src/lib/quran/tafsir-engine.ts');
   assert(SUPPORTED_TAFSIRS.length >= 4, `Supported tafsirs count: ${SUPPORTED_TAFSIRS.length}`);
 
   // Fetch Tafsir Muyassar for Al-Fatihah (1:1)

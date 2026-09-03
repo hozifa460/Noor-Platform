@@ -2,7 +2,7 @@
 
 import { Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { QUICK_ADHKAR_TABS, type AdhkarCategory } from '@/lib/quran-adhkar-engine';
+import { QUICK_ADHKAR_TABS, type AdhkarCategory } from '@/lib/adhkar/engine';
 import { cn } from '@/lib/utils';
 
 interface AdhkarFilterBarProps {

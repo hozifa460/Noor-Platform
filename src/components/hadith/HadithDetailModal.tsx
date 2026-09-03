@@ -17,9 +17,9 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import type { HadithItem, HadithChapter, HadeethEncSharhItem } from '@/lib/hadith-engine';
-import type { HadithBookMeta } from '@/lib/hadith-data';
-import { getHadithGrade } from '@/lib/hadith-grade-engine';
+import type { HadithItem, HadithChapter, HadeethEncSharhItem } from '@/lib/hadith';
+import type { HadithBookMeta } from '@/lib/hadith/data';
+import { getHadithGrade } from '@/lib/hadith/grade-engine';
 import { ArabicHighlight } from './ArabicHighlight';
 import { HadithIsnadTree } from './HadithIsnadTree';
 import { HadithTranslationsView } from './HadithTranslationsView';

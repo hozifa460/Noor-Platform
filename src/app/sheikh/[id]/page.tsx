@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { SheikhProfile } from '@/components/sheikh/SheikhProfile';
-import { SHEIKH_META } from '@/lib/sheikh-meta';
+import { SHEIKH_META } from '@/lib/sheikh/meta';
 
 interface SheikhPageProps {
   params: Promise<{ id: string }>;
