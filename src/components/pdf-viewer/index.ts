@@ -4,3 +4,7 @@ export { Sidebar } from './Sidebar';
 export { ContinuousView } from './ContinuousView';
 export { SinglePageView } from './SinglePageView';
 export { PageRenderer } from './PageRenderer';
+export { PdfViewerError } from './PdfViewerError';
+export { PdfViewerLoading } from './PdfViewerLoading';
+export { PdfViewerMobileBar } from './PdfViewerMobileBar';
+export { usePdfControls } from './use-pdf-controls';
