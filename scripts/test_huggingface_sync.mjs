@@ -1,6 +1,6 @@
-import { DEFAULT_REPOSITORIES, fileUrl, candidateIndexUrls } from '../src/lib/repositories.ts';
-import { fetchMergedIndex, fetchJsonWithFallback } from '../src/lib/fetcher.ts';
-import { normalizeContentFile } from '../src/lib/sheikh.ts';
+import { DEFAULT_REPOSITORIES, fileUrl, candidateIndexUrls } from '../src/lib/shared/repositories.ts';
+import { fetchMergedIndex, fetchJsonWithFallback } from '../src/lib/shared/fetcher.ts';
+import { normalizeContentFile } from '../src/lib/sheikh/sheikh.ts';
 import { validateSafeUrl } from '../src/lib/shared/security.ts';
 
 async function runHuggingFaceSyncTests() {

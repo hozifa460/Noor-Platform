@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import type { MediaItem, Sheikh } from '@/lib/types';
-import { buildSheikhs, dedupeItems, type NormalizeResult } from '@/lib/sheikh';
+import { buildSheikhs, dedupeItems, type NormalizeResult } from '@/lib/sheikh/sheikh';
 import { arabicSearchMatch, arabicSearchScore } from '@/lib/arabic/normalizer';
 
 interface LibraryState {

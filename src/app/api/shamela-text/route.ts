@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { enforceRateLimitAsync } from '@/lib/shared/rate-limiter';
 import { validateSafeUrl } from '@/lib/shared/security';
-import { createStructuredLogger, generateRequestId } from '@/lib/observability';
+import { createStructuredLogger, generateRequestId } from '@/lib/shared/observability';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;

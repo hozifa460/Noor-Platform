@@ -20,7 +20,7 @@ function assert(cond, msg) {
 }
 
 async function runTocStreamingTests() {
-  const { loadEBookMeta, loadChapterChunk } = await import('../src/lib/book-text-engine.ts');
+  const { loadEBookMeta, loadChapterChunk } = await import('../src/lib/book-text/index.ts');
 
   // Test with Sahih al-Bukhari (shamela-1167: 9 volumes, 3,792 TOC headings)
   console.log('1. Loading metadata & TOC for Sahih al-Bukhari (shamela-1167)...');

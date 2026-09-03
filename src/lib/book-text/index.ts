@@ -1,13 +1,13 @@
 /**
  * Unified E-Book Text Engine Facade (Clean Architecture).
- * Re-exports catalog, chapter slices, search, and progress modules for 100% backward compatibility.
+ * Re-exports catalog, chapter slices, search, progress modules for 100% backward compatibility.
  */
 
-// In-memory slicing & search index cache: Cache = new Map()
-export * from './book-text/catalog';
-export * from './book-text/chapters';
-export * from './book-text/search';
-export * from './book-text/progress';
+export * from './catalog';
+export * from './chapters';
+export * from './search';
+export * from './progress';
+export type { EBookMetaResponse } from './chapters';
 
 // Explicit named re-exports for static ESM analysis
 export {
@@ -18,7 +18,7 @@ export {
   lookupShamelaBook,
   loadShamelaBookByLetter,
   fetchEBookCatalog,
-} from './book-text/catalog';
+} from './catalog';
 
 export {
   loadOpenItiDynamicEBook,
@@ -27,11 +27,11 @@ export {
   fetchShamelaChapterSlice,
   loadChapterChunk,
   preloadAdjacentChapters,
-} from './book-text/chapters';
+} from './chapters';
 
 export {
   searchInsideEBook,
-} from './book-text/search';
+} from './search';
 
 export {
   downloadBookTextFile,
@@ -41,4 +41,4 @@ export {
   saveReadingProgress,
   getBookHighlights,
   saveBookHighlight,
-} from './book-text/progress';
+} from './progress';

@@ -1,6 +1,6 @@
 import { fatwaIndexManager, SCHOLARS_LIST } from '../src/lib/fatwa/index-data.ts';
 import { extractAndExpandTokens } from '../src/lib/arabic/search-engine.ts';
-import { microShardEngine } from '../src/lib/micro-shard-engine.ts';
+import { microShardEngine } from '../src/lib/shared/micro-shard-engine.ts';
 import { BUILTIN_SEED_FATWAS } from '../src/lib/fatwa/seed-fatwas.ts';
 
 async function runFatwaIndexTests() {

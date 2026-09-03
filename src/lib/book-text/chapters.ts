@@ -1,10 +1,10 @@
-import { getBlob } from '../offline-db';
+import { getBlob } from '../shared/offline-db';
 import type {
   EBookMetadata,
   TableOfContentsItem,
   BookChapterChunk,
   SectionParagraph,
-} from '../book-types';
+} from '../books/types';
 import {
   loadOpenItiDynamicEBook as loadOpenItiService,
   toArabicDigits,
@@ -217,8 +217,8 @@ export async function loadShamelaEBook(
       title,
       author,
       authorDeath: deathHijri ? `${deathHijri} هـ` : undefined,
-      category: (bookItem?.category || 'history') as import('../book-types').EBookCategory,
-      islamicArt: (bookItem?.islamicArt || 'general') as import('../book-types').IslamicArtCategory,
+      category: (bookItem?.category || 'history') as import('../books/types').EBookCategory,
+      islamicArt: (bookItem?.islamicArt || 'general') as import('../books/types').IslamicArtCategory,
       century: bookItem?.century || (deathHijri ? Math.ceil(parseInt(deathHijri, 10) / 100) : 3),
       description: bookItem?.description || `مصنف ${title} في ${categoryName} للإمام ${author}`,
       totalVolumes: bookItem?.volumeCount || maxVolumeObserved || 1,

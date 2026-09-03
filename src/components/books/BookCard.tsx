@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { usePlayerStore } from '@/stores/player.store';
 import { useFavoritesStore } from '@/stores/favorites.store';
 import { downloadForOffline } from '@/lib/shared/download';
-import { downloadBookTextFile } from '@/lib/book-text-engine';
+import { downloadBookTextFile } from '@/lib/book-text';
 import { isQuranBook, isPureTextBook, isOpenItiBook, isShamelaBook } from '@/lib/books/utils';
 import { BookGridCard } from './cards/BookGridCard';
 import { BookListCard } from './cards/BookListCard';

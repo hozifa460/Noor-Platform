@@ -14,7 +14,7 @@ import {
   saveBookHighlight,
   downloadBookTextFile,
   type EBookMetaResponse,
-} from '@/lib/book-text-engine';
+} from '@/lib/book-text';
 import type {
   BookChapterChunk,
   InBookSearchResult,

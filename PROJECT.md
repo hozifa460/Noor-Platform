@@ -6,11 +6,11 @@
   - Extracts prophetic Matn (stripping isnad chains) and normalized morphological stems.
   - Outputs a compact tuple-based dictionary `{ books: [...], grades: [...], items: [[bIdx, hadithId, chapterId, textPreview, gradeIdx], ...] }` to `public/data/hadith/hadiths_micro_index.json` (< 3MB).
 - **Sub-Millisecond Search Engine**:
-  - `src/lib/hadith-engine.ts` loads the lightweight micro-index into memory.
-  - Morphological multi-token search with Arabic normalizer (`src/lib/arabic-normalizer.ts`) and prefix handling (`ال`, `بال`, `وال`, `كال`, `لل`, `ب`, `و`, `ف`, `ل`).
+  - `src/lib/hadith/` loads the lightweight micro-index into memory.
+  - Morphological multi-token search with Arabic normalizer (`src/lib/arabic/normalizer.ts`) and prefix handling (`ال`, `بال`, `وال`, `كال`, `لل`, `ب`, `و`, `ف`, `ل`).
   - Authenticity-priority ranking (Bukhari -> Muslim -> Sunan) with early exit ($N=50$) yielding query times < 2ms.
 - **On-Demand Slice Fetching & UI**:
-  - `src/stores/hadith-store.ts`, `src/lib/hadith-storage.ts`, and `src/components/hadith/` load only the micro-index for global search.
+  - `src/stores/hadith-store.ts`, `src/lib/hadith/storage.ts`, and `src/components/hadith/` load only the micro-index for global search.
   - Full book texts and chapter slices are loaded lazily on-demand from remote/local cache into IndexedDB when a user opens a book or chapter.
   - Zero RAM bloat in client memory (avoids multi-megabyte JSON allocations).
 - **Testing & Verification Pipeline**:
@@ -83,9 +83,9 @@
 ## Code Layout
 - `scripts/generate_hadiths_micro_index.mjs` — Index generator script
 - `public/data/hadith/hadiths_micro_index.json` — Generated compact micro-index
-- `src/lib/hadith-engine.ts` — Search engine, morphological matcher, and ranking
-- `src/lib/hadith-data.ts` — Metadata, book catalogs, URLs
-- `src/lib/hadith-storage.ts` — IndexedDB caching & slice fetching
+- `src/lib/hadith/` — Search engine, morphological matcher, and ranking
+- `src/lib/hadith/data.ts` — Metadata, book catalogs, URLs
+- `src/lib/hadith/storage.ts` — IndexedDB caching & slice fetching
 - `src/stores/hadith-store.ts` — State management for search and reading
 - `src/components/hadith/` — React UI components (HadithHubView, HadithCard, HadithDetailModal)
 - `scripts/test_hadith_integration.mjs` — Hadith integration test runner

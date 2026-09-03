@@ -12,7 +12,7 @@ interface SheikhAvatarMeta {
   imageUrl?: string;
 }
 
-// Mirror of src/lib/sheikh-meta.ts SHEIKH_META. Kept in sync manually;
+// Mirror of src/lib/sheikh/meta.ts SHEIKH_META. Kept in sync manually;
 // if a new sheikh is added, update both files. (Both files are small.)
 const SHEIKH_META: Record<string, SheikhAvatarMeta> = {
   zein_khair_allah: { channelId: 'UCQKqsmz6fY_4l5ilNpJ5iSw' },

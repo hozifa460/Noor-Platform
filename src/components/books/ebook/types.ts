@@ -1,4 +1,4 @@
-import type { EBookMetaResponse } from '@/lib/book-text-engine';
+import type { EBookMetaResponse } from '@/lib/book-text';
 import type { BookChapterChunk, InBookSearchResult, BookHighlight, SectionParagraph } from '@/lib/books/types';
 import type { MediaItem } from '@/lib/types';
 import type {

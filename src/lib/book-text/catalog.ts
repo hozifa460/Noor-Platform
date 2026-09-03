@@ -1,5 +1,5 @@
-import { booksIndexUrl, isRemoteData } from '../data-base';
-import type { EBookMetadata } from '../book-types';
+import { booksIndexUrl, isRemoteData } from '../shared/data-base';
+import type { EBookMetadata } from '../books/types';
 
 let catalogCache: EBookMetadata[] | null = null;
 export const shamelaCatalogCache: Map<string, EBookMetadata> = new Map(); // key: bookId
