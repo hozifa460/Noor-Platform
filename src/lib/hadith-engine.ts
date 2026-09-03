@@ -1,4 +1,4 @@
-import { normalizeArabic, arabicSearchMatch, tokenizeArabic } from './arabic-normalizer';
+import { normalizeArabic, arabicSearchMatch, tokenizeArabic, matchSingleTokenFast } from './arabic-normalizer';
 import { expandSemanticTerms, extractQueryCore } from './hadith-semantic';
 import { HADITH_BOOKS_LIST } from './hadith-data';
 import { getCachedHadithBook, setCachedHadithBook } from './hadith-storage';
@@ -588,7 +588,7 @@ export function searchHadithsInBook(
   const trimmedQuery = query.trim();
   if (!trimmedQuery) return list;
 
-  // Direct number lookup
+  // Direct number lookup (< 0.01ms)
   const isNum = /^\d+$/.test(trimmedQuery);
   if (isNum) {
     const num = parseInt(trimmedQuery, 10);
@@ -598,64 +598,84 @@ export function searchHadithsInBook(
   const normQ = normalizeArabic(trimmedQuery);
   if (!normQ) return [];
 
-  const qTokens = tokenizeArabic(trimmedQuery);
-  const semanticTokens = expandSemanticTerms(trimmedQuery);
-  const qEn = trimmedQuery.toLowerCase();
+  const rawTokens = tokenizeArabic(trimmedQuery);
+  const normTokens = rawTokens.map((t) => normalizeArabic(t)).filter((t) => t.length >= 2);
+  const qEn = /^[a-zA-Z0-9\s]+$/.test(trimmedQuery) ? trimmedQuery.toLowerCase() : '';
 
   const exactMatches: HadithItem[] = [];
-  const semanticMatches: HadithItem[] = [];
+  const tokenMatches: HadithItem[] = [];
   const seenIds = new Set<number>();
 
   for (let i = 0; i < list.length; i++) {
     const h = list[i];
-    const textNorm = h._norm || normalizeArabic(h.arabic);
-    // 1. Direct substring match (< 0.001ms)
+    if (!h._norm) {
+      h._norm = normalizeArabic(h.arabic);
+    }
+    const textNorm = h._norm;
+
+    // 1. Direct substring match (instant — 0.0001ms)
     if (textNorm.includes(normQ)) {
       exactMatches.push(h);
       seenIds.add(h.idInBook);
       continue;
     }
 
-    // 2. Multi-token match with zero-allocation arabicSearchMatch
-    if (qTokens.length > 1) {
-      const allTokensMatch = qTokens.every((t) => arabicSearchMatch(textNorm, t));
-      if (allTokensMatch) {
-        exactMatches.push(h);
+    // 2. Multi-token match using zero-allocation matchSingleTokenFast
+    if (normTokens.length > 1) {
+      let allMatch = true;
+      for (let j = 0; j < normTokens.length; j++) {
+        if (!matchSingleTokenFast(textNorm, normTokens[j])) {
+          allMatch = false;
+          break;
+        }
+      }
+      if (allMatch) {
+        tokenMatches.push(h);
         seenIds.add(h.idInBook);
         continue;
       }
     }
 
     // 3. English text fallback
-    if (h.english?.text && h.english.text.toLowerCase().includes(qEn)) {
+    if (qEn && h.english?.text && h.english.text.toLowerCase().includes(qEn)) {
       exactMatches.push(h);
       seenIds.add(h.idInBook);
-      continue;
     }
+  }
 
-    // 4. Fiqh semantic topic match
+  // 4. Fiqh semantic topic match — ONLY if direct & token matches are few (< 15)
+  const semanticMatches: HadithItem[] = [];
+  if (exactMatches.length + tokenMatches.length < 15 && normQ.length >= 3) {
+    const semanticTokens = expandSemanticTerms(trimmedQuery);
     if (semanticTokens.length > 0) {
-      for (const st of semanticTokens) {
-        if (st !== normQ && !seenIds.has(h.idInBook)) {
+      const cleanSemantic = semanticTokens
+        .map((st) => normalizeArabic(st))
+        .filter((st) => st !== normQ && st.length >= 3);
+
+      for (let i = 0; i < list.length; i++) {
+        const h = list[i];
+        if (seenIds.has(h.idInBook)) continue;
+
+        const textNorm = h._norm!;
+        for (let j = 0; j < cleanSemantic.length; j++) {
+          const st = cleanSemantic[j];
           if (st.includes(' ')) {
             if (textNorm.includes(st)) {
               semanticMatches.push(h);
               seenIds.add(h.idInBook);
               break;
             }
-          } else if (st.length >= 4) {
-            if (arabicSearchMatch(textNorm, st)) {
-              semanticMatches.push(h);
-              seenIds.add(h.idInBook);
-              break;
-            }
+          } else if (matchSingleTokenFast(textNorm, st)) {
+            semanticMatches.push(h);
+            seenIds.add(h.idInBook);
+            break;
           }
         }
       }
     }
   }
 
-  return [...exactMatches, ...semanticMatches];
+  return [...exactMatches, ...tokenMatches, ...semanticMatches];
 }
 
 const globalSearchResultCache = new Map<string, GlobalSearchResultItem[]>();
