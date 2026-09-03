@@ -18,11 +18,22 @@ export const FATWA_BASE: string =
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_DATA_BASE) ||
   'https://huggingface.co/datasets/hozifa1/noor-platform-fatwa/raw/main';
 
-export const HADITH_BASE: string =
-  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_HADITH_BASE) ||
-  // Default — points at the verified high-performance Hadith CDN (raw/main with direct 200 OK, 0 redirects)
-  'https://huggingface.co/datasets/hozifa1/noor-platform-hadith/raw/main' ||
-  '';
+function sanitizeHadithBase(url?: string): string {
+  const fallback = 'https://huggingface.co/datasets/hozifa1/noor-platform-hadith/raw/main';
+  if (!url) return fallback;
+  let clean = url.trim();
+  if (clean.includes('/tree/main')) {
+    clean = clean.replace('/tree/main', '/raw/main');
+  }
+  if (clean.includes('/resolve/main')) {
+    clean = clean.replace('/resolve/main', '/raw/main');
+  }
+  return clean || fallback;
+}
+
+export const HADITH_BASE: string = sanitizeHadithBase(
+  typeof process !== 'undefined' ? process.env?.NEXT_PUBLIC_HADITH_BASE : undefined
+);
 
 export const BOOKS_BASE: string =
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BOOKS_BASE) ||
