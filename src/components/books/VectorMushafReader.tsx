@@ -13,6 +13,7 @@ import { MushafToolbar } from './mushaf/MushafToolbar';
 import { MushafAyahActionModal } from './mushaf/MushafAyahActionModal';
 import { MushafSidebar } from './mushaf/MushafSidebar';
 import { cn } from '@/lib/utils';
+import { copyToClipboard } from '@/lib/clipboard';
 import { toast } from 'sonner';
 
 interface VectorMushafReaderProps {
@@ -143,9 +144,9 @@ export function VectorMushafReader({
     const surahName = surahMeta?.nameAr || `سورة رقم ${currentSurahNo}`;
     const textToCopy = `﴿ ${ayah.textAr} ﴾ [سورة ${surahName} - الآية ${ayah.ayahNo}]\nالمصدر: منصة النور - مصحف المدينة النبوية`;
 
-    navigator.clipboard.writeText(textToCopy);
-    toast.success('تم نسخ الآية الكريمة بنجاح');
+    copyToClipboard(textToCopy, 'تم نسخ الآية الكريمة بنجاح');
   };
+
 
   const currentStyles = MUSHAF_THEME_STYLES[theme] || MUSHAF_THEME_STYLES.gold;
   const surahMeta = ALL_SURAHS.find((s) => s.number === currentSurahNo);

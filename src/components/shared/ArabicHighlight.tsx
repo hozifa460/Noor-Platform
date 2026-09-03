@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { getMorphologicalVariants } from '@/lib/arabic-dictionary';
 
 export interface ArabicHighlightProps {
   text: string;
@@ -6,20 +7,6 @@ export interface ArabicHighlightProps {
   className?: string;
 }
 
-const MORPHOLOGICAL_DICTIONARY: Record<string, string[]> = {
-  صيام: ['صيام', 'صوم', 'صام', 'صوموا', 'يصوم', 'الصائم', 'صائمين', 'صيامه', 'صيامكم'],
-  صوم: ['صيام', 'صوم', 'صام', 'صوموا', 'يصوم', 'الصائم', 'صائمين', 'صيامه'],
-  صدقة: ['صدقة', 'صدقات', 'تصدقوا', 'تصدق', 'المتصدقين', 'صدقته', 'صدقاتكم'],
-  صلاة: ['صلاة', 'صلوات', 'صلوا', 'يصلي', 'المصلين', 'صلاته', 'صلاتهم'],
-  علم: ['علم', 'تعلموا', 'يعلم', 'العلماء', 'علمه', 'علما', 'العلم'],
-  والدين: ['والدين', 'والدي', 'والديه', 'والديك', 'والداه', 'أمه', 'أبوك'],
-  بر: ['بر', 'بروا', 'البر', 'أبر'],
-  صبر: ['صبر', 'صابروا', 'الصابرين', 'صبره', 'يصبر', 'اصبروا'],
-  كذب: ['كذب', 'كذبا', 'كذاب', 'يكذب', 'الكاذبين'],
-  توبة: ['توبة', 'يتوب', 'توبوا', 'تائبا', 'التائبين'],
-  استغفار: ['استغفار', 'استغفروا', 'يستغفر', 'أستغفر', 'مستغفرين'],
-  نية: ['نية', 'نيات', 'النيات', 'نياتكم', 'نوى', 'ينوي'],
-};
 
 const diacritics = '[\\u0617-\\u061A\\u064B-\\u0652\\u0670\\u0640]*';
 
@@ -67,13 +54,9 @@ export function buildSmartArabicHighlightRegex(query: string): RegExp | null {
   // 2. Morphological variants
   const expandedTokens = new Set<string>(rawTokens);
   for (const token of rawTokens) {
-    // Strip common prefixes to check dictionary
-    const stripped = token.replace(/^(?:ال|[وفبكل])/, '');
-    if (MORPHOLOGICAL_DICTIONARY[token]) {
-      for (const v of MORPHOLOGICAL_DICTIONARY[token]) expandedTokens.add(v);
-    }
-    if (stripped && MORPHOLOGICAL_DICTIONARY[stripped]) {
-      for (const v of MORPHOLOGICAL_DICTIONARY[stripped]) expandedTokens.add(v);
+    const variants = getMorphologicalVariants(token);
+    for (const v of variants) {
+      expandedTokens.add(v);
     }
   }
 

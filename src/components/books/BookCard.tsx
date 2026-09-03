@@ -9,6 +9,7 @@ import { isQuranBook, isPureTextBook, isOpenItiBook, isShamelaBook } from '@/lib
 import { BookGridCard } from './cards/BookGridCard';
 import { BookListCard } from './cards/BookListCard';
 import type { MediaItem } from '@/lib/types';
+import { useClipboard } from '@/hooks/use-clipboard';
 import { toast } from 'sonner';
 
 interface BookCardProps {
@@ -21,7 +22,7 @@ export function BookCard({ book, viewMode = 'grid' }: BookCardProps) {
   const isFavorite = useFavoritesStore((s) => s.isFavorite(book.id));
   const toggleFavorite = useFavoritesStore((s) => s.toggle);
   const [downloading, setDownloading] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useClipboard();
 
   const isQuran = isQuranBook(book);
   const isPureText = isPureTextBook(book);
@@ -56,14 +57,10 @@ export function BookCard({ book, viewMode = 'grid' }: BookCardProps) {
 
   const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (typeof window !== 'undefined') {
-      const shareUrl = book.pdfUrl || window.location.href;
-      navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      toast.success('تم نسخ رابط الكتاب');
-      setTimeout(() => setCopied(false), 2000);
-    }
+    const shareUrl = book.pdfUrl || (typeof window !== 'undefined' ? window.location.href : '');
+    copy(shareUrl, 'تم نسخ رابط الكتاب');
   };
+
 
   const handleToggleFav = (e: React.MouseEvent) => {
     e.stopPropagation();

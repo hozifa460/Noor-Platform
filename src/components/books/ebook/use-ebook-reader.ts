@@ -24,6 +24,8 @@ import type {
 import type { MediaItem } from '@/lib/types';
 import { toast } from 'sonner';
 import type { ReadingTheme, TashkeelMode, FontFamily, SidebarTab } from './types';
+import { copyToClipboard } from '@/lib/clipboard';
+import { useTextToSpeech } from '@/hooks/use-text-to-speech';
 
 export function useEBookReader(bookItem: MediaItem) {
   const bookId = bookItem.id.replace(/^ebook-/, '');
@@ -59,7 +61,7 @@ export function useEBookReader(bookItem: MediaItem) {
   const [highlights, setHighlights] = useState<BookHighlight[]>([]);
 
   // Speech TTS Audio
-  const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+  const { isSpeaking, speak: ttsSpeak, stop: ttsStop } = useTextToSpeech({ lang: 'ar-SA', rate: 0.9 });
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   // 1. Initial Load: Metadata & Saved Progress
@@ -82,11 +84,9 @@ export function useEBookReader(bookItem: MediaItem) {
 
     return () => {
       isMounted = false;
-      if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-      }
     };
   }, [bookId]);
+
 
   // 2. Load Chapter Chunk on Chapter Change
   useEffect(() => {
@@ -121,12 +121,9 @@ export function useEBookReader(bookItem: MediaItem) {
 
     return () => {
       isMounted = false;
-      if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-        setIsSpeaking(false);
-      }
+      ttsStop();
     };
-  }, [bookId, currentChapter, metaRes?.meta]);
+  }, [bookId, currentChapter, metaRes?.meta, ttsStop]);
 
   // Search Handler
   const handleSearch = useCallback(
@@ -197,26 +194,13 @@ export function useEBookReader(bookItem: MediaItem) {
 
   // Text-to-Speech (TTS)
   const handleToggleSpeech = () => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) {
-      toast.error('القراءة الصوتية غير مدعومة في هذا المتصفح');
-      return;
-    }
     if (isSpeaking) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-      toast.info('تم إيقاف القراءة الصوتية');
+      ttsStop('تم إيقاف القراءة الصوتية');
       return;
     }
     if (!chunkData?.paragraphs?.length) return;
     const fullText = chunkData.paragraphs.map((p) => p.text).join(' ');
-    const utterance = new SpeechSynthesisUtterance(fullText.slice(0, 4000));
-    utterance.lang = 'ar-SA';
-    utterance.rate = 0.9;
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-    window.speechSynthesis.speak(utterance);
-    setIsSpeaking(true);
-    toast.success('بدأت القراءة الصوتية للنص');
+    ttsSpeak(fullText.slice(0, 4000), 'بدأت القراءة الصوتية للنص');
   };
 
   // Highlight & Citation
@@ -239,9 +223,9 @@ export function useEBookReader(bookItem: MediaItem) {
     const title = metaRes?.meta.title || bookItem.title;
     const author = metaRes?.meta.author || bookItem.sheikhName || '';
     const citation = `«${text}»\n\n— [كتاب: ${title} - ${author}، صفحة: ${pageNum}] (منصة نور)`;
-    navigator.clipboard.writeText(citation);
-    toast.success('تم نسخ النص مع التوثيق والعزو');
+    copyToClipboard(citation, 'تم نسخ النص مع التوثيق والعزو');
   };
+
 
   return {
     metaRes,

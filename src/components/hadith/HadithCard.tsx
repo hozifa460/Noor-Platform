@@ -7,7 +7,9 @@ import type { HadithBookMeta } from '@/lib/hadith-data';
 import { getHadithGrade } from '@/lib/hadith-grade-engine';
 import { ArabicHighlight } from './ArabicHighlight';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+import { useClipboard } from '@/hooks/use-clipboard';
+import { useTextToSpeech } from '@/hooks/use-text-to-speech';
+
 
 interface HadithCardProps {
   hadith: HadithItem;
@@ -33,45 +35,23 @@ export function HadithCard({
   semanticTopic,
   onOpenDetail,
 }: HadithCardProps) {
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useClipboard();
+  const { isSpeaking, speak } = useTextToSpeech({ lang: 'ar-SA', rate: 0.9 });
   const [showEnglish, setShowEnglish] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const resolvedArabic = hadith.arabic;
   const gradeInfo = getHadithGrade(book.id, hadith.idInBook);
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
     const text = `« ${resolvedArabic.replace(/\n+/g, ' ').trim()} »\n\n[${book.nameAr} - حديث رقم: ${hadith.idInBook}${chapter ? ` - ${chapter.arabic}` : ''}]\nدرجة الحديث: ${gradeInfo.grade}\n\nالمصدر: منصة النور - موسوعة الحديث النبوي الشريف`;
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    toast.success(`تم نسخ الحديث رقم ${hadith.idInBook}`);
-    setTimeout(() => setCopied(false), 2000);
+    copy(text, `تم نسخ الحديث رقم ${hadith.idInBook}`);
   };
 
   const handleSpeak = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      toast.error('المتصفح لا يدعم القراءة الصوتية');
-      return;
-    }
-
-    if (isSpeaking) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(resolvedArabic);
-    utterance.lang = 'ar-SA';
-    utterance.rate = 0.9;
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-
-    window.speechSynthesis.speak(utterance);
-    setIsSpeaking(true);
-    toast.info('جاري قراءة نص الحديث صوتياً...');
+    speak(resolvedArabic, 'جاري قراءة نص الحديث صوتياً...');
   };
+
 
   return (
     <div

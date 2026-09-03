@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import { useDebouncedSearch } from '@/hooks/use-debounced-search';
 import {
   BookOpen,
   Sparkles,
@@ -36,8 +37,17 @@ export function BooksLibraryView() {
   const openPlayer = usePlayerStore((s) => s.open);
 
   const [visibleCount, setVisibleCount] = useState(30);
-  const [localSearch, setLocalSearch] = useState(searchQuery);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const {
+    localSearch,
+    handleSearchChange,
+    handleSearchSubmit,
+    handleClearSearch,
+  } = useDebouncedSearch({
+    value: searchQuery,
+    onSearchChange: setSearchQuery,
+    delay: 250,
+  });
 
   useEffect(() => {
     startLoading();
@@ -46,33 +56,14 @@ export function BooksLibraryView() {
   const filteredBooks = getFilteredBooks();
 
   // Reset pagination on filter change
-  useEffect(() => {
+  const filterKey = `${searchQuery}-${selectedCategory}-${selectedLanguage}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (prevFilterKey !== filterKey) {
+    setPrevFilterKey(filterKey);
     setVisibleCount(30);
-  }, [searchQuery, selectedCategory, selectedLanguage]);
+  }
 
-  useEffect(() => {
-    setLocalSearch(searchQuery);
-  }, [searchQuery]);
 
-  const handleSearchChange = (val: string) => {
-    setLocalSearch(val);
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    debounceTimerRef.current = setTimeout(() => {
-      setSearchQuery(val);
-    }, 250);
-  };
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    setSearchQuery(localSearch);
-  };
-
-  const handleClearSearch = () => {
-    setLocalSearch('');
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    setSearchQuery('');
-  };
 
   const handleOpenFeatured = (fc: FeaturedClassic) => {
     const quranId = (fc as unknown as { quranId?: string }).quranId;

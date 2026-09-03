@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { useDebouncedSearch } from '@/hooks/use-debounced-search';
 import {
   BookOpen,
   Scroll,
@@ -22,6 +23,7 @@ import { HadithChapterSelectorModal } from './HadithChapterSelectorModal';
 import { HadithSearchHeader } from './HadithSearchHeader';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+
 
 export function HadithHubView() {
   const activeBook = useHadithStore((s) => s.activeBook);
@@ -58,34 +60,28 @@ export function HadithHubView() {
   const [hubTab, setHubTab] = useState<'books' | 'checker'>('books');
   const [gradesGuideOpen, setGradesGuideOpen] = useState(false);
 
-  const [localInput, setLocalInput] = useState(searchQuery);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const {
+    localSearch: localInput,
+    handleSearchChange: handleInputChange,
+    handleClearSearch,
+  } = useDebouncedSearch({
+    value: searchQuery,
+    onSearchChange: setSearchQuery,
+    delay: 200,
+  });
 
-  useEffect(() => {
-    setLocalInput(searchQuery);
-  }, [searchQuery]);
-
-  const handleInputChange = (val: string) => {
-    setLocalInput(val);
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    debounceTimerRef.current = setTimeout(() => {
-      setSearchQuery(val);
-    }, 200);
-  };
-
-  const handleClearSearch = () => {
-    setLocalInput('');
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    setSearchQuery('');
-  };
 
   useEffect(() => {
     loadBookData(activeBook.fileName);
   }, [activeBook.fileName, loadBookData]);
 
-  useEffect(() => {
+  const filterKey = `${searchQuery}-${selectedChapterId}-${activeBook.id}-${searchMode}-${gradeFilter}-${categoryFilter}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (prevFilterKey !== filterKey) {
+    setPrevFilterKey(filterKey);
     setVisibleCount(30);
-  }, [searchQuery, selectedChapterId, activeBook.id, searchMode, gradeFilter, categoryFilter]);
+  }
+
 
   const inBookHadiths = useMemo(() => {
     if (searchMode === 'global' || !bookData || !bookData.hadiths) return [];

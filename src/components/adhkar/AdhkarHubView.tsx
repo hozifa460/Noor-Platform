@@ -13,6 +13,7 @@ import { useDhikrCounter } from '@/hooks/use-dhikr-counter';
 import { AdhkarHeroBanner } from './AdhkarHeroBanner';
 import { AdhkarFilterBar } from './AdhkarFilterBar';
 import { DhikrCard } from './DhikrCard';
+import { useIdClipboard } from '@/hooks/use-clipboard';
 import { toast } from 'sonner';
 
 export function AdhkarHubView() {
@@ -24,8 +25,9 @@ export function AdhkarHubView() {
 
   // Audio Playback state
   const [playingAudioId, setPlayingAudioId] = useState<number | null>(null);
-  const [copiedId, setCopiedId] = useState<number | null>(null);
+  const { copiedId, copy: copyDhikr } = useIdClipboard<number>();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
 
   // Use custom hook for interactive counting & haptics
   const {
@@ -111,11 +113,9 @@ export function AdhkarHubView() {
   // Copy dhikr text
   const handleCopy = (item: DhikrItem) => {
     const text = `« ${item.text} »\n\n[التكرار: ${item.count} مرات]\nالمصدر: حصن المسلم - منصة نور`;
-    navigator.clipboard.writeText(text);
-    setCopiedId(item.id);
-    toast.success('تم نسخ نص الذكر بنجاح');
-    setTimeout(() => setCopiedId(null), 2000);
+    copyDhikr(item.id, text, 'تم نسخ نص الذكر بنجاح');
   };
+
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-16">

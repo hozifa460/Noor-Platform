@@ -17,6 +17,7 @@ import { ToolbarSearchRow } from './ToolbarSearchRow';
 import { ToolbarPagination } from './ToolbarPagination';
 import { ToolbarViewOptions } from './ToolbarViewOptions';
 import { cn } from '@/lib/utils';
+import { copyToClipboard } from '@/lib/clipboard';
 import type { UsePdfViewerResult } from '@/hooks/use-pdf-viewer';
 
 interface ToolbarProps {
@@ -65,9 +66,10 @@ export function Toolbar({
 
   const handleShare = () => {
     if (typeof window !== 'undefined') {
-      navigator.clipboard.writeText(window.location.href);
+      copyToClipboard(window.location.href, 'تم نسخ رابط الصفحة بنجاح');
     }
   };
+
 
   return (
     <div className="border-b border-border bg-background/95 backdrop-blur-sm shrink-0">

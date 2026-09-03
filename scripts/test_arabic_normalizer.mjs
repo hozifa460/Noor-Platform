@@ -1,4 +1,16 @@
-import { normalizeArabic, tokenizeArabic, arabicSearchMatch, arabicSearchScore } from '../src/lib/arabic-normalizer.ts';
+import {
+  normalizeArabic,
+  tokenizeArabic,
+  arabicSearchMatch,
+  arabicSearchScore,
+  stripTashkeel,
+  stripHarakat,
+  TASHKEEL_REGEX,
+} from '../src/lib/arabic-normalizer.ts';
+import {
+  getMorphologicalVariants,
+  ISLAMIC_ROOT_VARIANTS,
+} from '../src/lib/arabic-dictionary.ts';
 
 async function runArabicNormalizerTests() {
   console.log('🕌 Starting Arabic Search & Normalizer Tests...\n');
@@ -61,6 +73,29 @@ async function runArabicNormalizerTests() {
   const s1 = arabicSearchScore('صحيح البخاري', 'صحيح البخاري');
   const s2 = arabicSearchScore('مختصر صحيح البخاري', 'صحيح البخاري');
   assert(s1 > s2, 'Exact match scores higher than partial substring');
+
+  // 7. Canonical Tashkeel Stripping Functions
+  console.log('\n--- Test Suite 7: Canonical Tashkeel & Harakat Stripping ---');
+  const withTashkeel = 'بِسْمِ اللَّـهِ الرَّحْمَـٰنِ الرَّحِيمِ';
+  const strippedT = stripTashkeel(withTashkeel);
+  assert(!TASHKEEL_REGEX.test(strippedT), 'TASHKEEL_REGEX leaves no diacritics');
+  const withTatweel = 'صَـــلَاةٌ';
+  const strippedH = stripHarakat(withTatweel);
+  assert(!strippedH.includes('ـ') && strippedH === 'صلاة', 'stripHarakat strips both tashkeel and tatweel');
+
+  // 8. Canonical Morphological Root Dictionary & Prefix Expansions
+  console.log('\n--- Test Suite 8: Canonical Morphological Variants & Compound Prefixes ---');
+  const prayerDirect = getMorphologicalVariants('صلاة');
+  assert(prayerDirect.length >= 10, `Direct root "صلاة" returns >= 10 variants (got: ${prayerDirect.length})`);
+  const prayerCompound = getMorphologicalVariants('بالصلاة');
+  assert(prayerCompound.length >= 10, `Compound prefix "بالصلاة" returns >= 10 variants (got: ${prayerCompound.length})`);
+  const fastingCompound = getMorphologicalVariants('والصوم');
+  assert(fastingCompound.length >= 8, `Compound prefix "والصوم" returns >= 8 variants (got: ${fastingCompound.length})`);
+  const unvocalizedNiyyah = getMorphologicalVariants('نيه');
+  assert(unvocalizedNiyyah.length >= 5, `Unvocalized "نيه" returns >= 5 variants (got: ${unvocalizedNiyyah.length})`);
+  const parents = getMorphologicalVariants('والدين');
+  assert(parents.includes('والد') && parents.includes('والدة'), 'Parents root preserves authentic derivations');
+  assert(ISLAMIC_ROOT_VARIANTS['صيام'] !== undefined, 'Canonical ISLAMIC_ROOT_VARIANTS has authentic roots');
 
   console.log(`\n========================================`);
   console.log(`Total: ${passed + failed} | Passed: ${passed} | Failed: ${failed}`);

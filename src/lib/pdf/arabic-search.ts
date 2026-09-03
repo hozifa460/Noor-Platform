@@ -11,35 +11,25 @@
  *   - Debounce search input
  */
 
+import {
+  stripTashkeel,
+  normalizeArabic as canonicalNormalizeArabic,
+} from '@/lib/arabic-normalizer';
+
 /**
- * Remove Arabic diacritics (tashkeel) from a string.
- * Diacritics: َ ُ ِ ّ ْ ٰ ٓ ٔ ٕ ٖ ٗ ٘ ٙ ٚ ٛ ٜ ٝ
+ * Remove Arabic diacritics (tashkeel) from a string using the canonical normalizer.
  */
 export function removeDiacritics(text: string): string {
-  // Arabic diacritics Unicode range: U+064B to U+065F, U+0670, U+06D6-U+06ED
-  return text.replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, '');
+  return stripTashkeel(text);
 }
 
 /**
- * Normalize Arabic text for search:
- *   - Remove diacritics
- *   - Normalize alef variants: أ إ آ → ا
- *   - Normalize ya: ى → ي
- *   - Normalize ta marbouta: ة → ه
- *   - Normalize alef maqsura: ى → ي (already done above)
- *   - Remove tatweel: ـ
- *   - Lowercase
+ * Normalize Arabic text for search using the canonical normalizer.
  */
 export function normalizeArabic(text: string): string {
-  return text
-    .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, '') // diacritics
-    .replace(/[\u0622\u0623\u0625]/g, '\u0627') // alef variants → ا
-    .replace(/\u0649/g, '\u064A') // alef maqsura → ya
-    .replace(/\u0629/g, '\u0647') // ta marbouta → ha
-    .replace(/\u0640/g, '') // tatweel
-    .toLowerCase()
-    .trim();
+  return canonicalNormalizeArabic(text);
 }
+
 
 /**
  * Check if a text contains a query (Arabic-aware, case-insensitive,
