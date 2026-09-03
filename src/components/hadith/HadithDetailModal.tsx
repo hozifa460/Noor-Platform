@@ -37,6 +37,7 @@ interface HadithDetailModalProps {
   sharh: HadeethEncSharhItem | null;
   loadingSharh: boolean;
   highlightQuery?: string;
+  initialTab?: 'matn' | 'isnad' | 'translations' | 'sharh' | 'hints';
   onClose: () => void;
   onPrev?: () => void;
   onNext?: () => void;
@@ -49,15 +50,19 @@ export function HadithDetailModal({
   sharh,
   loadingSharh,
   highlightQuery,
+  initialTab = 'matn',
   onClose,
   onPrev,
   onNext,
 }: HadithDetailModalProps) {
-  const [activeTab, setActiveTab] = useState<'sharh' | 'isnad' | 'translations' | 'hints'>('sharh');
+  const [activeTab, setActiveTab] = useState<'matn' | 'isnad' | 'translations' | 'sharh' | 'hints'>(
+    initialTab
+  );
+  const [showMatnSnippet, setShowMatnSnippet] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
-  const [fontSize, setFontSize] = useState<number>(17); // Default readable font size
+  const [fontSize, setFontSize] = useState<number>(18); // Default comfortable font size
 
   const gradeInfo = getHadithGrade(book.id, hadith.idInBook, sharh?.grade);
 
@@ -259,39 +264,19 @@ export function HadithDetailModal({
           </div>
         </div>
 
-        {/* 2. Compact Matn Quote Box */}
-        <div className="p-4 sm:p-5 bg-gradient-to-b from-primary/10 via-primary/5 to-transparent border-b border-border shrink-0 space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold text-primary flex items-center gap-1.5">
-              <Scroll className="size-3.5" />
-              نص الحديث الشريف
-            </span>
-            <Badge variant="outline" className="text-[10px] bg-card">
-              رقم الحديث: {hadith.idInBook}
-            </Badge>
-          </div>
-
-          <p
-            style={{ fontSize: `${fontSize + 2}px` }}
-            className="font-quran font-bold text-foreground leading-[2.4] select-text text-justify sm:text-center px-1 sm:px-4"
-          >
-            « <ArabicHighlight text={hadith.arabic.trim()} query={highlightQuery} /> »
-          </p>
-        </div>
-
-        {/* 3. Navigation Tabs */}
+        {/* Navigation Tabs */}
         <div className="flex items-center gap-1.5 px-4 pt-2 border-b border-border/70 overflow-x-auto scrollbar-none bg-muted/10 shrink-0">
           <button
-            onClick={() => setActiveTab('sharh')}
+            onClick={() => setActiveTab('matn')}
             className={cn(
               'flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all border-b-2 whitespace-nowrap cursor-pointer',
-              activeTab === 'sharh'
+              activeTab === 'matn'
                 ? 'border-primary text-primary bg-background shadow-sm'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             )}
           >
-            <BookOpen className="size-4" />
-            <span>الشرح والبيان</span>
+            <Scroll className="size-4" />
+            <span>متن الحديث الشريف</span>
           </button>
 
           <button
@@ -305,6 +290,19 @@ export function HadithDetailModal({
           >
             <GitFork className="size-4" />
             <span>شجرة السند والرواة</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('sharh')}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all border-b-2 whitespace-nowrap cursor-pointer',
+              activeTab === 'sharh'
+                ? 'border-primary text-primary bg-background shadow-sm'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <BookOpen className="size-4" />
+            <span>الشرح والبيان</span>
           </button>
 
           <button
@@ -334,8 +332,74 @@ export function HadithDetailModal({
           </button>
         </div>
 
-        {/* 4. Main Scrollable Content Area */}
+        {/* Main Scrollable Content Area - Takes 100% of the Height */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 space-y-6">
+          {/* Optional Collapsible Matn Peek Banner (for non-matn tabs) */}
+          {activeTab !== 'matn' && (
+            <div className="max-w-4xl mx-auto">
+              <button
+                onClick={() => setShowMatnSnippet(!showMatnSnippet)}
+                className="flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-primary transition-colors cursor-pointer bg-muted/40 hover:bg-muted/70 px-3.5 py-1.5 rounded-xl border border-border/60"
+              >
+                <Scroll className="size-3.5 text-primary" />
+                <span>{showMatnSnippet ? 'إخفاء مقتطف نص الحديث' : 'عرض مقتطف نص الحديث الشريف'}</span>
+              </button>
+
+              {showMatnSnippet && (
+                <div className="mt-2.5 p-4 sm:p-5 rounded-2xl bg-muted/25 border border-border/80 text-xs sm:text-sm font-quran leading-[2.3] text-foreground select-text text-justify shadow-2xs">
+                  « <ArabicHighlight text={hadith.arabic.trim()} query={highlightQuery} /> »
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tab 1: Dedicated Full Reading View for Matn */}
+          {activeTab === 'matn' && (
+            <div className="space-y-6 max-w-4xl mx-auto">
+              <div className="p-6 sm:p-10 rounded-3xl bg-card border border-border/80 shadow-xs space-y-6">
+                <div className="flex items-center justify-between border-b border-border/50 pb-3 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-primary flex items-center gap-1.5">
+                      <Scroll className="size-4" />
+                      النص النبوي الشريف
+                    </span>
+                    <Badge variant="outline" className="text-[11px] font-bold">
+                      حديث رقم {hadith.idInBook}
+                    </Badge>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        'text-xs font-bold',
+                        gradeInfo.grade === 'صحيح'
+                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                          : gradeInfo.grade === 'حسن'
+                          ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300'
+                          : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                      )}
+                    >
+                      {gradeInfo.grade}
+                    </Badge>
+                  </div>
+                </div>
+
+                <p
+                  style={{ fontSize: `${fontSize + 3}px` }}
+                  className="font-quran font-bold text-foreground leading-[2.6] select-text text-justify sm:text-center px-2 sm:px-6"
+                >
+                  « <ArabicHighlight text={hadith.arabic.trim()} query={highlightQuery} /> »
+                </p>
+
+                {chapter && (
+                  <div className="p-3.5 rounded-2xl bg-muted/30 border border-border/60 text-xs sm:text-sm text-muted-foreground text-center font-bold">
+                    باب: {chapter.arabic}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           {/* Tab 1: Comprehensive Sharh & Explanation */}
           {activeTab === 'sharh' && (
             <div className="space-y-6 max-w-4xl mx-auto">

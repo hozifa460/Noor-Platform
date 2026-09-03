@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BookOpen, Copy, Check, Globe, Volume2, VolumeX } from 'lucide-react';
+import { BookOpen, Copy, Check, Globe, Volume2, VolumeX, GitFork } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { HadithItem, HadithChapter } from '@/lib/hadith-engine';
@@ -16,7 +16,12 @@ interface HadithCardProps {
   highlightQuery?: string;
   isSemanticMatch?: boolean;
   semanticTopic?: string;
-  onOpenDetail: (hadith: HadithItem, book: HadithBookMeta, chapter?: HadithChapter) => void;
+  onOpenDetail: (
+    hadith: HadithItem,
+    book: HadithBookMeta,
+    chapter?: HadithChapter,
+    initialTab?: 'matn' | 'isnad' | 'translations' | 'sharh' | 'hints'
+  ) => void;
 }
 
 export function HadithCard({
@@ -128,6 +133,20 @@ export function HadithCard({
             title="استماع للحديث صوتياً"
           >
             {isSpeaking ? <VolumeX className="size-4 animate-pulse" /> : <Volume2 className="size-4" />}
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenDetail({ ...hadith, arabic: resolvedArabic }, book, chapter, 'isnad');
+            }}
+            className="h-8 px-2.5 rounded-xl text-[11px] font-bold gap-1.5 border-border/70 hover:border-primary/50 text-muted-foreground hover:text-primary shrink-0 cursor-pointer"
+            title="فتح شجرة السند وسلسلة الرواة"
+          >
+            <GitFork className="size-3.5 text-primary" />
+            <span>شجرة السند</span>
           </Button>
 
           {hadith.english?.text && (

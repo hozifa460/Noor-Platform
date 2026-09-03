@@ -105,6 +105,7 @@ export function HadithHubView() {
   const setSearchMode = useHadithStore((s) => s.setSearchMode);
   const openHadithDetail = useHadithStore((s) => s.openHadithDetail);
   const closeHadithDetail = useHadithStore((s) => s.closeHadithDetail);
+  const detailInitialTab = useHadithStore((s) => s.detailInitialTab);
   const loadBookData = useHadithStore((s) => s.loadBookData);
 
   const [bookDrawerOpen, setBookDrawerOpen] = useState(false);
@@ -852,12 +853,14 @@ export function HadithHubView() {
       {/* Comprehensive Hadith Detail Modal (Sharh, Hints, English) */}
       {selectedHadith && selectedHadithBook && (
         <HadithDetailModal
+          key={`${selectedHadith.idInBook}-${detailInitialTab}`}
           hadith={selectedHadith}
           book={selectedHadithBook}
           chapter={selectedHadithChapter}
           sharh={hadithSharh}
           loadingSharh={loadingSharh}
           highlightQuery={searchQuery}
+          initialTab={detailInitialTab || 'matn'}
           onClose={closeHadithDetail}
         />
       )}
