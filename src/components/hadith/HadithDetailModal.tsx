@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import type { HadithItem, HadithChapter, HadeethEncSharhItem } from '@/lib/hadith-engine';
 import type { HadithBookMeta } from '@/lib/hadith-data';
 import { getHadithGrade } from '@/lib/hadith-grade-engine';
+import { ArabicHighlight } from './ArabicHighlight';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -32,6 +33,7 @@ interface HadithDetailModalProps {
   chapter?: HadithChapter;
   sharh: HadeethEncSharhItem | null;
   loadingSharh: boolean;
+  highlightQuery?: string;
   onClose: () => void;
   onPrev?: () => void;
   onNext?: () => void;
@@ -43,6 +45,7 @@ export function HadithDetailModal({
   chapter,
   sharh,
   loadingSharh,
+  highlightQuery,
   onClose,
   onPrev,
   onNext,
@@ -63,6 +66,19 @@ export function HadithDetailModal({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
+
+  // Smoothly scroll to the highlighted search term if opened from search
+  useEffect(() => {
+    if (highlightQuery && highlightQuery.trim().length >= 2) {
+      const timer = setTimeout(() => {
+        const mark = document.querySelector('mark');
+        if (mark) {
+          mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightQuery, hadith.idInBook]);
 
   const handleCopy = () => {
     let text = `« ${hadith.arabic.replace(/\n+/g, ' ').trim()} »\n\n[رواه ${book.nameAr} - رقم: ${hadith.idInBook}${chapter ? ` - ${chapter.arabic}` : ''}]\nدرجة الحديث: ${gradeInfo.rawGrade || gradeInfo.grade}`;
@@ -256,7 +272,7 @@ export function HadithDetailModal({
             style={{ fontSize: `${fontSize + 2}px` }}
             className="font-quran font-bold text-foreground leading-[2.4] select-text text-justify sm:text-center px-1 sm:px-4"
           >
-            « {hadith.arabic.trim()} »
+            « <ArabicHighlight text={hadith.arabic.trim()} query={highlightQuery} /> »
           </p>
         </div>
 

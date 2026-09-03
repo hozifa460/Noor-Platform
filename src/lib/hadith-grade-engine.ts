@@ -143,3 +143,36 @@ export function getHadithGrade(
   gradeCache.set(cacheKey, result);
   return result;
 }
+
+/**
+ * Checks if a hadith is Muttafaqun Alayh (متفق عليه - narrated by Bukhari and Muslim)
+ * or explicitly marked as agreed upon in classical hadith sources.
+ */
+export function isMuttafaqunAlayh(
+  bookId: string,
+  _hadithNumber: number,
+  text?: string,
+  rawGrade?: string
+): boolean {
+  if (bookId === 'bukhari' || bookId === 'muslim') {
+    return true;
+  }
+  if (
+    rawGrade &&
+    (rawGrade.includes('متفق عليه') ||
+      rawGrade.includes('رواه البخاري ومسلم') ||
+      rawGrade.includes('أخرجه الشيخان'))
+  ) {
+    return true;
+  }
+  if (
+    text &&
+    (text.includes('متفق عليه') ||
+      text.includes('رواه البخاري ومسلم') ||
+      text.includes('أخرجه البخاري ومسلم'))
+  ) {
+    return true;
+  }
+  return false;
+}
+

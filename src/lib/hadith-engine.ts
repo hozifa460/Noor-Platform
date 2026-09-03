@@ -1,5 +1,5 @@
 import { normalizeArabic, tokenizeArabic, matchSingleTokenFast } from './arabic-normalizer';
-import { expandSemanticTerms } from './hadith-semantic';
+import { expandSemanticTerms, resolveSemanticConcept } from './hadith-semantic';
 import { HADITH_BOOKS_LIST } from './hadith-data';
 import { getCachedHadithBook, setCachedHadithBook } from './hadith-storage';
 import { BUILTIN_SEED_SHARH } from './seed-hadith-sharh';
@@ -721,7 +721,15 @@ export async function searchAcrossAllBooks(
   const queryTokens = rawTokens.map((t) => normalizeArabic(t)).filter((t) => t.length >= 2);
   if (queryTokens.length === 0) return [];
 
-  const matchedEntries: { entry: MicroIndexEntry; score: number }[] = [];
+  // Semantic Concept Detection for thematic meaning search
+  const semanticConcept = resolveSemanticConcept(trimmed);
+
+  const matchedEntries: {
+    entry: MicroIndexEntry;
+    score: number;
+    isSemantic?: boolean;
+    semanticTopic?: string;
+  }[] = [];
 
   for (let i = 0; i < micro.length; i++) {
     const entry = micro[i];
@@ -747,8 +755,18 @@ export async function searchAcrossAllBooks(
       allTokensMatch = matchSingleTokenFast(textNorm, queryTokens[0]);
     }
 
-    // STRICT RELEVANCE: Reject any hadith that does not actually contain the user's query
-    if (!isDirectMatch && !allTokensMatch) {
+    // 3. Semantic Concept Match (meaning comprehension without literal match)
+    let isSemanticMatch = false;
+    if (!isDirectMatch && !allTokensMatch && semanticConcept) {
+      for (let p = 0; p < semanticConcept.corePhrases.length; p++) {
+        if (textNorm.includes(semanticConcept.corePhrases[p])) {
+          isSemanticMatch = true;
+          break;
+        }
+      }
+    }
+
+    if (!isDirectMatch && !allTokensMatch && !isSemanticMatch) {
       continue;
     }
 
@@ -758,6 +776,8 @@ export async function searchAcrossAllBooks(
       if (textNorm.startsWith(normQuery)) score += 100;
     } else if (allTokensMatch) {
       score += 250;
+    } else if (isSemanticMatch) {
+      score += 150; // Follows literal matches
     }
 
     // Proximity / Bigram boost for multi-word queries
@@ -778,17 +798,23 @@ export async function searchAcrossAllBooks(
     else if (entry.b === 'abudawud' || entry.b === 'tirmidhi') score += 25;
     else if (entry.b === 'nasai' || entry.b === 'ibnmajah') score += 20;
 
-    matchedEntries.push({ entry, score });
+    matchedEntries.push({
+      entry,
+      score,
+      isSemantic: isSemanticMatch,
+      semanticTopic: isSemanticMatch ? semanticConcept?.topic : undefined,
+    });
   }
 
-  // Sort by score descending (Sahihayn and exact matches at the very top)
+  // Sort by score descending (Sahihayn and exact matches at the very top, followed by semantic matches)
   matchedEntries.sort((a, b) => b.score - a.score);
 
   const results: GlobalSearchResultItem[] = [];
   const limit = Math.min(matchedEntries.length, maxResults);
 
   for (let i = 0; i < limit; i++) {
-    const { entry } = matchedEntries[i];
+    const item = matchedEntries[i];
+    const { entry } = item;
     const meta = HADITH_BOOKS_LIST.find((b) => b.id === entry.b);
     if (!meta) continue;
 
@@ -801,6 +827,8 @@ export async function searchAcrossAllBooks(
         arabic: entry.t,
       },
       book: meta,
+      isSemanticMatch: item.isSemantic,
+      semanticTopic: item.semanticTopic,
     });
   }
 

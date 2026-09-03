@@ -15,10 +15,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { HADITH_BOOKS_LIST } from '@/lib/hadith-data';
 import { searchHadithsInBook } from '@/lib/hadith-engine';
-import { getHadithGrade } from '@/lib/hadith-grade-engine';
+import { getHadithGrade, isMuttafaqunAlayh } from '@/lib/hadith-grade-engine';
 import { useHadithStore } from '@/stores/hadith-store';
 import { HadithCard } from './HadithCard';
 import { HadithDetailModal } from './HadithDetailModal';
+import { HadithGradesGuideModal } from './HadithGradesGuideModal';
 import { FakeHadithChecker } from './FakeHadithChecker';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -33,7 +34,7 @@ const BOOK_CATEGORIES = [
 ];
 
 interface GradeFilterOption {
-  id: 'all' | 'sahih' | 'hasan' | 'daif';
+  id: 'all' | 'muttafaqun' | 'sahih' | 'hasan' | 'daif' | 'mawdu';
   name: string;
   dotColor?: string;
   activeClass?: string;
@@ -41,9 +42,41 @@ interface GradeFilterOption {
 
 const GRADE_FILTERS: GradeFilterOption[] = [
   { id: 'all', name: 'جميع الدرجات' },
-  { id: 'sahih', name: 'صحيح فقط', dotColor: 'bg-emerald-500', activeClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40' },
-  { id: 'hasan', name: 'حسن', dotColor: 'bg-sky-500', activeClass: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/40' },
-  { id: 'daif', name: 'ضعيف', dotColor: 'bg-amber-500', activeClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40' },
+  {
+    id: 'muttafaqun',
+    name: 'متفق عليه 🌟',
+    dotColor: 'bg-emerald-600',
+    activeClass:
+      'bg-emerald-600/15 text-emerald-800 dark:text-emerald-200 border-emerald-600/50 font-extrabold shadow-xs',
+  },
+  {
+    id: 'sahih',
+    name: 'صحيح',
+    dotColor: 'bg-emerald-500',
+    activeClass:
+      'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40',
+  },
+  {
+    id: 'hasan',
+    name: 'حسن',
+    dotColor: 'bg-sky-500',
+    activeClass:
+      'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/40',
+  },
+  {
+    id: 'daif',
+    name: 'ضعيف',
+    dotColor: 'bg-amber-500',
+    activeClass:
+      'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40',
+  },
+  {
+    id: 'mawdu',
+    name: 'موضوع ⚠️',
+    dotColor: 'bg-rose-500',
+    activeClass:
+      'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/40',
+  },
 ];
 
 export function HadithHubView() {
@@ -78,6 +111,7 @@ export function HadithHubView() {
   const [chapterDrawerOpen, setChapterDrawerOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(30);
   const [hubTab, setHubTab] = useState<'books' | 'checker'>('books');
+  const [gradesGuideOpen, setGradesGuideOpen] = useState(false);
 
   // Local responsive search input to guarantee 60fps typing without debounce lag
   const [localInput, setLocalInput] = useState(searchQuery);
@@ -130,9 +164,13 @@ export function HadithHubView() {
     if (gradeFilter === 'all') return base;
     return base.filter((h) => {
       const g = getHadithGrade(activeBook.id, h.idInBook).grade;
+      if (gradeFilter === 'muttafaqun') {
+        return isMuttafaqunAlayh(activeBook.id, h.idInBook, h.arabic);
+      }
       if (gradeFilter === 'sahih') return g === 'صحيح';
       if (gradeFilter === 'hasan') return g === 'حسن';
-      if (gradeFilter === 'daif') return g === 'ضعيف' || g === 'موضوع';
+      if (gradeFilter === 'daif') return g === 'ضعيف';
+      if (gradeFilter === 'mawdu') return g === 'موضوع';
       return true;
     });
   }, [bookData, searchQuery, selectedChapterId, searchMode, gradeFilter, activeBook.id]);
@@ -151,9 +189,17 @@ export function HadithHubView() {
       // 2. Grade Authenticity Filter
       if (gradeFilter !== 'all') {
         const g = getHadithGrade(res.book.id, res.hadith.idInBook).grade;
-        if (gradeFilter === 'sahih' && g !== 'صحيح') return false;
-        if (gradeFilter === 'hasan' && g !== 'حسن') return false;
-        if (gradeFilter === 'daif' && g !== 'ضعيف' && g !== 'موضوع') return false;
+        if (gradeFilter === 'muttafaqun') {
+          if (!isMuttafaqunAlayh(res.book.id, res.hadith.idInBook, res.hadith.arabic)) return false;
+        } else if (gradeFilter === 'sahih') {
+          if (g !== 'صحيح') return false;
+        } else if (gradeFilter === 'hasan') {
+          if (g !== 'حسن') return false;
+        } else if (gradeFilter === 'daif') {
+          if (g !== 'ضعيف') return false;
+        } else if (gradeFilter === 'mawdu') {
+          if (g !== 'موضوع') return false;
+        }
       }
       return true;
     });
@@ -443,6 +489,16 @@ export function HadithHubView() {
                 </button>
               );
             })}
+
+            {/* Educational Guide Button */}
+            <button
+              onClick={() => setGradesGuideOpen(true)}
+              className="mr-auto text-xs font-bold text-primary hover:text-primary/80 flex items-center gap-1.5 px-3 py-1 rounded-xl bg-primary/10 hover:bg-primary/15 transition-all shrink-0 border border-primary/20 shadow-2xs cursor-pointer"
+              title="دليل مراتب ورتب الحديث عند أهل العلم"
+            >
+              <BookOpen className="size-3.5" />
+              <span>دليل رتب الحديث</span>
+            </button>
           </div>
         </div>
 
@@ -498,6 +554,8 @@ export function HadithHubView() {
                     book={res.book}
                     chapter={res.chapter}
                     highlightQuery={searchQuery}
+                    isSemanticMatch={res.isSemanticMatch}
+                    semanticTopic={res.semanticTopic}
                     onOpenDetail={openHadithDetail}
                   />
                 ))}
@@ -799,9 +857,16 @@ export function HadithHubView() {
           chapter={selectedHadithChapter}
           sharh={hadithSharh}
           loadingSharh={loadingSharh}
+          highlightQuery={searchQuery}
           onClose={closeHadithDetail}
         />
       )}
+
+      {/* Educational Hadith Grades Guide Modal */}
+      <HadithGradesGuideModal
+        isOpen={gradesGuideOpen}
+        onClose={() => setGradesGuideOpen(false)}
+      />
     </div>
   );
 }
