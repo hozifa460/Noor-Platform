@@ -33,8 +33,8 @@ The platform follows an inverted dependency model where high-level policy does n
                                     │
 ┌───────────────────────────────────▼────────────────────────────────────┐
 │                        4. Domain Engine Layer                          │
-│   Pure Domain Logics (`src/lib/`): `arabic-normalizer.ts`,             │
-│   `book-text-engine.ts`, `hadith-engine.ts`, `quran-audio-engine.ts`   │
+│   Pure Domain Logics (`src/lib/`): `arabic/`, `hadith/`,               │
+│   `book-text/`, `quran/`, `fatwa/`, `adhkar/`, `radio/`, `shared/`     │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
 ┌───────────────────────────────────▼────────────────────────────────────┐
@@ -83,12 +83,20 @@ src/
 │   ├── player.store.ts   # Audio/video playback state, queue, speed, HLS
 │   └── quran.store.ts    # Active Surah, Ayah, reciter, Tafsir selection
 │
-├── lib/                  # Pure Business Logic, Algorithms & Data Engines
-│   ├── arabic-normalizer.ts # Morphological root match, Alef/Yaa normalization, Tashkeel removal
-│   ├── book-text-engine.ts  # Chunk loading, search index, IndexedDB offline cache
-│   ├── hadith-engine.ts     # Cross-book search, HadeethEnc sharh loader, grade map
-│   ├── quran-audio-engine.ts# MP3Quran reciters registry, verse timestamp sync
-│   └── types.ts             # Core domain TypeScript definitions
+├── lib/                  # Pure Business Logic, Algorithms & Domain Engines
+│   ├── adhkar/           # Adhkar & Hisn al-Muslim engine
+│   ├── arabic/           # Morphological root match, Alef/Yaa normalization, Tashkeel removal
+│   ├── book-text/        # Chunk loading, search index, IndexedDB offline cache
+│   ├── books/            # Classical titles, intent engine, store loader
+│   ├── fatwa/            # Fatwa inverted index, scholar filter, answers streaming
+│   ├── hadith/           # Cross-book search, HadeethEnc sharh loader, grade map
+│   ├── pdf/              # Client-side PDF rendering, caching, and annotations
+│   ├── quran/            # Surah metadata, reciters directory, tafsir databases
+│   ├── radio/            # Islamic radio visual and artwork engine
+│   ├── shared/           # Cross-domain utilities, security, rate limiting, observability
+│   ├── sheikh/           # Sheikh profile builder and metadata
+│   ├── types.ts          # Core domain TypeScript definitions
+│   └── utils.ts          # Tailwind / UI utility helper
 │
 └── public/data/          # Static verified catalogs & indexed data shards
     ├── ebooks/           # Shamela 4 catalog (8,589 verified classical titles)
@@ -203,7 +211,7 @@ src/
 2. **Audio Sync Verification**: Run `node scripts/test_quran_hub_integration.mjs`.
 
 ### 6.3 Adding a New Fatwa Category or Dataset
-1. **Category Definition**: Update `src/lib/fatwa-index-engine.ts` in `FATWA_CATEGORIES`.
+1. **Category Definition**: Update `src/lib/fatwa/index-data.ts` in `FATWA_CATEGORIES`.
 2. **Shard Processing**: Add the tokenized keyword inverted index shard to `public/data/fatwa/shards/`.
 3. **Verification**: Run `node scripts/test_fatwa_inverted_index.mjs`.
 
@@ -238,7 +246,7 @@ npm run build
 | :--- | :--- | :--- |
 | **CORS audio playback failure** | Direct stream URL blocked by remote CDN headers | Route stream through `/api/proxy-stream?url=...` |
 | **PDF canvas rendering glitch** | Simultaneous canvas reuse during rapid scrolling | Ensure `_activeRenderTask.cancel()` is called before re-rendering (handled in `PageRenderer.tsx`) |
-| **Arabic text search misses terms** | Missing normalization (Hamza forms, Ta Marbuta, Tashkeel) | Always process search queries and target texts with `normalizeArabic()` from `src/lib/arabic-normalizer.ts` |
+| **Arabic text search misses terms** | Missing normalization (Hamza forms, Ta Marbuta, Tashkeel) | Always process search queries and target texts with `normalizeArabic()` from `src/lib/arabic/normalizer.ts` |
 | **IndexedDB QuotaExceededError** | User device storage exhausted by cached books | Catch `DOMException` and evict least recently used entries using LRU timestamp eviction |
 | **HLS Stream stall on live stations** | Dropped fragments on low-bandwidth connections | HLS player auto-switches to audio-only lower bitrate rendition via `hls.js` event recovery |
 

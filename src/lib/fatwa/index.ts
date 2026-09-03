@@ -5,3 +5,4 @@ export * from './browse';
 export * from './worker-client';
 export * from './scholar-filter';
 export * from './seed-fatwas';
+export { microShardEngine } from '../shared/micro-shard-engine';

@@ -10,7 +10,7 @@ import {
   getBookHighlights,
   saveBookHighlight,
   type EBookMetaResponse,
-} from '@/lib/book-text-engine';
+} from '@/lib/book-text';
 import type {
   BookChapterChunk,
   BookHighlight,

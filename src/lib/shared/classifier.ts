@@ -1,4 +1,4 @@
-import type { SectionKind } from './types';
+import type { SectionKind } from '../types';
 
 /**
  * Classifies a JSON file path into a section kind based on the rules:

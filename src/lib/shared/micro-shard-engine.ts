@@ -1,11 +1,11 @@
 'use client';
 
-import { normalizeArabic } from '@/lib/arabic-normalizer';
-import { scoreArabicSearch, extractConceptGroups } from '@/lib/arabic-search-engine';
-import { FATWA_CATEGORIES, type FatwaIndexItem } from '@/lib/fatwa-index';
-import { scholarFilterQuery } from '@/lib/scholar-filter';
-import { dataUrl, shardUrl } from '@/lib/data-base';
-import { BUILTIN_SEED_FATWAS } from '@/lib/seed-fatwas';
+import { normalizeArabic } from '@/lib/arabic/normalizer';
+import { scoreArabicSearch, extractConceptGroups } from '@/lib/arabic/search-engine';
+import { FATWA_CATEGORIES, type FatwaIndexItem } from '@/lib/fatwa/index-data';
+import { scholarFilterQuery } from '@/lib/fatwa/scholar-filter';
+import { dataUrl, shardUrl } from '@/lib/shared/data-base';
+import { BUILTIN_SEED_FATWAS } from '@/lib/fatwa/seed-fatwas';
 
 interface CompactMicroItem {
   id: string;

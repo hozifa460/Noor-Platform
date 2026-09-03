@@ -23,7 +23,7 @@ async function testRadioHubSimulation() {
   const radioPath = path.join(process.cwd(), 'public', 'radio', 'islamic_radios.json');
   const catalog = JSON.parse(fs.readFileSync(radioPath, 'utf-8'));
 
-  const { normalizeContentFile } = await import('../src/lib/sheikh.ts');
+  const { normalizeContentFile } = await import('../src/lib/sheikh/sheikh.ts');
   const { items: allRadioItems } = normalizeContentFile(
     catalog,
     'islamic_radios/radio.json',

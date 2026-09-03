@@ -4,7 +4,7 @@ import type {
   TableOfContentsItem,
   BookChapterChunk,
   SectionParagraph,
-} from "../book-types";
+} from "../books/types";
 
 export interface EBookMetaResponse {
   meta: EBookMetadata;
@@ -255,7 +255,7 @@ export async function loadOpenItiDynamicEBook(
       author,
       authorDeath: bookItem?.date ? `ت ${toArabicDigits(bookItem.date)} هـ` : undefined,
       category: 'history',
-      islamicArt: (bookItem?.islamicArt as import('../book-types').IslamicArtCategory) || 'general',
+      islamicArt: (bookItem?.islamicArt as import('../books/types').IslamicArtCategory) || 'general',
       century: bookItem?.century || 3,
       description: bookItem?.description || 'كتاب تراثي إسلامي معتمد من مكتبة OpenITI الرقمية',
       totalVolumes: currentVol || 1,

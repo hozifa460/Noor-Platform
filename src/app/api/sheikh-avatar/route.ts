@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSheikhMeta } from '@/lib/sheikh/meta';
 import { enforceRateLimitAsync } from '@/lib/shared/rate-limiter';
-import { createStructuredLogger, generateRequestId } from '@/lib/observability';
+import { createStructuredLogger, generateRequestId } from '@/lib/shared/observability';
 
 export const runtime = 'nodejs';
 

@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import type { MediaItem } from '@/lib/types';
 import { type FatwaIndexItem } from '@/lib/fatwa/index-data';
-import { microShardEngine } from '@/lib/micro-shard-engine';
+import { microShardEngine } from '@/lib/shared/micro-shard-engine';
 import { normalizeArabic } from '@/lib/arabic/normalizer';
 import { scholarFilterQuery } from '@/lib/fatwa/scholar-filter';
 import {

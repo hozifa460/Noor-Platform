@@ -413,7 +413,7 @@ export function createStructuredLogger(endpointName: string) {
   };
 }
 `;
-  fs.writeFileSync(path.join(root, 'src', 'lib', 'observability.ts'), observabilityTs.trim() + '\n');
+  fs.writeFileSync(path.join(root, 'src', 'lib', 'shared', 'observability.ts'), observabilityTs.trim() + '\n');
 
   const loadTestScript = `/**
  * Noor Platform — Production Concurrency & Load Testing Suite

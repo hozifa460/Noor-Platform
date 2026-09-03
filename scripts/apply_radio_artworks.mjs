@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { getRadioArtwork } from '../src/lib/radio-visual-engine.ts';
+import { getRadioArtwork } from '../src/lib/radio/visual-engine.ts';
 
 const radioJsonPath = path.join(process.cwd(), 'public', 'radio', 'islamic_radios.json');
 const catalog = JSON.parse(fs.readFileSync(radioJsonPath, 'utf-8'));

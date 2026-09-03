@@ -1,5 +1,5 @@
-import { getBlob, putBlob } from '../offline-db';
-import type { ReadingProgress, BookHighlight } from '../book-types';
+import { getBlob, putBlob } from '../shared/offline-db';
+import type { ReadingProgress, BookHighlight } from '../books/types';
 import {
   loadEBookMeta,
   loadChapterChunk,

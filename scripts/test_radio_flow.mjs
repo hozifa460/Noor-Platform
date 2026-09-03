@@ -40,7 +40,7 @@ async function testRadioFlow() {
 
   // Test Normalization Flow via sheikh.ts normalizeContentFile
   console.log('\n--- Testing Normalization Flow ---');
-  const { normalizeContentFile } = await import('../src/lib/sheikh.ts');
+  const { normalizeContentFile } = await import('../src/lib/sheikh/sheikh.ts');
   const { items: normalizedItems } = normalizeContentFile(
     catalog,
     'islamic_radios/radio.json',

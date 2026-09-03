@@ -1,5 +1,5 @@
 import type { MediaItem, SectionKind, Sheikh } from '../types';
-import { classifyFile, extractSheikhId, isMainCollectionFile, prettifySheikhName } from '../classifier';
+import { classifyFile, extractSheikhId, isMainCollectionFile, prettifySheikhName } from '../shared/classifier';
 
 /**
  * Hashes a string into a stable hex id (used for MediaItem.id).

@@ -34,15 +34,14 @@ async function testAll() {
   assert(quranCode.includes('ALL_SURAHS'), 'All 114 Surahs metadata registered');
 
   // 3. Check seed-fatwas.ts and micro-shard-engine.ts
-  const seedFatwasPath = path.join(process.cwd(), 'src', 'lib', 'seed-fatwas.ts');
+  const seedFatwasPath = path.join(process.cwd(), 'src', 'lib', 'fatwa', 'seed-fatwas.ts');
   assert(fs.existsSync(seedFatwasPath), 'seed-fatwas.ts created with instant categorized fatwas');
-  const microShardPath = path.join(process.cwd(), 'src', 'lib', 'micro-shard-engine.ts');
+  const microShardPath = path.join(process.cwd(), 'src', 'lib', 'shared', 'micro-shard-engine.ts');
   const microCode = fs.readFileSync(microShardPath, 'utf-8');
   assert(microCode.includes('BUILTIN_SEED_FATWAS'), 'micro-shard-engine integrates BUILTIN_SEED_FATWAS');
 
-  // 4. book-text-engine.ts uses an in-memory cache (replaces the
-  //    deleted /api/shamela-text server route).
-  const bookEnginePath = path.join(process.cwd(), 'src', 'lib', 'book-text-engine.ts');
+  // 4. book-text-engine uses an in-memory cache in chapters.ts for 0ms slicing.
+  const bookEnginePath = path.join(process.cwd(), 'src', 'lib', 'book-text', 'chapters.ts');
   const bookEngineCode = fs.readFileSync(bookEnginePath, 'utf-8');
   assert(/Cache\s*=\s*new\s+Map/.test(bookEngineCode), 'book-text-engine uses an in-memory Map cache for 0ms slicing');
 

@@ -2,10 +2,10 @@
 
 import { create } from 'zustand';
 import type { MediaItem } from '@/lib/types';
-import { loadRepositories } from '@/lib/repositories';
-import { fetchJsonWithFallback } from '@/lib/fetcher';
-import { normalizeContentFile } from '@/lib/sheikh';
-import { fetchEBookCatalog } from '@/lib/book-text-engine';
+import { loadRepositories } from '@/lib/shared/repositories';
+import { fetchJsonWithFallback } from '@/lib/shared/fetcher';
+import { normalizeContentFile } from '@/lib/sheikh/sheikh';
+import { fetchEBookCatalog } from '@/lib/book-text';
 import { searchBooksWithIntent } from '@/lib/books/intent-engine';
 import {
   BOOK_CATEGORIES,

@@ -1,4 +1,4 @@
-import type { IndexFile, RepositorySource } from './types';
+import type { IndexFile, RepositorySource } from '../types';
 import { fileUrl, candidateIndexUrls } from './repositories';
 
 /**
