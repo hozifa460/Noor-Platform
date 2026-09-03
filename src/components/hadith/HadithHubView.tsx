@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { HADITH_BOOKS_LIST } from '@/lib/hadith-data';
+import { searchHadithsInBook } from '@/lib/hadith-engine';
 import { useHadithStore } from '@/stores/hadith-store';
 import { HadithCard } from './HadithCard';
 import { HadithDetailModal } from './HadithDetailModal';
@@ -55,7 +56,6 @@ export function HadithHubView() {
   const openHadithDetail = useHadithStore((s) => s.openHadithDetail);
   const closeHadithDetail = useHadithStore((s) => s.closeHadithDetail);
   const loadBookData = useHadithStore((s) => s.loadBookData);
-  const getFilteredHadiths = useHadithStore((s) => s.getFilteredHadiths);
 
   const [bookDrawerOpen, setBookDrawerOpen] = useState(false);
   const [chapterDrawerOpen, setChapterDrawerOpen] = useState(false);
@@ -103,7 +103,14 @@ export function HadithHubView() {
     return HADITH_BOOKS_LIST.filter((b) => b.category === categoryFilter);
   }, [categoryFilter]);
 
-  const inBookHadiths = getFilteredHadiths();
+  const inBookHadiths = useMemo(() => {
+    if (searchMode === 'global' || !bookData || !bookData.hadiths) return [];
+    return searchHadithsInBook(
+      bookData.hadiths,
+      searchQuery,
+      selectedChapterId === 'all' ? undefined : selectedChapterId
+    );
+  }, [bookData, searchQuery, selectedChapterId, searchMode]);
   const currentChapter = useMemo(() => {
     if (!bookData || selectedChapterId === 'all') return undefined;
     return bookData.chapters.find((c) => c.id === selectedChapterId);

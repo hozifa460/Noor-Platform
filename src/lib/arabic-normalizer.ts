@@ -52,31 +52,20 @@ export function tokenizeArabic(query: string): string[] {
   return normalized.split(/\s+/).filter((t) => t.length > 0);
 }
 
+
 /**
- * Helper to match token with word boundary for short (<= 2 char) tokens
+ * Zero-allocation fast token match on pre-normalized target and token
  */
-function matchSingleToken(normalizedTarget: string, tok: string): boolean {
-  if (!normalizedTarget || !tok) return false;
+export function matchSingleTokenFast(normalizedTarget: string, tok: string): boolean {
+  if (!tok || !normalizedTarget) return false;
 
-  // For 2-letter tokens (like بر, حق, دم, يد, اب, ام, اخ), prevent substring false positives in اخبرنا / ابراهيم
-  if (tok.length <= 2) {
-    const words = normalizedTarget.split(/\s+/);
-    const prefixes = ['ال', 'و', 'ف', 'ب', 'ل', 'كال', 'بال', 'فال', 'وال', 'لل', 'وبال', 'فبال'];
-    for (const w of words) {
-      if (w === tok) return true;
-      for (const p of prefixes) {
-        if (w === p + tok) return true;
-      }
-    }
-    return false;
-  }
-
-  // 1. Direct substring match
+  // 1. Direct contains (fastest)
   if (normalizedTarget.includes(tok)) return true;
 
-  // 2. Multi-prefix stripping (وبال, فبال, كال, بال, فال, وال, لل, ال, و, ف, ب, ك, ل)
+  // 2. Prefixes on the token (query has prefix, target might not)
   const prefixes = ['وبال', 'فبال', 'كال', 'بال', 'فال', 'وال', 'لل', 'ال', 'و', 'ف', 'ب', 'ك', 'ل'];
-  for (const p of prefixes) {
+  for (let i = 0; i < prefixes.length; i++) {
+    const p = prefixes[i];
     if (tok.startsWith(p) && tok.length > p.length + 2) {
       const withoutP = tok.slice(p.length);
       if (normalizedTarget.includes(withoutP)) return true;
@@ -97,20 +86,24 @@ function matchSingleToken(normalizedTarget: string, tok: string): boolean {
   if (tok === 'ابن' && (normalizedTarget.includes('بن') || normalizedTarget.includes('ابن'))) return true;
   if (tok === 'بن' && (normalizedTarget.includes('ابن') || normalizedTarget.includes('بن'))) return true;
 
-  // 6. Root/Stem matching for common forms (والدين / الوالدين / وبالوالدين -> والد / والده / والديه / والداه / والديك)
-  const baseTok = tok.replace(/^(?:وبال|فبال|كال|بال|فال|وال|لل|ال|و|ف|ب|ك|ل)/, '');
-  if (baseTok.startsWith('والد') && normalizedTarget.includes('والد')) return true;
+  // 6. Root/Stem matching for common forms
+  if (tok.includes('والد') && normalizedTarget.includes('والد')) return true;
 
   return false;
 }
 
 /**
  * Checks if a target text matches an Arabic search query.
+ * When targetAlreadyNormalized is true, skips expensive normalizeArabic(target).
  */
-export function arabicSearchMatch(target: string | null | undefined, query: string): boolean {
+export function arabicSearchMatch(
+  target: string | null | undefined,
+  query: string,
+  targetAlreadyNormalized = false
+): boolean {
   if (!target || !query) return false;
 
-  const normalizedTarget = normalizeArabic(target);
+  const normalizedTarget = targetAlreadyNormalized ? target : normalizeArabic(target);
   const queryTokens = tokenizeArabic(query);
 
   if (queryTokens.length === 0) return false;
@@ -118,16 +111,18 @@ export function arabicSearchMatch(target: string | null | undefined, query: stri
   // For compact snippets (length <= 60) with long multi-word queries (>= 3 words)
   if (normalizedTarget.length <= 60 && queryTokens.length >= 3) {
     let matchedCount = 0;
-    for (const tok of queryTokens) {
-      if (matchSingleToken(normalizedTarget, tok)) matchedCount++;
+    for (let i = 0; i < queryTokens.length; i++) {
+      if (matchSingleTokenFast(normalizedTarget, queryTokens[i])) matchedCount++;
     }
-    // If at least 2 tokens or half the query matches the snippet
     if (matchedCount >= 2 || matchedCount >= Math.ceil(queryTokens.length / 2)) {
       return true;
     }
   }
 
-  return queryTokens.every((tok) => matchSingleToken(normalizedTarget, tok));
+  for (let i = 0; i < queryTokens.length; i++) {
+    if (!matchSingleTokenFast(normalizedTarget, queryTokens[i])) return false;
+  }
+  return true;
 }
 
 /**
