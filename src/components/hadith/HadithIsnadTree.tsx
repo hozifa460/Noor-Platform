@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { parseHadithIsnad, type IsnadNode } from '@/lib/hadith-isnad-engine';
+import { findNarratorBio, type NarratorProfile } from '@/lib/hadith-narrator-engine';
+import { NarratorBioModal } from './NarratorBioModal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -16,6 +18,10 @@ import {
   Network,
   ListTree,
   GitBranch,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  Info,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -36,7 +42,8 @@ export function HadithIsnadTree({
 }: HadithIsnadTreeProps) {
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<'tree' | 'stepper'>('tree');
-  const [selectedNode, setSelectedNode] = useState<number | null>(null);
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [selectedBio, setSelectedBio] = useState<NarratorProfile | null>(null);
 
   const isnadData = React.useMemo(() => {
     return parseHadithIsnad(arabic, bookAuthor);
@@ -49,6 +56,11 @@ export function HadithIsnadTree({
     setCopied(true);
     toast.success('تم نسخ نص السند وسلسلة الرواة بنجاح');
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleOpenBio = (narratorName: string) => {
+    const profile = findNarratorBio(narratorName, bookAuthor);
+    setSelectedBio(profile);
   };
 
   if (!isnadData.hasSanad || isnadData.nodes.length <= 2) {
@@ -70,8 +82,8 @@ export function HadithIsnadTree({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Top Header Card with View Mode Switcher */}
+    <div className="space-y-5">
+      {/* Top Header Card with View Mode Switcher & Zoom Controls */}
       <div className="p-4 sm:p-5 rounded-3xl bg-card border border-border/80 shadow-xs flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
@@ -102,12 +114,45 @@ export function HadithIsnadTree({
             )}
           </div>
           <p className="text-xs text-muted-foreground">
-            سلسلة النقل المتصلة من {bookAuthor} صعوداً إلى سيدنا رسول الله ﷺ عبر {isnadData.narratorCount} من الرواة.
+            اضغط على أي راوٍ في الشجرة لاستعراض نسبه وحكم الجرح والتعديل وأقوال الأئمة فيه.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* View Mode Toggle: Tree Diagram vs Stepper */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Zoom Controls for Tree Mode */}
+          {viewMode === 'tree' && (
+            <div className="flex items-center p-1 bg-muted/40 rounded-2xl border border-border/70 gap-0.5">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setZoomLevel((z) => Math.min(1.4, z + 0.1))}
+                className="size-7 rounded-xl"
+                title="تكبير الشجرة"
+              >
+                <ZoomIn className="size-3.5" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setZoomLevel((z) => Math.max(0.7, z - 0.1))}
+                className="size-7 rounded-xl"
+                title="تصغير الشجرة"
+              >
+                <ZoomOut className="size-3.5" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setZoomLevel(1)}
+                className="size-7 rounded-xl"
+                title="إعادة ضبط الحجم"
+              >
+                <RotateCcw className="size-3.5" />
+              </Button>
+            </div>
+          )}
+
+          {/* View Mode Toggle */}
           <div className="flex items-center p-1 bg-muted/40 rounded-2xl border border-border/70">
             <button
               onClick={() => setViewMode('tree')}
@@ -117,10 +162,10 @@ export function HadithIsnadTree({
                   ? 'bg-background text-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground'
               )}
-              title="عرض الشجرة البصرية التفاعلية"
+              title="عرض الشجرة التفاعلية"
             >
               <GitBranch className="size-3.5 text-primary" />
-              <span>الشجرة البصرية</span>
+              <span>شجرة الرواة</span>
             </button>
             <button
               onClick={() => setViewMode('stepper')}
@@ -149,31 +194,38 @@ export function HadithIsnadTree({
         </div>
       </div>
 
-      {/* VIEW 1: TRUE VISUAL TREE CANVAS (الشجرة البصرية الحقيقية) */}
+      {/* VIEW 1: TRUE VISUAL TREE CANVAS (شجرة الرواة البصرية الحقيقية) */}
       {viewMode === 'tree' && (
-        <div className="relative p-6 sm:p-10 rounded-3xl bg-gradient-to-b from-card/90 to-muted/20 border border-border/80 shadow-xs overflow-hidden">
-          {/* Decorative Islamic geometric background watermark */}
-          <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:16px_16px]" />
+        <div className="relative p-6 sm:p-10 rounded-3xl bg-gradient-to-b from-card/95 via-muted/20 to-card/90 border border-border/80 shadow-xs overflow-x-auto overflow-y-hidden">
+          {/* Subtle Islamic Geometric Watermark */}
+          <div className="absolute inset-0 opacity-[0.025] pointer-events-none bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:20px_20px]" />
 
-          <div className="relative max-w-3xl mx-auto space-y-3">
+          {/* Interactive Zoom Scaler Container */}
+          <div
+            style={{
+              transform: `scale(${zoomLevel})`,
+              transformOrigin: 'top center',
+              transition: 'transform 0.2s ease-out',
+            }}
+            className="relative max-w-3xl mx-auto py-4"
+          >
             {/* SVG Connecting Tree Trunk & Branches */}
-            <div className="space-y-6 sm:space-y-8 relative">
-              {/* Continuous vertical trunk */}
-              <div className="absolute left-1/2 -translate-x-1/2 top-8 bottom-8 w-1 bg-gradient-to-b from-primary/30 via-emerald-500/40 to-amber-500/50 rounded-full hidden sm:block" />
+            <div className="space-y-8 relative">
+              {/* Continuous central spine connecting the nodes */}
+              <div className="absolute left-1/2 -translate-x-1/2 top-10 bottom-10 w-1 bg-gradient-to-b from-primary/40 via-emerald-500/50 to-amber-500/60 rounded-full hidden sm:block pointer-events-none" />
 
               {isnadData.nodes.map((node: IsnadNode, idx: number) => {
                 const isFirst = idx === 0;
                 const isLast = idx === isnadData.nodes.length - 1;
                 const isSahabi = node.role === 'الصحابي الجليل';
                 const isEven = idx % 2 === 0;
-                const isSelected = selectedNode === node.order;
 
                 return (
                   <div
                     key={`${node.order}-${node.name}`}
-                    onClick={() => setSelectedNode(isSelected ? null : node.order)}
+                    onClick={() => handleOpenBio(node.name)}
                     className={cn(
-                      'relative flex flex-col sm:flex-row items-center gap-3 transition-all cursor-pointer group',
+                      'relative flex flex-col sm:flex-row items-center gap-4 transition-all cursor-pointer group',
                       isLast || isFirst
                         ? 'sm:justify-center'
                         : isEven
@@ -181,35 +233,33 @@ export function HadithIsnadTree({
                         : 'sm:flex-row sm:text-right'
                     )}
                   >
-                    {/* Node Tree Fruit / Seal */}
+                    {/* Node Medallion (ختم الراوي / عقدة الشجرة) */}
                     <div
                       className={cn(
-                        'relative z-20 size-14 sm:size-16 rounded-3xl grid place-items-center shrink-0 font-extrabold shadow-md transition-all duration-300',
+                        'relative z-20 size-15 sm:size-17 rounded-3xl grid place-items-center shrink-0 font-extrabold shadow-md transition-all duration-300 group-hover:scale-110',
                         isLast
-                          ? 'bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 text-white ring-8 ring-amber-500/20 shadow-amber-500/30 shadow-lg scale-110'
+                          ? 'bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 text-white ring-8 ring-amber-500/25 shadow-amber-500/40 shadow-xl'
                           : isSahabi
-                          ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white ring-6 ring-emerald-500/20 shadow-emerald-500/20 shadow-md scale-105'
+                          ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white ring-6 ring-emerald-500/25 shadow-emerald-500/30 shadow-lg'
                           : isFirst
-                          ? 'bg-primary text-primary-foreground ring-6 ring-primary/20 shadow-primary/20 shadow-md'
-                          : 'bg-card text-foreground border-2 border-border/90 group-hover:border-primary/60 group-hover:scale-105 shadow-sm'
+                          ? 'bg-primary text-primary-foreground ring-6 ring-primary/20 shadow-primary/25 shadow-md'
+                          : 'bg-card text-foreground border-2 border-border/90 group-hover:border-primary group-hover:shadow-md'
                       )}
                     >
                       {isLast ? (
-                        <div className="text-center">
-                          <Crown className="size-6 text-white animate-pulse" />
-                        </div>
+                        <Crown className="size-7 text-white animate-pulse" />
                       ) : isSahabi ? (
-                        <Sparkles className="size-6 text-white" />
+                        <Sparkles className="size-7 text-white" />
                       ) : isFirst ? (
-                        <BookOpen className="size-6" />
+                        <BookOpen className="size-7" />
                       ) : (
-                        <User className="size-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                        <User className="size-6 text-muted-foreground group-hover:text-primary transition-colors" />
                       )}
 
-                      {/* Small badge for node order in the tree */}
+                      {/* Station order badge */}
                       <span
                         className={cn(
-                          'absolute -bottom-2 text-[10px] font-black px-1.5 py-0.5 rounded-full border shadow-2xs',
+                          'absolute -bottom-2 text-[10px] font-black px-2 py-0.5 rounded-full border shadow-2xs',
                           isLast
                             ? 'bg-amber-600 text-white border-amber-300'
                             : isSahabi
@@ -223,22 +273,21 @@ export function HadithIsnadTree({
                       </span>
                     </div>
 
-                    {/* Branch Content Card */}
+                    {/* Branch Card (غصن الشجرة وبطاقة الراوي) */}
                     <div
                       className={cn(
-                        'w-full sm:w-[calc(50%-44px)] p-4 rounded-3xl border transition-all duration-300 relative',
+                        'w-full sm:w-[calc(50%-48px)] p-4 sm:p-5 rounded-3xl border transition-all duration-300 relative shadow-2xs group-hover:shadow-md',
                         isLast
-                          ? 'bg-gradient-to-br from-amber-500/15 via-amber-500/5 to-transparent border-amber-500/40 text-center sm:max-w-md shadow-md ring-1 ring-amber-500/30'
+                          ? 'bg-gradient-to-br from-amber-500/15 via-amber-500/5 to-transparent border-amber-500/40 text-center sm:max-w-md ring-1 ring-amber-500/30'
                           : isSahabi
-                          ? 'bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-transparent border-emerald-500/40 shadow-sm ring-1 ring-emerald-500/20'
+                          ? 'bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-transparent border-emerald-500/40 ring-1 ring-emerald-500/25'
                           : isFirst
                           ? 'bg-primary/10 border-primary/30 text-center sm:max-w-md'
-                          : 'bg-card/90 border-border/80 group-hover:bg-muted/40 group-hover:border-primary/40 shadow-2xs',
-                        isSelected && 'ring-2 ring-primary border-primary'
+                          : 'bg-card/95 border-border/80 group-hover:bg-muted/30 group-hover:border-primary/50'
                       )}
                     >
-                      {/* Branch connector leaf (صيغة الأداء والتحمل) */}
-                      <div className="flex items-center gap-2 flex-wrap mb-1.5 justify-between">
+                      {/* Leaf badge for Tahammul phrase & Role */}
+                      <div className="flex items-center gap-2 flex-wrap mb-2 justify-between">
                         <Badge
                           variant="outline"
                           className={cn(
@@ -261,21 +310,27 @@ export function HadithIsnadTree({
                         </div>
                       </div>
 
-                      {/* Narrator Name */}
-                      <h5
-                        className={cn(
-                          'text-sm sm:text-base font-bold text-foreground transition-colors',
-                          isLast && 'text-amber-900 dark:text-amber-300 font-extrabold text-base sm:text-lg',
-                          isSahabi && 'text-emerald-900 dark:text-emerald-300 font-extrabold',
-                          'group-hover:text-primary'
-                        )}
-                      >
-                        {node.name}
-                      </h5>
+                      {/* Narrator Name with Clickable Info Hint */}
+                      <div className="flex items-center justify-between gap-2">
+                        <h5
+                          className={cn(
+                            'text-sm sm:text-base font-bold text-foreground transition-colors group-hover:text-primary',
+                            isLast && 'text-amber-900 dark:text-amber-300 font-black text-base sm:text-lg',
+                            isSahabi && 'text-emerald-900 dark:text-emerald-300 font-black'
+                          )}
+                        >
+                          {node.name}
+                        </h5>
+
+                        <span className="text-[10px] text-muted-foreground group-hover:text-primary font-bold flex items-center gap-1 shrink-0 bg-muted/50 px-2 py-0.5 rounded-md border border-border/50">
+                          <Info className="size-3" />
+                          <span>الترجمة</span>
+                        </span>
+                      </div>
 
                       {isSahabi && (
                         <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium mt-1">
-                          رضي الله عنه وأرضاه — صحابي جليل وناقل الحديث عن النبي ﷺ مباشرة
+                          رضي الله عنه وأرضاه — صحابي جليل وناقل الحديث عن النبي ﷺ
                         </p>
                       )}
                       {isLast && (
@@ -305,10 +360,14 @@ export function HadithIsnadTree({
               const isSahabi = node.role === 'الصحابي الجليل';
 
               return (
-                <div key={`${node.order}-${node.name}`} className="relative flex items-start gap-3 sm:gap-4 group">
+                <div
+                  key={`${node.order}-${node.name}`}
+                  onClick={() => handleOpenBio(node.name)}
+                  className="relative flex items-start gap-3 sm:gap-4 group cursor-pointer"
+                >
                   <div
                     className={cn(
-                      'relative z-10 size-9 sm:size-10 rounded-2xl grid place-items-center shrink-0 font-extrabold text-xs shadow-xs transition-all',
+                      'relative z-10 size-9 sm:size-10 rounded-2xl grid place-items-center shrink-0 font-extrabold text-xs shadow-xs transition-all group-hover:scale-105',
                       isFirst
                         ? 'bg-primary text-primary-foreground border-2 border-primary ring-4 ring-primary/15'
                         : isLast
@@ -363,14 +422,15 @@ export function HadithIsnadTree({
                         </span>
                       </div>
 
-                      <span className="text-[10px] text-muted-foreground">
-                        المحطة {node.order} من {isnadData.nodes.length}
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <Info className="size-3 text-primary" />
+                        <span>انقر للترجمة الكاملة</span>
                       </span>
                     </div>
 
                     <h5
                       className={cn(
-                        'text-sm sm:text-base font-bold text-foreground',
+                        'text-sm sm:text-base font-bold text-foreground group-hover:text-primary transition-colors',
                         isLast && 'text-amber-800 dark:text-amber-300 font-extrabold',
                         isSahabi && 'text-emerald-800 dark:text-emerald-300 font-extrabold'
                       )}
@@ -395,6 +455,12 @@ export function HadithIsnadTree({
           « {isnadData.sanadText} »
         </p>
       </div>
+
+      {/* Narrator Biographical Dossier Modal */}
+      <NarratorBioModal
+        profile={selectedBio}
+        onClose={() => setSelectedBio(null)}
+      />
     </div>
   );
 }
