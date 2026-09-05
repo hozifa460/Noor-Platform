@@ -36,11 +36,17 @@ jobs:
       - name: TypeScript Typecheck
         run: npm run typecheck
 
+      - name: Circular Dependencies Check
+        run: npm run test:circular
+
+      - name: Unit Tests (Vitest)
+        run: npm run test:unit
+
       - name: Sync Dataset Directories & Catalogs
         run: npm run data:sync
 
-      - name: Run Comprehensive Test Suite
-        run: npm test
+      - name: Run Comprehensive Integration Test Suite
+        run: node scripts/run-all-tests.mjs
 
       - name: Security Dependency Audit
         run: npm audit --omit=dev
