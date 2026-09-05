@@ -47,13 +47,16 @@ The platform is structured as a **Modular Monolith** adhering strictly to **Feat
 
 ---
 
-## 3. The 4-Layer Feature Slice Pattern & Canonical Directory
+## 3. Feature Slice Patterns & Canonical Directory
 
-Every domain feature under `src/features/<domain>/` is organized into 4 standardized DDD layers with a single public entry point:
+Depending on domain complexity, feature slices under `src/features/<domain>/` follow one of two disciplined patterns:
+
+### A. The 4-Layer DDD Pattern (Quran, Hadith, Books, Fatwa)
+Major multi-subsystem domains are organized into 4 standardized DDD layers with a single public entry point:
 
 ```text
 src/features/<domain>/
-├── domain/                      # Layer 1: Core Domain (Zero UI / Pure TS)
+├── domain/                      # Layer 1: Core Domain (Zero UI / Pure TS - No imports from UI, Model, or Infra)
 │   ├── types.ts                 # Contracts, interfaces, entity types
 │   ├── data.ts                  # Domain constants, registries, static taxonomies
 │   └── index.ts                 # Clean re-export barrel for domain models
@@ -79,16 +82,25 @@ src/features/<domain>/
 └── index.ts                     # Public API Facade (The ONLY external entry point)
 ```
 
+### B. The Focused Utility Pattern (Adhkar, Radio)
+Single-purpose utility domains avoid artificial folder overhead and organize directly around single responsibilities:
+- `engines/`: Data normalization, streaming, and CDN resolvers.
+- `components/`: Pure presentational and interactive UI cards.
+- `hooks/`: Reactive state and event coordinators (e.g. `use-dhikr-counter.ts`).
+- `types.ts`: Domain contracts and catalog types.
+- `__tests__/`: Feature unit tests.
+- `index.ts`: The unified public entry point.
+
 ### Canonical Feature Slices Directory
 
-| Feature Slice | Path | Domain Scope & Capabilities |
-| :--- | :--- | :--- |
-| **Holy Quran** | `src/features/quran/` | 114 Surahs metadata, 19 Qiraat recitations, MP3Quran 240+ reciters catalog, Tafsir Muyassar/Saadi/Ibn Kathir/Baghawi, 4 I'rab books, 8 global language translations, verse audio loop & sync. |
-| **Prophetic Hadith** | `src/features/hadith/` | 17 Hadith collections (Sahihayn, Sunan, Musnads, Forties), HadeethEnc explanations dataset, Darussalam/Albani Sunan grade maps, interactive Isnad tree, 60+ verified fabricated hadith detector. |
-| **Islamic Books** | `src/features/books/` | Shamela 4 catalog (8,589 titles), OpenITI dynamic shard streaming, 11 Islamic art categories, 12 world languages, modular pure text reader (`EBookTextReader`), vector Mus-haf reader. |
-| **Fatwa Encyclopedia**| `src/features/fatwa/` | 226,000+ categorized fatwas, 10 prominent scholars filter, micro-shard inverted keyword index, v3 content hash shards, background Web Worker search offloading. |
-| **Islamic Radio** | `src/features/radio/` | 24/7 verified live Quran and Islamic radio stations, dynamic artwork and visualizer mapping, SSRF-hardened audio relay proxy. |
-| **Adhkar & Fortress**| `src/features/adhkar/` | 132 categories, 267 authentic dhikrs from Hisn al-Muslim, Hugging Face CDN audio resolution, pure React state counter. |
+| Feature Slice | Path | Architecture Pattern | Domain Scope & Capabilities |
+| :--- | :--- | :--- | :--- |
+| **Holy Quran** | `src/features/quran/` | 4-Layer DDD | 114 Surahs metadata, 19 Qiraat recitations, MP3Quran 240+ reciters catalog, Tafsir Muyassar/Saadi/Ibn Kathir/Baghawi, 4 I'rab books, 8 global language translations, verse audio loop & sync. *(Note: Hafs uses the interactive Vector Mushaf; paired with Shu'bah from Aasim in Qira'at PDF registry).* |
+| **Prophetic Hadith** | `src/features/hadith/` | 4-Layer DDD | 17 Hadith collections (Sahihayn, Sunan, Musnads, Forties), HadeethEnc explanations dataset, Darussalam/Albani Sunan grade maps, interactive Isnad tree, 60+ verified fabricated hadith detector. |
+| **Islamic Books** | `src/features/books/` | 4-Layer DDD | Shamela 4 catalog (8,589 titles), OpenITI dynamic shard streaming, 11 Islamic art categories, 12 world languages, modular pure text reader (`EBookTextReader`), vector Mus-haf reader (`VectorMushafReader`). |
+| **Fatwa Encyclopedia**| `src/features/fatwa/` | 4-Layer DDD | 226,000+ categorized fatwas, 10 prominent scholars filter, micro-shard inverted keyword index, v3 content hash shards, background Web Worker search offloading, network recovery resilience. |
+| **Islamic Radio** | `src/features/radio/` | Focused Utility | 24/7 verified live Quran and Islamic radio stations, dynamic artwork and visualizer mapping, SSRF-hardened audio relay proxy. |
+| **Adhkar & Fortress**| `src/features/adhkar/` | Focused Utility | 132 categories, 267 authentic dhikrs from Hisn al-Muslim, Hugging Face CDN audio resolution, pure React StrictMode-safe state counter. |
 
 
 ## 4. Key Domains & Subsystem Blueprints
@@ -212,20 +224,26 @@ src/features/<domain>/
 ### 7.1 Boundary Rules Matrix (ESLint & Madge)
 
 ```text
-┌─────────────────┬───────────────────────┬───────────────────────┬──────────────────────┐
-│ Consumer Layer  │ May Import From       │ Must NOT Import From  │ Enforcement Rule     │
-├─────────────────┼───────────────────────┼───────────────────────┼──────────────────────┤
-│ `src/app/`      │ `@/features/<domain>` │ `@/features/*/**`     │ Root facades only;   │
-│                 │ `@/lib/shared/server` │ (private subpaths)    │ No internal hacking  │
-├─────────────────┼───────────────────────┼───────────────────────┼──────────────────────┤
-│ `src/features/` │ Relative siblings     │ `@/features/*/**`     │ Cross-feature via    │
-│                 │ External `@/lib/*`    │ (other feature guts)  │ public facade only   │
-├─────────────────┼───────────────────────┼───────────────────────┼──────────────────────┤
-│ `src/lib/`      │ Peer `@/lib/*`        │ `@/features`          │ Lower layers cannot  │
-│                 │ `@/lib/shared`        │ `@/features/**`       │ depend on features   │
-├─────────────────┼───────────────────────┼───────────────────────┼──────────────────────┤
-│ `src/stores/`   │ `@/features/<domain>` │ `@/features/*/**`     │ Public facades only  │
-└─────────────────┴───────────────────────┴───────────────────────┴──────────────────────┘
+┌──────────────────────────┬──────────────────────────┬──────────────────────────┬──────────────────────────────────┐
+│ Consumer Layer           │ May Import From          │ Must NOT Import From     │ Enforcement Rule                 │
+├──────────────────────────┼──────────────────────────┼──────────────────────────┼──────────────────────────────────┤
+│ `src/app/`               │ `@/features/<domain>`    │ `@/features/*/**`        │ Root facades only;               │
+│                          │ `@/lib/shared/server`    │ (private subpaths)       │ No internal private subpaths     │
+├──────────────────────────┼──────────────────────────┼──────────────────────────┼──────────────────────────────────┤
+│ `src/features/<feat>/`   │ Sibling relative paths   │ `@/features/*/**`        │ Cross-feature via public facade  │
+│                          │ External `@/lib/*`       │ `../../<other-feature>`  │ only; No cross-feature relatives │
+├──────────────────────────┼──────────────────────────┼──────────────────────────┼──────────────────────────────────┤
+│ `src/features/**/domain/`│ Sibling `./types`, data  │ `../ui`, `../model`      │ Domain layer is pure; must not   │
+│                          │ Pure shared types        │ `../infrastructure`      │ depend on UI, state, or infra    │
+├──────────────────────────┼──────────────────────────┼──────────────────────────┼──────────────────────────────────┤
+│ `src/lib/` (Standard)    │ Peer `@/lib/*`           │ `@/features`             │ Lower library layer cannot       │
+│                          │ `@/lib/shared`           │ `@/features/**`          │ depend on feature slices         │
+├──────────────────────────┼──────────────────────────┼──────────────────────────┼──────────────────────────────────┤
+│ `src/lib/` (7 Facades)   │ Backwards-compat only    │ N/A (Internal facades)   │ 7 dedicated compatibility folders│
+│                          │ `@/features/<domain>`    │                          │ re-exporting for zero breakage   │
+├──────────────────────────┼──────────────────────────┼──────────────────────────┼──────────────────────────────────┤
+│ `src/stores/`            │ `@/features/<domain>`    │ `@/features/*/**`        │ Public facades only              │
+└──────────────────────────┴──────────────────────────┴──────────────────────────┴──────────────────────────────────┘
 ```
 
 ### 7.2 Six-Tier Quality Gates Pipeline
@@ -234,7 +252,7 @@ Always verify modifications using the platform's six-tier test harness:
 # 1. Circular Dependencies (0 cycles required)
 npm run test:circular
 
-# 2. Unit Tests (192 Vitest unit tests, 100% pass)
+# 2. Unit Tests (196 Vitest unit tests, 100% pass)
 npm run test:unit
 
 # 3. TypeScript Type Safety (0 errors required)
