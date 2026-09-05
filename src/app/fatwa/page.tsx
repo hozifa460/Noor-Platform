@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { FatwaLibraryView } from '@/components/fatwa/FatwaLibraryView';
+import { FatwaLibraryView } from '@/features/fatwa';
 
 export const metadata: Metadata = {
   title: 'موسوعة الفتاوى الشرعية — فتاوى كبار العلماء | منصة نور',

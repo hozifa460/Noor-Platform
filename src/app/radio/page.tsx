@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { RadioHubView } from '@/components/radio/RadioHubView';
+import { RadioHubView } from '@/features/radio';
 
 export const metadata: Metadata = {
   title: 'الإذاعات الإسلامية المباشرة — تلاوات وقراءات 24/7 | منصة نور',
