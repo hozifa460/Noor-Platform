@@ -1,8 +1,6 @@
-export * from './text';
-export * from './index-data';
-export * from './answers';
-export * from './browse';
-export * from './worker-client';
-export * from './scholar-filter';
-export * from './seed-fatwas';
+/**
+ * Compatibility re-export facade.
+ * The Fatwa domain has migrated to Feature-Sliced Design at @/features/fatwa.
+ */
+export * from '@/features/fatwa';
 export { microShardEngine } from '../shared/micro-shard-engine';
