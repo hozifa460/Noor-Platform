@@ -4,9 +4,9 @@ import { useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLibraryStore } from '@/stores/library-store';
 import { useSettingsStore } from '@/stores/settings-store';
-import { loadRepositories } from '@/lib/shared/repositories';
-import { fetchMergedIndex, fetchJsonWithFallback } from '@/lib/shared/fetcher';
-import { normalizeContentFile, type NormalizeResult } from '@/lib/sheikh/sheikh';
+import { loadRepositories } from '@/lib/shared';
+import { fetchMergedIndex, fetchJsonWithFallback } from '@/lib/shared';
+import { normalizeContentFile, type NormalizeResult } from '@/lib/sheikh';
 import type { MediaItem } from '@/lib/types';
 
 // Module-level ref so multiple useLibrarySync() calls share the same lock.

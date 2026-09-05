@@ -17,7 +17,7 @@ import { BookCard } from './BookCard';
 import { FeaturedClassicsRibbon } from './FeaturedClassicsRibbon';
 import { BooksFilterToolbar } from './BooksFilterToolbar';
 import type { MediaItem } from '@/lib/types';
-import type { FeaturedClassic } from '@/lib/books/featured-books';
+import type { FeaturedClassic } from '@/lib/books';
 
 export function BooksLibraryView() {
   const books = useBooksStore((s) => s.books);

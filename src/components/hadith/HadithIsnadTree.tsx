@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { parseHadithIsnad } from '@/lib/hadith/isnad-engine';
-import { findNarratorBio, type NarratorProfile } from '@/lib/hadith/narrator-engine';
+import { parseHadithIsnad } from '@/lib/hadith';
+import { findNarratorBio, type NarratorProfile } from '@/lib/hadith';
 import { NarratorBioModal } from './NarratorBioModal';
 import { HadithIsnadCanvas } from './isnad/HadithIsnadCanvas';
 import { HadithIsnadStepper } from './isnad/HadithIsnadStepper';
@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useClipboard } from '@/hooks/use-clipboard';
 import type { HadithItem } from '@/types/hadith';
-import type { HadithBookMeta } from '@/lib/hadith/data';
+import type { HadithBookMeta } from '@/lib/hadith';
 
 interface HadithIsnadTreeProps {
   hadith?: HadithItem;

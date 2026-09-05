@@ -17,7 +17,7 @@ import { ToolbarSearchRow } from './ToolbarSearchRow';
 import { ToolbarPagination } from './ToolbarPagination';
 import { ToolbarViewOptions } from './ToolbarViewOptions';
 import { cn } from '@/lib/utils';
-import { copyToClipboard } from '@/lib/shared/clipboard';
+import { copyToClipboard } from '@/lib/shared';
 import type { UsePdfViewerResult } from '@/hooks/use-pdf-viewer';
 
 interface ToolbarProps {

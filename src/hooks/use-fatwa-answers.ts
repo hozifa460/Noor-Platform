@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getFatwaContent } from '@/lib/fatwa/answers';
+import { getFatwaContent } from '@/lib/fatwa';
 import type { FatwaContentResult } from '@/types/fatwa';
 
 export function useFatwaAnswers(expandedId: string | null) {

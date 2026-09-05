@@ -2,8 +2,8 @@
  * Centralized TypeScript definitions for the Hadith & Sunnah domain.
  */
 
-export * from '@/lib/hadith/types';
-export * from '@/lib/hadith/fake-engine';
+export * from '@/lib/hadith';
+export * from '@/lib/hadith';
 
 export interface NarratorScholarlyOpinion {
   scholar: string;

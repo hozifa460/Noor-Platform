@@ -8,7 +8,9 @@
     "start": "next start -p 3000",
     "start:standalone": "node .next/standalone/server.js",
     "lint": "eslint .",
-    "test": "node scripts/run-all-tests.mjs",
+    "test": "vitest run && node scripts/run-all-tests.mjs",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "data:sync": "node scripts/sync-data.mjs",
@@ -84,9 +86,11 @@
     "bun-types": "^1.3.4",
     "eslint": "^9",
     "eslint-config-next": "^16.1.1",
+    "jsdom": "^29.1.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",
     "tw-animate-css": "^1.3.5",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^5.0.0"
   }
 }

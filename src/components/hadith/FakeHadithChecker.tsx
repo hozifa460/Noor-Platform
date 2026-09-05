@@ -11,7 +11,7 @@ import {
   type FakeHadithItem,
   type FakeHadithCategory,
   type AuthenticityCheckResult,
-} from '@/lib/hadith/fake-engine';
+} from '@/lib/hadith';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { FakeHadithResultCard } from './fake-hadith/FakeHadithResultCard';

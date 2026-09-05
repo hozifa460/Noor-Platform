@@ -1,4 +1,4 @@
-import { sanitizeTafsirHtml } from '@/lib/shared/sanitize-html';
+import { sanitizeTafsirHtml } from '@/lib/shared';
 
 export interface TafsirOption {
   id: number;

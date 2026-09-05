@@ -2,16 +2,16 @@
 
 import { create } from 'zustand';
 import type { MediaItem } from '@/lib/types';
-import { type FatwaIndexItem } from '@/lib/fatwa/index-data';
-import { microShardEngine } from '@/lib/shared/micro-shard-engine';
-import { normalizeArabic } from '@/lib/arabic/normalizer';
-import { scholarFilterQuery } from '@/lib/fatwa/scholar-filter';
+import { type FatwaIndexItem } from '@/lib/fatwa';
+import { microShardEngine } from '@/lib/shared';
+import { normalizeArabic } from '@/lib/arabic';
+import { scholarFilterQuery } from '@/lib/fatwa';
 import {
   loadCategory,
   isCategoryLoaded,
   BROWSE_TOTALS,
   type BrowseItem,
-} from '@/lib/fatwa/browse';
+} from '@/lib/fatwa';
 
 interface FatwaState {
   fatwas: MediaItem[];

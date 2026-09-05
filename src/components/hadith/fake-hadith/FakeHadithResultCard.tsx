@@ -3,8 +3,8 @@
 import { CheckCircle2, AlertTriangle, HelpCircle, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import type { AuthenticityCheckResult } from '@/lib/hadith/fake-engine';
-import type { HadithBookMeta } from '@/lib/hadith/data';
+import type { AuthenticityCheckResult } from '@/lib/hadith';
+import type { HadithBookMeta } from '@/lib/hadith';
 import type { HadithItem, HadithChapter } from '@/lib/hadith';
 
 interface FakeHadithResultCardProps {

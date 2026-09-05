@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { usePlayerStore } from '@/stores/player-store';
 import { useFavoritesStore } from '@/stores/favorites-store';
 import { useContinueWatchingStore } from '@/stores/continue-watching-store';
-import { triggerDownload } from '@/lib/shared/download';
+import { triggerDownload } from '@/lib/shared';
 import type { MediaItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
 

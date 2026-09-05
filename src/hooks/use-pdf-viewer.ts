@@ -5,8 +5,8 @@ import {
   loadPdfjs,
   getDocumentParams,
   proxifyPdfUrl,
-} from '@/lib/pdf/config';
-import { getCachedPage, setCachedPage } from '@/lib/pdf/cache';
+} from '@/lib/pdf';
+import { getCachedPage, setCachedPage } from '@/lib/pdf';
 
 type PDFDocumentProxy = import('pdfjs-dist').PDFDocumentProxy;
 
@@ -410,7 +410,7 @@ export function usePdfViewer(url: string, bookSlug?: string): UsePdfViewerResult
       const maxPagesToScan = Math.min(numPages, 200);
 
       // Use Arabic-aware search (ignores diacritics, normalizes alef/ya/ta).
-      const { arabicIncludes, buildSnippet } = await import('@/lib/pdf/arabic-search');
+      const { arabicIncludes, buildSnippet } = await import('@/lib/pdf');
 
       for (let p = 1; p <= maxPagesToScan; p++) {
         try {

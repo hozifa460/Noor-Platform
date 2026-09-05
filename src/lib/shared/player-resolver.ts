@@ -1,5 +1,5 @@
 import type { MediaItem } from '@/lib/types';
-import { isQuranBook, isPureTextBook, isOpenItiBook, isShamelaBook } from '@/lib/books/utils';
+import { isQuranBook, isPureTextBook, isOpenItiBook, isShamelaBook } from './classifier';
 
 export type PlayerKind =
   | 'youtube'

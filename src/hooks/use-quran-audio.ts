@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useQuranStore } from '@/stores/quran-store';
-import { getMp3QuranSurahUrl, type RiwayahReciterEntry } from '@/lib/quran/mp3quran-engine';
-import { getWarshAyahAudioNumber } from '@/lib/shared/audio-utils';
+import { getMp3QuranSurahUrl, type RiwayahReciterEntry } from '@/lib/quran';
+import { getWarshAyahAudioNumber } from '@/lib/shared';
 
 interface UseQuranAudioProps {
   activeRiwayahReciter: RiwayahReciterEntry | null;

@@ -1,6 +1,6 @@
-import { normalizeArabic } from '@/lib/arabic/normalizer';
-import { getBlob } from '../shared/offline-db';
-import type { InBookSearchResult } from '../books/types';
+import { normalizeArabic } from '@/lib/arabic';
+import { getBlob } from '@/lib/shared';
+import type { InBookSearchResult } from '@/lib/books';
 import { loadEBookMeta } from './chapters';
 
 type SearchIndexMap = Record<string, Array<[number, number, string]>>; // token -> [chapterIndex, pageNumber, snippet]

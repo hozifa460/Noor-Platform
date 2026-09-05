@@ -1,10 +1,10 @@
-import { dataUrl, isRemoteData } from '@/lib/shared/data-base';
+import { dataUrl, isRemoteData } from '@/lib/shared';
 import type {
   EBookMetadata,
   TableOfContentsItem,
   BookChapterChunk,
   SectionParagraph,
-} from "../books/types";
+} from '@/lib/books';
 
 export interface EBookMetaResponse {
   meta: EBookMetadata;

@@ -1,4 +1,4 @@
-import { normalizeArabic, tokenizeArabic } from '@/lib/arabic/normalizer';
+import { normalizeArabic, tokenizeArabic } from '@/lib/arabic';
 
 /**
  * High-Intelligence Islamic Hadith Semantic & Intent Mapping Engine.

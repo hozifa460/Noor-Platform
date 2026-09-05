@@ -1,7 +1,7 @@
 // Hadith Narrator Biographical & Jarh wa Ta'dil Engine
 // منصة النور - محرك تراجم رواة الحديث وأقوال أئمة الجرح والتعديل
 
-import { normalizeArabic } from '@/lib/arabic/normalizer';
+import { normalizeArabic } from '@/lib/arabic';
 
 export interface NarratorProfile {
   id: string;

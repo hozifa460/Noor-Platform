@@ -75,6 +75,8 @@ function isPrivateIPv4(ip: string): boolean {
   if (a === 192 && b === 0 && c === 2) return true;
   if (a === 198 && b === 51 && c === 100) return true;
   if (a === 203 && b === 0 && c === 113) return true;
+  // 198.18.0.0/15 (Benchmarking RFC 2544 / RFC 6890)
+  if (a === 198 && (b === 18 || b === 19)) return true;
   // 224.0.0.0/4 (Multicast) & 240.0.0.0/4 (Reserved)
   if (a >= 224) return true;
   // Broadcast
@@ -101,11 +103,34 @@ function isPrivateIPv6(ip: string): boolean {
   if (cleanIp.startsWith('fc') || cleanIp.startsWith('fd')) {
     return true;
   }
-  // IPv4-mapped IPv6 (::ffff:192.168.1.1 or ::ffff:c0a8:0101)
-  if (cleanIp.includes('::ffff:')) {
-    const v4Part = cleanIp.split('::ffff:')[1];
-    if (v4Part && net.isIPv4(v4Part)) {
+
+  // IPv4-compatible IPv6 (::127.0.0.1)
+  if (cleanIp.startsWith('::') && !cleanIp.includes(':ffff:')) {
+    const candidateV4 = cleanIp.slice(2);
+    if (net.isIPv4(candidateV4)) {
+      return isPrivateIPv4(candidateV4);
+    }
+  }
+
+  // IPv4-mapped IPv6 (::ffff:192.168.1.1, 0:0:0:0:0:ffff:192.168.1.1, ::ffff:7f00:1, ::ffff:c0a8:0101)
+  const ffffIndex = cleanIp.indexOf(':ffff:');
+  if (ffffIndex !== -1) {
+    const v4Part = cleanIp.slice(ffffIndex + 6);
+    if (net.isIPv4(v4Part)) {
       return isPrivateIPv4(v4Part);
+    }
+    // Hex-encoded 32-bit integer mapped IPv6 (e.g. 7f00:1 or a9fe:a9fe or c0a8:0101)
+    const hexParts = v4Part.split(':');
+    if (hexParts.length === 2) {
+      const hi = parseInt(hexParts[0], 16);
+      const lo = parseInt(hexParts[1], 16);
+      if (!isNaN(hi) && !isNaN(lo) && hi >= 0 && hi <= 0xffff && lo >= 0 && lo <= 0xffff) {
+        const a = (hi >> 8) & 0xff;
+        const b = hi & 0xff;
+        const c = (lo >> 8) & 0xff;
+        const d = lo & 0xff;
+        return isPrivateIPv4(`${a}.${b}.${c}.${d}`);
+      }
     }
   }
 
@@ -128,8 +153,9 @@ export function isPrivateIp(ip: string): boolean {
 export function isAllowedHostname(hostname: string): boolean {
   if (!hostname || typeof hostname !== 'string') return false;
   const clean = hostname.toLowerCase().trim();
+  const unbracketed = clean.startsWith('[') && clean.endsWith(']') ? clean.slice(1, -1) : clean;
   // Reject IP literals completely
-  if (net.isIP(clean)) {
+  if (net.isIP(unbracketed)) {
     return false;
   }
   return ALLOWED_MEDIA_HOSTS.some((pattern) => pattern.test(clean));
@@ -168,7 +194,10 @@ export async function validateSafeUrl(
       return { safe: false, error: 'URL is missing a valid hostname' };
     }
 
-    const hostname = parsed.hostname.toLowerCase();
+    const rawHostname = parsed.hostname.toLowerCase();
+    const hostname = rawHostname.startsWith('[') && rawHostname.endsWith(']')
+      ? rawHostname.slice(1, -1)
+      : rawHostname;
 
     // Reject direct IP addresses if whitelist is enforced
     if (net.isIP(hostname)) {

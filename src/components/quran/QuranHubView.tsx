@@ -14,11 +14,11 @@ import {
   useQuranStore,
   getAyahRecitersForQiraah,
 } from '@/stores/quran-store';
-import { QIRAAT_LIST } from '@/lib/quran/data';
+import { QIRAAT_LIST } from '@/lib/quran';
 import {
   getRecitersForRiwayah,
   type RiwayahReciterEntry,
-} from '@/lib/quran/mp3quran-engine';
+} from '@/lib/quran';
 import { PdfViewer } from '@/components/pdf-viewer/PdfViewer';
 import { AyahDetailModal } from './AyahDetailModal';
 import { SurahDrawer } from './SurahDrawer';
@@ -77,7 +77,7 @@ export function QuranHubView() {
 
   useEffect(() => {
     const code = activeTranslation?.code || 'en-saheeh';
-    import('@/lib/quran/translation-engine').then(({ getSurahTranslationsMap }) => {
+    import('@/lib/quran').then(({ getSurahTranslationsMap }) => {
       getSurahTranslationsMap(code, activeSurah.number).then(setSurahTranslationsMap);
     });
   }, [activeTranslation?.code, activeSurah.number]);

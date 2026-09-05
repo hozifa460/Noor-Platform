@@ -5,7 +5,7 @@ import { Search, X, ListTree } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ALL_SURAHS } from '@/lib/quran/data';
+import { ALL_SURAHS } from '@/lib/quran';
 import { cn } from '@/lib/utils';
 
 interface MushafSidebarProps {

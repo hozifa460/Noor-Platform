@@ -1,4 +1,4 @@
-import { normalizeArabic, arabicSearchMatch } from '@/lib/arabic/normalizer';
+import { normalizeArabic, arabicSearchMatch } from '@/lib/arabic';
 import { searchAcrossAllBooks } from './search';
 import type { GlobalSearchResultItem } from './types';
 

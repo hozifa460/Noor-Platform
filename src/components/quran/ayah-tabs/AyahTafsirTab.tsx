@@ -1,7 +1,7 @@
 'use client';
 
-import { SUPPORTED_TAFSIRS } from '@/lib/quran/tafsir-engine';
-import { sanitizeTafsirHtml } from '@/lib/shared/sanitize-html';
+import { SUPPORTED_TAFSIRS } from '@/lib/quran';
+import { sanitizeTafsirHtml } from '@/lib/shared';
 
 interface AyahTafsirTabProps {
   selectedTafsirId: number;

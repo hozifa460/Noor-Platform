@@ -5,8 +5,9 @@ import { toast } from 'sonner';
  * Configured safely for mobile devices (no viewport jumps, no virtual keyboard popup).
  */
 function fallbackCopyToClipboard(text: string): boolean {
+  let textarea: HTMLTextAreaElement | null = null;
   try {
-    const textarea = document.createElement('textarea');
+    textarea = document.createElement('textarea');
     textarea.value = text ?? '';
     textarea.setAttribute('readonly', '');
     textarea.style.position = 'fixed';
@@ -24,12 +25,14 @@ function fallbackCopyToClipboard(text: string): boolean {
     textarea.focus();
     textarea.select();
     textarea.setSelectionRange(0, textarea.value.length);
-    const successful = document.execCommand('copy');
-    document.body.removeChild(textarea);
-    return successful;
+    return document.execCommand('copy');
   } catch (err) {
     console.error('Fallback execCommand copy failed:', err);
     return false;
+  } finally {
+    if (textarea && textarea.parentNode) {
+      textarea.parentNode.removeChild(textarea);
+    }
   }
 }
 

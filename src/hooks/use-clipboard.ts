@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { copyToClipboard } from '@/lib/shared/clipboard';
+import { copyToClipboard } from '@/lib/shared';
 
 export interface UseClipboardOptions {
   timeout?: number;

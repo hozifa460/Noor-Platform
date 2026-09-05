@@ -3,7 +3,7 @@
 import { Play, Pause, Copy, Check, RotateCcw, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import type { DhikrItem } from '@/lib/adhkar/engine';
+import type { DhikrItem } from '@/lib/adhkar';
 import { cn } from '@/lib/utils';
 
 interface DhikrCardProps {

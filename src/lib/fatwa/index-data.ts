@@ -1,7 +1,6 @@
 'use client';
 
-import { normalizeArabic } from '@/lib/arabic/normalizer';
-import { scoreArabicSearch } from '@/lib/arabic/search-engine';
+import { normalizeArabic, scoreArabicSearch } from '@/lib/arabic';
 
 export interface FatwaIndexItem {
   id: string;
