@@ -32,14 +32,38 @@ export function sanitizeTafsirHtml(html: string): string {
   return DOMPurify.sanitize(html, TAFSIR_CONFIG) as string;
 }
 
+function stripTagsLinear(str: string): string {
+  let out = '';
+  let inTag = false;
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    if (char === '<') {
+      inTag = true;
+    } else if (char === '>') {
+      inTag = false;
+    } else if (!inTag) {
+      out += char;
+    }
+  }
+  return out
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .trim();
+}
+
 /**
  * Robustly strips HTML tags to produce safe plain text without vulnerable regexes.
+ * Uses DOMPurify + DOMParser in the browser, and safe linear state parsing in SSR.
  * Used for clipboard copy operations and plain text formatting.
  */
 export function stripHtmlToPlainText(html: string): string {
   if (!html) return '';
   if (typeof window === 'undefined') {
-    return html;
+    return stripTagsLinear(html);
   }
   const clean = DOMPurify.sanitize(html, { ALLOWED_TAGS: [], KEEP_CONTENT: true }) as string;
   try {

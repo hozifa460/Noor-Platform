@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeTafsirHtml } from '@/lib/shared/sanitize-html';
+import { sanitizeTafsirHtml, stripHtmlToPlainText } from '@/lib/shared/sanitize-html';
 
 describe('Tafsir HTML Sanitizer (shared/sanitize-html.ts)', () => {
   it('returns empty string for empty, null, or undefined input', () => {
@@ -100,6 +100,34 @@ describe('Tafsir HTML Sanitizer (shared/sanitize-html.ts)', () => {
       expect(result).toBe('&lt;b&gt;قوله:&lt;/b&gt; &lt;script&gt;alert(1)&lt;/script&gt;');
       expect(result).not.toContain('<');
       expect(result).not.toContain('>');
+    } finally {
+      global.window = originalWindow;
+    }
+  });
+});
+
+describe('stripHtmlToPlainText (shared/sanitize-html.ts)', () => {
+  it('strips HTML tags and decodes entities in browser environment', () => {
+    const input = '<p><b>قوله تعالى:</b> <span>الرَّحْمَٰنِ الرَّحِيمِ</span> &amp; الحمد لله</p>';
+    const result = stripHtmlToPlainText(input);
+    expect(result).not.toContain('<p>');
+    expect(result).not.toContain('<b>');
+    expect(result).not.toContain('<span>');
+    expect(result).toContain('قوله تعالى:');
+    expect(result).toContain('&');
+  });
+
+  it('strips HTML tags cleanly in SSR mode when window is undefined', () => {
+    const originalWindow = global.window;
+    try {
+      // @ts-expect-error simulating SSR
+      delete global.window;
+      const input = '<p><b>تفسير الآية:</b> <i>الحمد لله</i> &amp; &lt;رب العالمين&gt;</p>';
+      const result = stripHtmlToPlainText(input);
+      expect(result).not.toContain('<p>');
+      expect(result).not.toContain('<b>');
+      expect(result).not.toContain('<i>');
+      expect(result).toBe('تفسير الآية: الحمد لله & <رب العالمين>');
     } finally {
       global.window = originalWindow;
     }
