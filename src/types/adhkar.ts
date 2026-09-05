@@ -1,26 +1,14 @@
 /**
- * Centralized TypeScript definitions for Adhkar & Du'aa domain.
+ * Compatibility facade for Adhkar domain types.
+ * Canonical definitions live in @/features/adhkar.
  */
 
-export interface DhikrItem {
-  id: number;
-  text: string;
-  count: number;
-  audio: string;
-  filename: string;
-}
+export type {
+  DhikrItem,
+  AdhkarCategory,
+  QuickFilterTab,
+  AdhkarSearchResult,
+  DhikrAudioMapping,
+  AdhkarAudioMapping,
+} from '@/features/adhkar';
 
-export interface AdhkarCategory {
-  id: number;
-  category: string;
-  audio: string;
-  filename: string;
-  array: DhikrItem[];
-}
-
-export interface QuickFilterTab {
-  id: string;
-  name: string;
-  iconName: string;
-  categoryIds: number[];
-}

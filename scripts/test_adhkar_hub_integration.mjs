@@ -49,8 +49,8 @@ async function runTests() {
   check(totalDhikrs >= 260, `Total authentic Dhikrs is >= 260 (found: ${totalDhikrs})`);
   check(totalAudios >= 260, `Total audio files mapped is >= 260 (found: ${totalAudios})`);
 
-  // 2. Test Engine
-  const { searchAdhkar, getDhikrAudioUrl, QUICK_ADHKAR_TABS } = await import('../src/lib/adhkar/engine.ts');
+  // 2. Test Engine (Feature-Sliced Facade)
+  const { searchAdhkar, getDhikrAudioUrl, getDhikrAudioMapping, QUICK_ADHKAR_TABS } = await import('../src/features/adhkar/index.ts');
 
   check(Array.isArray(QUICK_ADHKAR_TABS) && QUICK_ADHKAR_TABS.length >= 6, 'QUICK_ADHKAR_TABS has >= 6 quick categories');
 
@@ -60,13 +60,29 @@ async function runTests() {
   const searchResults = searchAdhkar(catalog, 'الكرسي', 'all', 'all');
   check(searchResults.length > 0, 'Arabic search for "الكرسي" returns matched Adhkar');
 
+  const nullSearchResults = searchAdhkar(null, 'الكرسي', 'all', 'all');
+  check(Array.isArray(nullSearchResults) && nullSearchResults.length === 0, 'searchAdhkar safely returns empty array when catalog is null');
+
   const audioUrl = getDhikrAudioUrl('/audio/75.mp3');
   check(
     audioUrl === 'https://huggingface.co/datasets/hozifa1/quran_and_sunnah/raw/main/adhkarset/adhkar/audio/75.mp3',
     'getDhikrAudioUrl correctly formats direct Hugging Face raw CDN audio URL'
   );
 
+  const trimmedAudioUrl = getDhikrAudioUrl('  /audio/75.mp3  ');
+  check(
+    trimmedAudioUrl === 'https://huggingface.co/datasets/hozifa1/quran_and_sunnah/raw/main/adhkarset/adhkar/audio/75.mp3',
+    'getDhikrAudioUrl cleans and trims leading/trailing whitespace'
+  );
+
+  const audioMapping = getDhikrAudioMapping({ id: 75, audio: '/audio/75.mp3', filename: '75.mp3' });
+  check(
+    audioMapping.dhikrId === 75 && audioMapping.streamUrl.endsWith('/75.mp3'),
+    'getDhikrAudioMapping conforms to DhikrAudioMapping contract'
+  );
+
   console.log(`\n📊 Summary: ${passed}/${total} Adhkar Hub Integration tests passed (100% SUCCESS)\n`);
+
 }
 
 runTests().catch((err) => {
