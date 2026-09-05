@@ -171,6 +171,18 @@ const eslintConfig = [
             {
               group: [
                 "@/features/*/**",
+                "../../adhkar",
+                "../../adhkar/**",
+                "../../books",
+                "../../books/**",
+                "../../fatwa",
+                "../../fatwa/**",
+                "../../hadith",
+                "../../hadith/**",
+                "../../quran",
+                "../../quran/**",
+                "../../radio",
+                "../../radio/**",
                 "@/lib/adhkar/**",
                 "@/lib/arabic/**",
                 "@/lib/book-text/**",
@@ -183,7 +195,44 @@ const eslintConfig = [
                 "@/lib/sheikh/**",
               ],
               message:
-                "Architecture violation: Features must only access other features or domains through their approved root public facade, not internal private subpaths.",
+                "Architecture violation: Features must only access other features or domains through their approved root public facade, not internal private subpaths or cross-feature relative paths.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // Architectural Boundaries: Domain layers must be pure and never import from UI, model, or infrastructure
+  {
+    files: ["src/features/**/domain/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "../ui",
+                "../ui/**",
+                "../../ui",
+                "../../ui/**",
+                "../model",
+                "../model/**",
+                "../../model",
+                "../../model/**",
+                "../infrastructure",
+                "../infrastructure/**",
+                "../../infrastructure",
+                "../../infrastructure/**",
+                "../components",
+                "../components/**",
+                "@/components",
+                "@/components/**",
+                "@/stores",
+                "@/stores/**",
+              ],
+              message:
+                "Architecture violation: Domain layer must remain pure business logic and contracts; it must not depend on UI, state models, or infrastructure.",
             },
           ],
         },
