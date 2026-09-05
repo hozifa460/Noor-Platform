@@ -5,7 +5,7 @@ import { Library, X, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { HADITH_BOOKS_LIST, type HadithBookMeta } from '@/lib/hadith/data';
+import { HADITH_BOOKS_LIST, type HadithBookMeta } from '@/lib/hadith';
 import { cn } from '@/lib/utils';
 
 export const HADITH_BOOK_CATEGORIES = [

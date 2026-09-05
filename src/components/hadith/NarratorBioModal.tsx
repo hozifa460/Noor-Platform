@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { type NarratorProfile } from '@/lib/hadith/narrator-engine';
+import { type NarratorProfile } from '@/lib/hadith';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {

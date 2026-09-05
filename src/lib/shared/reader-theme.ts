@@ -6,7 +6,7 @@ import type {
   ThemeStyleConfig,
   MushafThemeStyleConfig,
 } from '@/types/reader';
-import { TASHKEEL_REGEX } from '@/lib/arabic/normalizer';
+import { TASHKEEL_REGEX } from '@/lib/arabic';
 
 export const THEME_STYLES: Record<ReadingTheme, ThemeStyleConfig> = {
   light: {

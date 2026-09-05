@@ -2,7 +2,7 @@
 
 import { Flame, ChevronLeft } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { FEATURED_ISLAMIC_CLASSICS, type FeaturedClassic } from '@/lib/books/featured-books';
+import { FEATURED_ISLAMIC_CLASSICS, type FeaturedClassic } from '@/lib/books';
 
 interface FeaturedClassicsRibbonProps {
   onOpenFeatured: (classic: FeaturedClassic) => void;

@@ -1,6 +1,6 @@
 import type { MediaItem } from '@/lib/types';
-import { normalizeArabic } from '@/lib/arabic/normalizer';
-import { dataUrl, isRemoteData } from '@/lib/shared/data-base';
+import { normalizeArabic } from '@/lib/arabic';
+import { dataUrl, isRemoteData } from '@/lib/shared';
 import { QURANIC_MUS_HAFS } from '@/data/books';
 
 export const LOCAL_CACHE_KEY = 'noor-books-shamela-v4';

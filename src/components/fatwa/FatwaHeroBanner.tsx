@@ -1,7 +1,7 @@
 'use client';
 
 import { Sparkles, FileQuestion, BookOpen, User } from 'lucide-react';
-import { BROWSE_TOTALS } from '@/lib/fatwa/browse';
+import { BROWSE_TOTALS } from '@/lib/fatwa';
 
 export function FatwaHeroBanner() {
   return (

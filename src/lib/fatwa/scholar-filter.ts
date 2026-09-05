@@ -1,7 +1,7 @@
 'use client';
 
 import { SCHOLARS_LIST } from './index-data';
-import { normalizeArabic } from '@/lib/arabic/normalizer';
+import { normalizeArabic } from '@/lib/arabic';
 
 /**
  * Resolves a scholar filter id to the normalized substring matched against

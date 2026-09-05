@@ -3,8 +3,8 @@ import { BookOpen, Copy, Check, Globe, Volume2, VolumeX, GitFork } from 'lucide-
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { HadithItem, HadithChapter } from '@/lib/hadith';
-import type { HadithBookMeta } from '@/lib/hadith/data';
-import { getHadithGrade } from '@/lib/hadith/grade-engine';
+import type { HadithBookMeta } from '@/lib/hadith';
+import { getHadithGrade } from '@/lib/hadith';
 import { ArabicHighlight } from './ArabicHighlight';
 import { cn } from '@/lib/utils';
 import { useClipboard } from '@/hooks/use-clipboard';

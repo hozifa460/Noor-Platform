@@ -1,4 +1,4 @@
-import { stripHarakat } from '@/lib/arabic/normalizer';
+import { stripHarakat } from '@/lib/arabic';
 
 export interface IsnadNode {
   order: number;

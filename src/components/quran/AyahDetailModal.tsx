@@ -17,15 +17,15 @@ import { Button } from '@/components/ui/button';
 import {
   SUPPORTED_TAFSIRS,
   fetchAyahTafsir,
-} from '@/lib/quran/tafsir-engine';
-import { fetchAyahEerab } from '@/lib/quran/eerab-engine';
-import { getAyahTranslation } from '@/lib/quran/translation-engine';
+} from '@/lib/quran';
+import { fetchAyahEerab } from '@/lib/quran';
+import { getAyahTranslation } from '@/lib/quran';
 import {
   QURAN_TRANSLATIONS,
   type QuranTranslationMeta,
   type SurahMeta,
   type QiraahMeta,
-} from '@/lib/quran/data';
+} from '@/lib/quran';
 import {
   useQuranStore,
   getAyahRecitersForQiraah,

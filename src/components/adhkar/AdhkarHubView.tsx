@@ -8,7 +8,7 @@ import {
   searchAdhkar,
   type AdhkarCategory,
   type DhikrItem,
-} from '@/lib/adhkar/engine';
+} from '@/lib/adhkar';
 import { useDhikrCounter } from '@/hooks/use-dhikr-counter';
 import { AdhkarHeroBanner } from './AdhkarHeroBanner';
 import { AdhkarFilterBar } from './AdhkarFilterBar';

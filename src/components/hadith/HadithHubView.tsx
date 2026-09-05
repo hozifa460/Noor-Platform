@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { searchHadithsInBook } from '@/lib/hadith';
-import { getHadithGrade, isMuttafaqunAlayh } from '@/lib/hadith/grade-engine';
+import { getHadithGrade, isMuttafaqunAlayh } from '@/lib/hadith';
 import { useHadithStore } from '@/stores/hadith-store';
 import { HadithCard } from './HadithCard';
 import { HadithDetailModal } from './HadithDetailModal';

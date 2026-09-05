@@ -10,7 +10,7 @@ import {
   Headphones,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { formatAudioTime } from '@/lib/shared/audio-utils';
+import { formatAudioTime } from '@/lib/shared';
 
 interface QuranAudioBarProps {
   isPlaying: boolean;

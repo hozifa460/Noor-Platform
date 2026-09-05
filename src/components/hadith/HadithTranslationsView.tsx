@@ -7,7 +7,7 @@ import {
   isBookTranslationAvailable,
   type HadithTranslationResult,
   type SupportedTranslationLanguage,
-} from '@/lib/hadith/translations-engine';
+} from '@/lib/hadith';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';

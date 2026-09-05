@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { Search, X, Headphones, Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import type { RiwayahReciterEntry } from '@/lib/quran/mp3quran-engine';
+import type { RiwayahReciterEntry } from '@/lib/quran';
 import type { ReciterMeta } from '@/types/quran';
 import { cn } from '@/lib/utils';
 

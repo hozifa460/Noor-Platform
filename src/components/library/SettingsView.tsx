@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useLibraryStore } from '@/stores/library-store';
 import { useLibrarySync } from '@/hooks/use-library';
-import { loadRepositories, saveRepositories } from '@/lib/shared/repositories';
+import { loadRepositories, saveRepositories } from '@/lib/shared';
 import type { RepositorySource } from '@/lib/types';
 import { toast } from 'sonner';
 

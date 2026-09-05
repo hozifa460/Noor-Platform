@@ -2,11 +2,11 @@
 
 import { create } from 'zustand';
 import type { MediaItem } from '@/lib/types';
-import { loadRepositories } from '@/lib/shared/repositories';
-import { fetchJsonWithFallback } from '@/lib/shared/fetcher';
-import { normalizeContentFile } from '@/lib/sheikh/sheikh';
+import { loadRepositories } from '@/lib/shared';
+import { fetchJsonWithFallback } from '@/lib/shared';
+import { normalizeContentFile } from '@/lib/sheikh';
 import { fetchEBookCatalog } from '@/lib/book-text';
-import { searchBooksWithIntent } from '@/lib/books/intent-engine';
+import { searchBooksWithIntent } from '@/lib/books';
 import {
   BOOK_CATEGORIES,
   BOOK_LANGUAGES,
@@ -21,7 +21,7 @@ import {
   cachedLoadShamelaCatalog,
   getInitialCachedBooks,
   LOCAL_CACHE_KEY,
-} from '@/lib/books/store-loader';
+} from '@/lib/books';
 
 export type { BookCategory, BookLanguage };
 export { BOOK_CATEGORIES, BOOK_LANGUAGES, QURANIC_MUS_HAFS };

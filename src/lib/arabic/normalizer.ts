@@ -4,8 +4,8 @@
  * Tatweel removal, zero-width characters stripping, and flexible prefix/suffix matching.
  */
 
-// Tashkeel / Harakat Unicode range: U+064B to U+065F, plus U+0670 (Superscript Alef)
-export const TASHKEEL_REGEX = /[\u064B-\u065F\u0670\u06D6-\u06ED]/g;
+// Tashkeel / Harakat Unicode range: U+0610-U+061A (Quranic marks & small vowels), U+064B-U+065F (standard Tashkeel), U+0670 (Superscript Alef), U+06D6-U+06ED (Quranic annotation signs)
+export const TASHKEEL_REGEX = /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g;
 // Tatweel / Kashida: U+0640
 export const TATWEEL_REGEX = /\u0640/g;
 // Zero-width characters (ZWNJ, ZWJ, BOM, LRM, RLM)

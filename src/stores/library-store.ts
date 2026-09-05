@@ -2,8 +2,8 @@
 
 import { create } from 'zustand';
 import type { MediaItem, Sheikh } from '@/lib/types';
-import { buildSheikhs, dedupeItems, type NormalizeResult } from '@/lib/sheikh/sheikh';
-import { arabicSearchMatch, arabicSearchScore } from '@/lib/arabic/normalizer';
+import { buildSheikhs, dedupeItems, type NormalizeResult } from '@/lib/sheikh';
+import { arabicSearchMatch, arabicSearchScore } from '@/lib/arabic';
 
 interface LibraryState {
   /** All loaded media items (merged + deduplicated). */

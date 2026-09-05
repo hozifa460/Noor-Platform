@@ -1,6 +1,6 @@
 'use client';
 
-import { QURAN_TRANSLATIONS, type QuranTranslationMeta } from '@/lib/quran/data';
+import { QURAN_TRANSLATIONS, type QuranTranslationMeta } from '@/lib/quran';
 
 interface AyahTranslationTabProps {
   selectedTranslation: QuranTranslationMeta;

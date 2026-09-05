@@ -14,7 +14,7 @@ import {
 import type {
   BookChapterChunk,
   BookHighlight,
-} from '@/lib/books/types';
+} from '@/lib/books';
 import type {
   ReadingTheme,
   TashkeelMode,

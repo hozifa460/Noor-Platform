@@ -1,4 +1,4 @@
-import { normalizeArabic } from '@/lib/arabic/normalizer';
+import { normalizeArabic } from '@/lib/arabic';
 import type { MediaItem } from '@/lib/types';
 import { RAW_AUTHORS, type AuthorKnowledge } from '@/data/books/authors-knowledge';
 import { RAW_ALIASES, type BookAliasKnowledge } from '@/data/books/aliases-knowledge';
