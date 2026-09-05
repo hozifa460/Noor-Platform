@@ -2,7 +2,6 @@
  * Unified E-Book Text Engine Facade (Clean Architecture).
  * Re-exports catalog, chapter slices, search, progress modules for 100% backward compatibility.
  */
-
 export * from './catalog';
 export * from './chapters';
 export * from './search';
@@ -42,3 +41,4 @@ export {
   getBookHighlights,
   saveBookHighlight,
 } from './progress';
+

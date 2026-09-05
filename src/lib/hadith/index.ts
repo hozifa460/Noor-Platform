@@ -1,3 +1,7 @@
+/**
+ * Compatibility facade for Hadith domain libraries and engines.
+ * Re-exports local domain modules for 100% backward compatibility.
+ */
 export * from './types';
 export * from './matn';
 export * from './loader';
@@ -85,3 +89,4 @@ export {
 export {
   BUILTIN_SEED_SHARH,
 } from './seed-sharh';
+

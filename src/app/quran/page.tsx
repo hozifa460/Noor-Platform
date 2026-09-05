@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { QuranHubView } from '@/components/quran/QuranHubView';
+import { QuranHubView } from '@/features/quran';
 
 export const metadata: Metadata = {
   title: 'القرآن الكريم — تلاوات وتفاسير ومصاحف القراءات العشر | منصة نور',

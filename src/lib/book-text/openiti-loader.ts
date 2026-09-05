@@ -23,7 +23,8 @@ export function cleanTitleFallback(title: string): string {
 /** First Arabic letter of a title (after light normalisation), used to pick
  *  the per-letter index file on HF. Mirrors build_books_catalogs.py. */
 function normFirstLetter(id: string, title?: string): string {
-  const src = (title || id || '').replace(/[\u064B-\u0652\u0670\u0640]/g, '');
+  const target = title && title.length > 0 ? title : id;
+  const src = target.replace(/[\u064B-\u0652\u0670\u0640]/g, '');
   for (const ch of src) {
     if (ch >= '\u0600' && ch <= '\u06FF') return ch;
   }

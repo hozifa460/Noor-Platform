@@ -17,7 +17,7 @@ const globalSearchResultCache = new Map<string, GlobalSearchResultItem[]>();
 export function parseMicroIndexPayload(raw: { books?: unknown; grades?: unknown; items?: unknown }): MicroIndexEntry[] {
   if (!raw) return [];
 
-  if (raw && raw.books && raw.grades && Array.isArray(raw.items)) {
+  if (raw.books && raw.grades && Array.isArray(raw.items)) {
     const books = raw.books as string[];
     const grades = raw.grades as string[];
     const result: MicroIndexEntry[] = new Array(raw.items.length);

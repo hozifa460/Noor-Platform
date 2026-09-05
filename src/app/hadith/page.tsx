@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { HadithHubView } from '@/components/hadith/HadithHubView';
+import { HadithHubView } from '@/features/hadith';
 
 export const metadata: Metadata = {
   title: 'الموسوعة الحديثية الشاملة — كتب السنة وشروحها | منصة نور',
