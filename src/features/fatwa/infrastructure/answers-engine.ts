@@ -15,7 +15,7 @@ import type { AnswerRecord, FatwaFullContent } from '../domain';
 const SHARD_MEM_MAX = 60;
 
 const shardMemCache = new Map<string, Map<string, AnswerRecord>>();
-const inflightShards = new Map<string, Promise<Map<string, AnswerRecord>>>();
+const inflightShards = new Map<string, Promise<Map<string, AnswerRecord> | null>>();
 const negativeCache = new Set<string>(); // ids proven absent (avoid refetch)
 
 /** md5(id)[:8] — must match scripts/repair_answer_shard_ids_v2.py keying. */
@@ -95,7 +95,7 @@ function md5bytes(bytes: Uint8Array): string {
   return hex;
 }
 
-async function fetchShard(hash: string): Promise<Map<string, AnswerRecord>> {
+async function fetchShard(hash: string): Promise<Map<string, AnswerRecord> | null> {
   const memo = shardMemCache.get(hash);
   if (memo) return memo;
 
@@ -105,7 +105,16 @@ async function fetchShard(hash: string): Promise<Map<string, AnswerRecord>> {
   const p = (async () => {
     try {
       const res = await fetch(shardUrl('fatwa_answers', hash));
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (res.status === 404) {
+        // Genuine 404: Shard does not exist on remote CDN, safe to memoize empty
+        const empty = new Map<string, AnswerRecord>();
+        shardMemCache.set(hash, empty);
+        return empty;
+      }
+      if (!res.ok) {
+        // Upstream server error / 5xx / rate limit -> do not cache transient failure
+        return null;
+      }
       const items = (await res.json()) as AnswerRecord[];
       const map = new Map<string, AnswerRecord>();
       for (const it of items) map.set(it.id, it);
@@ -117,9 +126,8 @@ async function fetchShard(hash: string): Promise<Map<string, AnswerRecord>> {
       }
       return map;
     } catch {
-      const empty = new Map<string, AnswerRecord>();
-      shardMemCache.set(hash, empty);
-      return empty;
+      // Network failure / disconnect / timeout -> transient error, do not cache failure
+      return null;
     } finally {
       inflightShards.delete(hash);
     }
@@ -144,9 +152,15 @@ export async function getFatwaContent(id: string): Promise<FatwaFullContent> {
 
   const hash = await shardHashForId(id);
   const shard = await fetchShard(hash);
+  if (!shard) {
+    // Network or transient failure: return not found for now, but DO NOT poison negativeCache
+    return { question: '', answer: '', found: false };
+  }
+
   const rec = shard.get(id);
   if (rec) return toContent(rec);
 
+  // Shard was successfully fetched and verified to NOT contain this id
   negativeCache.add(id);
   return { question: '', answer: '', found: false };
 }
@@ -168,6 +182,13 @@ export async function getFatwaContentBatch(ids: string[]): Promise<Map<string, F
   await Promise.all(
     Array.from(hashToIds.entries()).map(async ([h, wanted]) => {
       const shard = await fetchShard(h);
+      if (!shard) {
+        // Network failure for this shard: return unfound without negativeCache poisoning
+        for (const id of wanted) {
+          out.set(id, { question: '', answer: '', found: false });
+        }
+        return;
+      }
       for (const id of wanted) {
         const rec = shard.get(id);
         if (rec) {
@@ -199,5 +220,15 @@ export const preloadAnswerShards = prefetchFatwaContent;
 export async function hasAnswerShardEntry(id: string): Promise<boolean> {
   const hash = await shardHashForId(id);
   const shard = await fetchShard(hash);
-  return shard.has(id);
+  return shard ? shard.has(id) : false;
+}
+
+/**
+ * Clears in-memory answer shard and negative caches.
+ * Useful for reconnecting after network outages or in test environments.
+ */
+export function clearFatwaAnswerCaches(): void {
+  shardMemCache.clear();
+  negativeCache.clear();
+  inflightShards.clear();
 }

@@ -33,6 +33,7 @@ export {
   prefetchFatwaContent,
   preloadAnswerShards,
   hasAnswerShardEntry,
+  clearFatwaAnswerCaches,
   shardHashForId,
   loadCategory,
   isCategoryLoaded,
