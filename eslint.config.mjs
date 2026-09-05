@@ -54,7 +54,15 @@ const eslintConfig = [
   // Architectural Boundaries: Domains only import through approved public APIs and cannot import higher-level feature slices
   {
     files: ["src/lib/**/*.{ts,tsx}"],
-    ignores: ["src/lib/adhkar/**", "src/lib/radio/**", "src/lib/fatwa/**"],
+    ignores: [
+      "src/lib/adhkar/**",
+      "src/lib/radio/**",
+      "src/lib/fatwa/**",
+      "src/lib/quran/**",
+      "src/lib/hadith/**",
+      "src/lib/books/**",
+      "src/lib/book-text/**",
+    ],
     rules: {
       "no-restricted-imports": [
         "error",

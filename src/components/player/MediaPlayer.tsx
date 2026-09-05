@@ -19,8 +19,7 @@ import type { MediaItem } from '@/lib/types';
 import { copyToClipboard } from '@/lib/shared';
 import { toast } from 'sonner';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { EBookTextReader } from '@/components/books/EBookTextReader';
-import { VectorMushafReader } from '@/components/books/VectorMushafReader';
+import { EBookTextReader, VectorMushafReader } from '@/features/books';
 
 // Lazy-load PdfViewer
 const PdfViewer = dynamic(

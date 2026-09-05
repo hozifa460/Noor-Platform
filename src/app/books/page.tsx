@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { BooksLibraryView } from '@/components/books/BooksLibraryView';
+import { BooksLibraryView } from '@/features/books';
 
 export const metadata: Metadata = {
   title: 'المكتبة الإسلامية الرقمية — المكتبة الشاملة والمصاحف | منصة نور',
