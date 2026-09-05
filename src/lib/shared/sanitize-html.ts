@@ -31,3 +31,22 @@ export function sanitizeTafsirHtml(html: string): string {
   }
   return DOMPurify.sanitize(html, TAFSIR_CONFIG) as string;
 }
+
+/**
+ * Robustly strips HTML tags to produce safe plain text without vulnerable regexes.
+ * Used for clipboard copy operations and plain text formatting.
+ */
+export function stripHtmlToPlainText(html: string): string {
+  if (!html) return '';
+  if (typeof window === 'undefined') {
+    return html;
+  }
+  const clean = DOMPurify.sanitize(html, { ALLOWED_TAGS: [], KEEP_CONTENT: true }) as string;
+  try {
+    const doc = new DOMParser().parseFromString(clean, 'text/html');
+    return (doc.body.textContent || clean).trim();
+  } catch {
+    return clean.trim();
+  }
+}
+

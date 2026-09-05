@@ -28,6 +28,7 @@ import { HadithHintsTab } from './detail-tabs/HadithHintsTab';
 import { useTextToSpeech } from '@/hooks/use-text-to-speech';
 import { cn } from '@/lib/utils';
 import { useClipboard } from '@/hooks/use-clipboard';
+import { stripHtmlToPlainText } from '@/lib/shared';
 
 interface HadithDetailModalProps {
   hadith: HadithItem;
@@ -91,7 +92,7 @@ export function HadithDetailModal({
     let text = `« ${hadith.arabic.replace(/\n+/g, ' ').trim()} »\n\n[رواه ${book.nameAr} - رقم: ${hadith.idInBook}${chapter ? ` - ${chapter.arabic}` : ''}]\nدرجة الحديث: ${gradeInfo.rawGrade || gradeInfo.grade}`;
 
     if (sharh) {
-      text += `\n\nالشرح والبيان:\n${sharh.explanation.replace(/<[^>]+>/g, '')}`;
+      text += `\n\nالشرح والبيان:\n${stripHtmlToPlainText(sharh.explanation)}`;
       if (sharh.hints && sharh.hints.length > 0) {
         text += `\n\nالفوائد والاستنباطات:\n${sharh.hints.map((h, i) => `${i + 1}. ${h}`).join('\n')}`;
       }

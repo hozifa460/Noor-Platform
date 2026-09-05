@@ -39,6 +39,7 @@ import { AyahTranslationTab } from './ayah-tabs/AyahTranslationTab';
 import { AyahMemorizeTab } from './ayah-tabs/AyahMemorizeTab';
 import { cn } from '@/lib/utils';
 import { useClipboard } from '@/hooks/use-clipboard';
+import { stripHtmlToPlainText } from '@/lib/shared';
 
 interface AyahDetailModalProps {
   ayah: AyahItem;
@@ -168,7 +169,7 @@ export function AyahDetailModal({
   }, [selectedTranslation.code, surah.number, ayah.ayahNo, ayah.textEn, translationKey]);
 
   const handleCopy = () => {
-    const text = `﴿ ${ayah.textAr} ﴾\n[سورة ${surah.nameAr}: الآية ${ayah.ayahNo} - ${activeQiraah.name}]\n\nالتفسير (${SUPPORTED_TAFSIRS.find((t) => t.id === selectedTafsirId)?.name}):\n${tafsirContent.replace(/<[^>]+>/g, '')}\n\nالمصدر: منصة النور القرآنية`;
+    const text = `﴿ ${ayah.textAr} ﴾\n[سورة ${surah.nameAr}: الآية ${ayah.ayahNo} - ${activeQiraah.name}]\n\nالتفسير (${SUPPORTED_TAFSIRS.find((t) => t.id === selectedTafsirId)?.name}):\n${stripHtmlToPlainText(tafsirContent)}\n\nالمصدر: منصة النور القرآنية`;
     copy(text, 'تم نسخ نص الآية والتفسير بنجاح');
   };
 
