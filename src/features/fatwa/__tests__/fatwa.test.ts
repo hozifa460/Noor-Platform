@@ -240,4 +240,36 @@ describe('Fatwa Feature Domain — Contract & Business Logic', () => {
       expect(unfiltered.length).toBe(3);
     });
   });
+
+  describe('DDD Layering & Architectural Structure', () => {
+    it('exports all domain constants and helpers from domain layer', async () => {
+      const domain = await import('../domain');
+      expect(domain.FATWA_CATEGORIES.length).toBeGreaterThanOrEqual(6);
+      expect(domain.SCHOLARS_LIST.length).toBeGreaterThanOrEqual(5);
+      expect(typeof domain.scholarFilterQuery).toBe('function');
+      expect(typeof domain.cleanFatwaText).toBe('function');
+    });
+
+    it('exports infrastructure engines from infrastructure layer', async () => {
+      const infra = await import('../infrastructure');
+      expect(infra.microShardEngine).toBeDefined();
+      expect(typeof infra.getFatwaContent).toBe('function');
+      expect(typeof infra.loadCategory).toBe('function');
+      expect(infra.fatwaIndexManager).toBeDefined();
+    });
+
+    it('exports state and hooks from model layer', async () => {
+      const model = await import('../model');
+      expect(typeof model.useFatwaStore).toBe('function');
+      expect(typeof model.useFatwaAnswers).toBe('function');
+    });
+
+    it('exports components from UI layer', async () => {
+      const ui = await import('../ui');
+      expect(typeof ui.FatwaLibraryView).toBe('function');
+      expect(typeof ui.FatwaHeroBanner).toBe('function');
+      expect(typeof ui.FatwaCard).toBe('function');
+      expect(typeof ui.FatwaFilterBar).toBe('function');
+    });
+  });
 });
