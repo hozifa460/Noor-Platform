@@ -1,7 +1,5 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import { loadHadithBook } from '../../src/lib/hadith/index.ts';
-import { extractHadithMatn, normalizeArabicText } from '../../scripts/generate_hadiths_micro_index.mjs';
+import { extractHadithMatn } from '../../scripts/generate_hadiths_micro_index.mjs';
 import { arabicSearchMatch } from '../../src/lib/arabic/normalizer.ts';
 
 
@@ -15,9 +13,7 @@ async function investigateFailures() {
     const hits = adab.hadiths.filter(h => h.arabic.includes('الوالدين') || h.arabic.includes('والديه'));
     console.log(`Found ${hits.length} hadiths mentioning الوالدين in Al-Adab al-Mufrad.`);
     for (const h of hits.slice(0, 5)) {
-      const norm = normalizeArabicText(h.arabic);
       const extracted = extractHadithMatn(h.arabic);
-      const snippet25 = extracted.slice(0, 25);
       const snippet44 = extracted.slice(0, 44);
       console.log(`  H#${h.idInBook}:`);
       console.log(`    Raw start:       "${h.arabic.slice(0, 80)}..."`);
@@ -69,8 +65,6 @@ async function investigateFailures() {
 
   // 3. "استفت قلبك"
   console.log('\n--- 3. Investigating "استفت قلبك" ---');
-  const ahmed = await loadHadithBook('ahmed.json');
-  const darimi = await loadHadithBook('darimi.json');
   if (nawawi) {
     const h27 = nawawi.hadiths[26];
     if (h27) {

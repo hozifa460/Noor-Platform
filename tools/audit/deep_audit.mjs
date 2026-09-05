@@ -1,5 +1,5 @@
 import { loadHadithBook } from '../../src/lib/hadith/index.ts';
-import { extractHadithMatn, normalizeArabicText } from '../../scripts/generate_hadiths_micro_index.mjs';
+import { extractHadithMatn } from '../../scripts/generate_hadiths_micro_index.mjs';
 import { normalizeArabic, arabicSearchMatch } from '../../src/lib/arabic/normalizer.ts';
 
 

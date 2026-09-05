@@ -3,8 +3,6 @@
  * Validates endpoint latency, rate limiter thresholds, and semaphore limits.
  */
 
-import http from 'http';
-
 const BASE_URL = process.env.TEST_URL || 'http://localhost:3000';
 
 async function measureLatency(url) {
@@ -21,7 +19,6 @@ async function measureLatency(url) {
 async function runConcurrencyBurst(endpoint, totalRequests = 50, concurrency = 10) {
   console.log(`\n🚀 Running Concurrency Burst on ${endpoint} (${totalRequests} requests, concurrency=${concurrency})...`);
   const latencies = [];
-  let completed = 0;
   let successCount = 0;
   let rateLimitedCount = 0;
   let errorCount = 0;
@@ -64,11 +61,11 @@ async function runBenchmarks() {
 
   // 1. Diagnostics endpoint benchmark
   console.log('\n[Benchmark 1/2] Diagnostics & Healthcheck endpoint (/api)');
-  const healthRes = await runConcurrencyBurst('/api', 30, 10);
+  await runConcurrencyBurst('/api', 30, 10);
 
   // 2. Avatar fallback generation benchmark
   console.log('\n[Benchmark 2/2] Sheikh Avatar Generator (/api/sheikh-avatar?name=test)');
-  const avatarRes = await runConcurrencyBurst('/api/sheikh-avatar?name=test', 30, 10);
+  await runConcurrencyBurst('/api/sheikh-avatar?name=test', 30, 10);
 
   console.log('\n======================================================================');
   console.log('✓ Load & latency benchmark finished.');
