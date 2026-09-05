@@ -3,9 +3,9 @@
 import { Download, Trash2, HardDrive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useDownloadsStore } from '@/stores/downloads.store';
-import { useLibraryStore } from '@/stores/library.store';
-import { usePlayerStore } from '@/stores/player.store';
+import { useDownloadsStore } from '@/stores/downloads-store';
+import { useLibraryStore } from '@/stores/library-store';
+import { usePlayerStore } from '@/stores/player-store';
 import { deleteBlob, clearBlobs } from '@/lib/shared/offline-db';
 import { toast } from 'sonner';
 

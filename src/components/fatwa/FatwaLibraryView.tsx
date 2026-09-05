@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { FileQuestion, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFatwaStore } from '@/stores/fatwa-store';
-import { usePlayerStore } from '@/stores/player.store';
+import { usePlayerStore } from '@/stores/player-store';
 import { useFatwaAnswers } from '@/hooks/use-fatwa-answers';
 import { useDebouncedSearch } from '@/hooks/use-debounced-search';
 import { useIdClipboard } from '@/hooks/use-clipboard';

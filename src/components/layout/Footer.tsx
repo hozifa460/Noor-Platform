@@ -1,7 +1,7 @@
 'use client';
 
 import { Github, Gitlab, RefreshCw, Shield } from 'lucide-react';
-import { useLibraryStore } from '@/stores/library.store';
+import { useLibraryStore } from '@/stores/library-store';
 
 export function Footer() {
   const lastSync = useLibraryStore((s) => s.lastSync);

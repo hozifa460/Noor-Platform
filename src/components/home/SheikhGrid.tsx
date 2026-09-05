@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { SheikhCard } from '@/components/sheikh/SheikhCard';
 import { SheikhCardSkeleton } from '@/components/sheikh/SheikhCardSkeleton';
-import { useLibraryStore } from '@/stores/library.store';
+import { useLibraryStore } from '@/stores/library-store';
 
 interface SheikhGridProps {
   /** When true, show skeleton placeholders even if sheikhs list is empty. */

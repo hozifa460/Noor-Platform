@@ -85,21 +85,28 @@ public/data/fatwa_browse/
 __pycache__/
 Noor_Platform_Audit_Report.pdf
 
-# Agent and temporary development artifacts
+# Agent, process and temporary development artifacts
+*.pid
+.zscripts/
 .agents/
 .gemini/
 scratch/
+.scratch/
+.cache/
 
-staging/
-scripts/upload_micro_shards_flat.py
+# Generated graphs & documentation artifacts (regenerable via scripts/postbuild.mjs)
+docs/code_knowledge_graph.json
+docs/code_knowledge_graph.db
+docs/CODE_KNOWLEDGE_GRAPH.md
+
 staging/
 scripts/upload_micro_shards_flat.py
 staging-books/
 
 # AI agent scratch / local worklogs (not part of the product)
-/.agents/
 /.specify/
 worklog.md
 
 # Legacy self-hosting artifacts (deployment target is Vercel)
 Caddyfile
+

@@ -5,7 +5,7 @@ import { LiveStats } from './LiveStats';
 import { ContinueWatching } from './ContinueWatching';
 import { SheikhGrid } from './SheikhGrid';
 import { SectionRail } from './SectionRail';
-import { useLibraryStore } from '@/stores/library.store';
+import { useLibraryStore } from '@/stores/library-store';
 import { PlayCircle, Zap, Radio, FileQuestion, BookOpen, FileText } from 'lucide-react';
 import type { SectionKind } from '@/lib/types';
 

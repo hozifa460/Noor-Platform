@@ -1,7 +1,7 @@
 'use client';
 
 import { FileQuestion, ChevronLeft, BookOpen } from 'lucide-react';
-import { usePlayerStore } from '@/stores/player.store';
+import { usePlayerStore } from '@/stores/player-store';
 import type { MediaItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
 

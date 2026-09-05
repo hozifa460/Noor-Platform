@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { usePlayerStore } from '@/stores/player.store';
-import { useFavoritesStore } from '@/stores/favorites.store';
+import { usePlayerStore } from '@/stores/player-store';
+import { useFavoritesStore } from '@/stores/favorites-store';
 import { downloadForOffline } from '@/lib/shared/download';
 import { downloadBookTextFile } from '@/lib/book-text';
 import { isQuranBook, isPureTextBook, isOpenItiBook, isShamelaBook } from '@/lib/books/utils';

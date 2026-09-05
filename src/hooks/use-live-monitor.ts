@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useLibraryStore } from '@/stores/library.store';
+import { useLibraryStore } from '@/stores/library-store';
 import type { MediaItem } from '@/lib/types';
 
 /**

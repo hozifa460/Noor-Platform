@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Sparkles, BookOpen, Radio, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useLibraryStore } from '@/stores/library.store';
+import { useLibraryStore } from '@/stores/library-store';
 
 export function HeroSection() {
   const sheikhCount = useLibraryStore((s) => s.sheikhs.size);

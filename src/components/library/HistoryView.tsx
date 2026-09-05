@@ -3,8 +3,8 @@
 import { History, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MediaCard } from '@/components/media/MediaCard';
-import { useHistoryStore } from '@/stores/history.store';
-import { useLibraryStore } from '@/stores/library.store';
+import { useHistoryStore } from '@/stores/history-store';
+import { useLibraryStore } from '@/stores/library-store';
 
 export function HistoryView() {
   const history = useHistoryStore((s) => s.history);

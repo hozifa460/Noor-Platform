@@ -3,8 +3,8 @@
 import { Heart, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MediaGrid } from '@/components/media/MediaGrid';
-import { useFavoritesStore } from '@/stores/favorites.store';
-import { useLibraryStore } from '@/stores/library.store';
+import { useFavoritesStore } from '@/stores/favorites-store';
+import { useLibraryStore } from '@/stores/library-store';
 
 export function FavoritesView() {
   const favorites = useFavoritesStore((s) => s.favorites);

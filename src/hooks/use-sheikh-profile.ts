@@ -9,8 +9,8 @@ import {
   BookOpen,
   FileText,
 } from 'lucide-react';
-import { useLibraryStore } from '@/stores/library.store';
-import { useNavStore } from '@/stores/nav.store';
+import { useLibraryStore } from '@/stores/library-store';
+import { useNavStore } from '@/stores/nav-store';
 import type { MediaItem, SectionKind } from '@/lib/types';
 
 export const SECTION_META: { key: SectionKind; label: string; icon: typeof PlayCircle }[] = [

@@ -21,11 +21,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useNavStore } from '@/stores/nav.store';
-import { useLibraryStore } from '@/stores/library.store';
-import { useFavoritesStore } from '@/stores/favorites.store';
-import { useHistoryStore } from '@/stores/history.store';
-import { useDownloadsStore } from '@/stores/downloads.store';
+import { useNavStore } from '@/stores/nav-store';
+import { useLibraryStore } from '@/stores/library-store';
+import { useFavoritesStore } from '@/stores/favorites-store';
+import { useHistoryStore } from '@/stores/history-store';
+import { useDownloadsStore } from '@/stores/downloads-store';
 import type { ViewKind } from '@/lib/types';
 import { cn } from '@/lib/utils';
 

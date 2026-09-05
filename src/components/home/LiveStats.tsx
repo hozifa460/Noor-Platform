@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { Users, Video, BookOpen } from 'lucide-react';
-import { useLibraryStore } from '@/stores/library.store';
+import { useLibraryStore } from '@/stores/library-store';
 
 /** Animated counter that counts up from 0 to target. Re-triggers when target changes. */
 function useCountUp(target: number, duration = 1500): { count: number; ref: React.RefObject<HTMLDivElement | null> } {

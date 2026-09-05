@@ -27,8 +27,8 @@ The platform follows an inverted dependency model where high-level policy does n
                                     │
 ┌───────────────────────────────────▼────────────────────────────────────┐
 │                         3. State Management                            │
-│   Zustand Stores (`src/stores/`): `library.store.ts`, `player.store.ts`│
-│   `books-store.ts`, `hadith.store.ts`, `quran.store.ts`, `nav.store.ts`│
+│   Zustand Stores (`src/stores/`): `library-store.ts`, `player-store.ts`│
+│   `books-store.ts`, `hadith-store.ts`, `quran-store.ts`, `nav-store.ts`│
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
 ┌───────────────────────────────────▼────────────────────────────────────┐
@@ -78,10 +78,10 @@ src/
 │
 ├── stores/               # Reactive Client State (Zustand)
 │   ├── books-store.ts    # Shamela catalog, active category/language filters
-│   ├── hadith.store.ts   # Hadith collections, active chapter, search query
-│   ├── library.store.ts  # Sheikhs catalog, media items, archive registry
-│   ├── player.store.ts   # Audio/video playback state, queue, speed, HLS
-│   └── quran.store.ts    # Active Surah, Ayah, reciter, Tafsir selection
+│   ├── hadith-store.ts   # Hadith collections, active chapter, search query
+│   ├── library-store.ts  # Sheikhs catalog, media items, archive registry
+│   ├── player-store.ts   # Audio/video playback state, queue, speed, HLS
+│   └── quran-store.ts    # Active Surah, Ayah, reciter, Tafsir selection
 │
 ├── lib/                  # Pure Business Logic, Algorithms & Domain Engines
 │   ├── adhkar/           # Adhkar & Hisn al-Muslim engine
