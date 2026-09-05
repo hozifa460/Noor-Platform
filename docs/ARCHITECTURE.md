@@ -1,110 +1,95 @@
 # Noor Platform (منصة نور) — System Architecture & Engineering Blueprint
 
-## 1. Executive Overview
+## 1. Executive Architecture Summary
 
 **Noor Platform (منصة نور)** is an enterprise-grade digital platform engineered to preserve, organize, and serve the rich heritage of Islamic knowledge — encompassing the Holy Quran, authentic Prophetic Hadith, Classical Islamic Texts (Shamela & OpenITI), Fatwas, Adhkar, and 24/7 Live Audio Streams.
 
-Built on Next.js (App Router), TypeScript, Tailwind CSS, Radix UI, and Zustand, the platform adheres strictly to **Clean Architecture**, **Domain-Driven Design (DDD)**, and **DRY (Don't Repeat Yourself)** principles.
+The platform is structured as a **Modular Monolith** adhering strictly to **Feature-Sliced Design (FSD)** and **Domain-Driven Design (DDD)** principles:
+- High cohesion within domain boundaries, loose coupling across domains.
+- Standardized 4-layer physical separation of concerns (`domain`, `infrastructure`, `model`, `ui`).
+- Strict architectural boundaries enforced by ESLint and circular dependency checks.
+- 100% backward-compatible facades guaranteeing zero regressions for legacy callers.
+- Multi-tier quality assurance pipeline (Vitest unit tests, integration test suites, CodeQL security analysis, Turbopack static page generation).
 
 ---
 
-## 2. Layered Architecture
+## 2. High-Level Modular Monolith Topology
 
-The platform follows an inverted dependency model where high-level policy does not depend on low-level details.
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        1. Presentation Layer                           │
-│   Next.js App Router (`src/app/`), Hub Views, Radix UI & Tailwind CSS  │
-│   Component Domains: `books/`, `quran/`, `hadith/`, `sheikh/`, etc.     │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-┌───────────────────────────────────▼────────────────────────────────────┐
-│                        2. Application Hooks Layer                      │
-│   Custom React Hooks (`src/hooks/`): `use-sheikh-profile.ts`,          │
-│   `use-pdf-viewer.ts`, `use-library.ts`, `use-quran-player.ts`         │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-┌───────────────────────────────────▼────────────────────────────────────┐
-│                         3. State Management                            │
-│   Zustand Stores (`src/stores/`): `library-store.ts`, `player-store.ts`│
-│   `books-store.ts`, `hadith-store.ts`, `quran-store.ts`, `nav-store.ts`│
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-┌───────────────────────────────────▼────────────────────────────────────┐
-│                        4. Domain Engine Layer                          │
-│   Pure Domain Logics (`src/lib/`): `arabic/`, `hadith/`,               │
-│   `book-text/`, `quran/`, `fatwa/`, `adhkar/`, `radio/`, `shared/`     │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-┌───────────────────────────────────▼────────────────────────────────────┐
-│                    5. Data, Caching & Sandbox                          │
-│   IndexedDB (`noor-ebooks-cache`), Offline Service Workers,            │
-│   SSRF-Hardened Streaming Proxies (`/api/proxy-stream`)                │
-└────────────────────────────────────────────────────────────────────────┘
+```text
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                             1. Application Layer (Next.js)                       │
+│    App Router (`src/app/`): 49 Pre-rendered Static Pages, Layouts, Server Routes │
+└────────────────────────────────────────┬─────────────────────────────────────────┘
+                                         │
+┌────────────────────────────────────────▼─────────────────────────────────────────┐
+│                    2. Feature Slices (`src/features/*`)                          │
+│                                                                                  │
+│   ┌────────────────┐ ┌────────────────┐ ┌────────────────┐ ┌────────────────┐     │
+│   │     quran/     │ │    hadith/     │ │     books/     │ │     fatwa/     │ ... │
+│   │ 114 Surahs,    │ │ 17 Collections,│ │ 8,589 Shamela, │ │ 226k Fatwas,   │     │
+│   │ 19 Qiraat,     │ │ Sunan Grades,  │ │ OpenITI,       │ │ Micro-Shards,  │     │
+│   │ Audio Sync     │ │ Isnad Tree     │ │ Text Readers   │ │ Inverted Index │     │
+│   └───────┬────────┘ └───────┬────────┘ └───────┬────────┘ └───────┬────────┘     │
+│           │                  │                  │                  │              │
+│       [Public API Facade: `index.ts` — Sole Allowed Entrypoint]                  │
+└────────────────────────────────────────┬─────────────────────────────────────────┘
+                                         │
+┌────────────────────────────────────────▼─────────────────────────────────────────┐
+│                    3. Shared Foundation & Libraries (`src/lib/shared/`)          │
+│   Arabic Normalizer, Security Sanitizers, DOMPurify, Offline DB, Clipboard      │
+└────────────────────────────────────────┬─────────────────────────────────────────┘
+                                         │
+┌────────────────────────────────────────▼─────────────────────────────────────────┐
+│                    4. Data Infrastructure & Shard Layer                          │
+│   Local Edge Assets (`public/data/`), Micro-Shards CDN, Hugging Face Repositories│
+└──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. Directory Organization & Responsibilities
+## 3. The 4-Layer Feature Slice Pattern & Canonical Directory
 
-```
-src/
-├── app/                  # Next.js App Router (Layouts, Pages, Server API Routes)
-│   ├── api/
-│   │   ├── proxy-stream/ # SSRF-hardened audio stream relay with bounded buffer
-│   │   ├── proxy-pdf/    # PDF streaming with HTTP Range request support
-│   │   └── sheikh-avatar/# Dynamic avatar generator with fallback
-│   ├── layout.tsx        # Root HTML layout with PWA meta & font declarations
-│   └── page.tsx          # Single-page dynamic hub coordinator
+Every domain feature under `src/features/<domain>/` is organized into 4 standardized DDD layers with a single public entry point:
+
+```text
+src/features/<domain>/
+├── domain/                      # Layer 1: Core Domain (Zero UI / Pure TS)
+│   ├── types.ts                 # Contracts, interfaces, entity types
+│   ├── data.ts                  # Domain constants, registries, static taxonomies
+│   └── index.ts                 # Clean re-export barrel for domain models
 │
-├── components/           # UI Components organized strictly by domain
-│   ├── books/            # Classical Books Library
-│   │   ├── ebook/        # Deconstructed text reader (Toolbar, TOC, Search, Pagination)
-│   │   ├── cards/        # Book cover and metadata cards
-│   │   └── mushaf/       # Vector Quran reader
-│   ├── hadith/           # Hadith collections, sharh drawers, grading badges
-│   ├── pdf-viewer/       # Modular PDF reader (Toolbar, Sidebar, PageRenderer, Gestures)
-│   ├── quran/            # Surah explorer, Riwayaat selector, Ayah sync player
-│   ├── sheikh/           # Sheikh profile, header, media tabs, archive loaders
-│   ├── player/           # Global floating audio/video media player (HLS-ready)
-│   └── ui/               # Reusable headless UI primitives (Radix UI wrappers)
+├── infrastructure/              # Layer 2: Infrastructure & Data Access
+│   ├── engines/loaders          # Remote shard fetchers, parsers, search algorithms
+│   ├── storage/cache            # Local cache, IndexedDB, worker client managers
+│   └── index.ts                 # Infrastructure exports
 │
-├── hooks/                # Domain-specific React hooks (State-to-UI orchestration)
-│   ├── use-sheikh-profile.ts # Pre-computed media groups and archive filtering
-│   ├── use-pdf-viewer.ts     # PDF.js document lifecycle and zoom engine
-│   ├── use-library.ts        # Media library synchronization and archive loader
-│   └── use-quran-player.ts   # Ayah-level timestamp tracking & recitation sync
+├── model/                       # Layer 3: Application State & Coordination
+│   ├── <domain>-store.ts        # Reactive Zustand store (client state)
+│   ├── hooks/                   # Custom domain coordination hooks
+│   └── index.ts                 # Model exports
 │
-├── stores/               # Reactive Client State (Zustand)
-│   ├── books-store.ts    # Shamela catalog, active category/language filters
-│   ├── hadith-store.ts   # Hadith collections, active chapter, search query
-│   ├── library-store.ts  # Sheikhs catalog, media items, archive registry
-│   ├── player-store.ts   # Audio/video playback state, queue, speed, HLS
-│   └── quran-store.ts    # Active Surah, Ayah, reciter, Tafsir selection
+├── ui/                          # Layer 4: Presentational UI Components
+│   ├── <Domain>HubView.tsx      # Main hub screen
+│   ├── subcomponents/           # Modular cards, drawers, toolbars, dialogs
+│   └── index.ts                 # UI component exports
 │
-├── lib/                  # Pure Business Logic, Algorithms & Domain Engines
-│   ├── adhkar/           # Adhkar & Hisn al-Muslim engine
-│   ├── arabic/           # Morphological root match, Alef/Yaa normalization, Tashkeel removal
-│   ├── book-text/        # Chunk loading, search index, IndexedDB offline cache
-│   ├── books/            # Classical titles, intent engine, store loader
-│   ├── fatwa/            # Fatwa inverted index, scholar filter, answers streaming
-│   ├── hadith/           # Cross-book search, HadeethEnc sharh loader, grade map
-│   ├── pdf/              # Client-side PDF rendering, caching, and annotations
-│   ├── quran/            # Surah metadata, reciters directory, tafsir databases
-│   ├── radio/            # Islamic radio visual and artwork engine
-│   ├── shared/           # Cross-domain utilities, security, rate limiting, observability
-│   ├── sheikh/           # Sheikh profile builder and metadata
-│   ├── types.ts          # Core domain TypeScript definitions
-│   └── utils.ts          # Tailwind / UI utility helper
+├── __tests__/                   # Feature-Level Test Suite
+│   └── <domain>.test.ts         # Vitest unit tests verifying domain contracts
 │
-└── public/data/          # Static verified catalogs & indexed data shards
-    ├── ebooks/           # Shamela 4 catalog (8,589 verified classical titles)
-    ├── hadith/           # 17 Hadith collections, grades maps, fake hadith detector
-    └── quran/            # Surah metadata, reciters directory, tafsir databases
+└── index.ts                     # Public API Facade (The ONLY external entry point)
 ```
 
----
+### Canonical Feature Slices Directory
+
+| Feature Slice | Path | Domain Scope & Capabilities |
+| :--- | :--- | :--- |
+| **Holy Quran** | `src/features/quran/` | 114 Surahs metadata, 19 Qiraat recitations, MP3Quran 240+ reciters catalog, Tafsir Muyassar/Saadi/Ibn Kathir/Baghawi, 4 I'rab books, 8 global language translations, verse audio loop & sync. |
+| **Prophetic Hadith** | `src/features/hadith/` | 17 Hadith collections (Sahihayn, Sunan, Musnads, Forties), HadeethEnc explanations dataset, Darussalam/Albani Sunan grade maps, interactive Isnad tree, 60+ verified fabricated hadith detector. |
+| **Islamic Books** | `src/features/books/` | Shamela 4 catalog (8,589 titles), OpenITI dynamic shard streaming, 11 Islamic art categories, 12 world languages, modular pure text reader (`EBookTextReader`), vector Mus-haf reader. |
+| **Fatwa Encyclopedia**| `src/features/fatwa/` | 226,000+ categorized fatwas, 10 prominent scholars filter, micro-shard inverted keyword index, v3 content hash shards, background Web Worker search offloading. |
+| **Islamic Radio** | `src/features/radio/` | 24/7 verified live Quran and Islamic radio stations, dynamic artwork and visualizer mapping, SSRF-hardened audio relay proxy. |
+| **Adhkar & Fortress**| `src/features/adhkar/` | 132 categories, 267 authentic dhikrs from Hisn al-Muslim, Hugging Face CDN audio resolution, pure React state counter. |
+
 
 ## 4. Key Domains & Subsystem Blueprints
 
@@ -222,36 +207,63 @@ src/
 
 ---
 
-## 7. Quality Assurance & Troubleshooting Guide
+## 7. Architectural Boundary Enforcement & Quality Gates
 
-### 7.1 Standard Verification Commands
-Always verify modifications using the platform's four-tier test harness:
+### 7.1 Boundary Rules Matrix (ESLint & Madge)
+
+```text
+┌─────────────────┬───────────────────────┬───────────────────────┬──────────────────────┐
+│ Consumer Layer  │ May Import From       │ Must NOT Import From  │ Enforcement Rule     │
+├─────────────────┼───────────────────────┼───────────────────────┼──────────────────────┤
+│ `src/app/`      │ `@/features/<domain>` │ `@/features/*/**`     │ Root facades only;   │
+│                 │ `@/lib/shared/server` │ (private subpaths)    │ No internal hacking  │
+├─────────────────┼───────────────────────┼───────────────────────┼──────────────────────┤
+│ `src/features/` │ Relative siblings     │ `@/features/*/**`     │ Cross-feature via    │
+│                 │ External `@/lib/*`    │ (other feature guts)  │ public facade only   │
+├─────────────────┼───────────────────────┼───────────────────────┼──────────────────────┤
+│ `src/lib/`      │ Peer `@/lib/*`        │ `@/features`          │ Lower layers cannot  │
+│                 │ `@/lib/shared`        │ `@/features/**`       │ depend on features   │
+├─────────────────┼───────────────────────┼───────────────────────┼──────────────────────┤
+│ `src/stores/`   │ `@/features/<domain>` │ `@/features/*/**`     │ Public facades only  │
+└─────────────────┴───────────────────────┴───────────────────────┴──────────────────────┘
+```
+
+### 7.2 Six-Tier Quality Gates Pipeline
+Always verify modifications using the platform's six-tier test harness:
 ```bash
-# 1. Type Safety (0 errors required)
+# 1. Circular Dependencies (0 cycles required)
+npm run test:circular
+
+# 2. Unit Tests (192 Vitest unit tests, 100% pass)
+npm run test:unit
+
+# 3. TypeScript Type Safety (0 errors required)
 npm run typecheck
 
-# 2. Code Quality & Linting (0 errors, 0 warnings required)
+# 4. Code Quality & Architectural Boundaries (0 errors, 0 warnings required)
 npm run lint
 
-# 3. Comprehensive Domain Integration Suite (11 suites, 100% pass)
+# 5. Comprehensive Domain Integration Suite (11 suites, 100% pass)
 npm test
 
-# 4. Production Build & Static Page Generation
+# 6. Production Build & Static Page Generation (49/49 static routes pre-rendered)
 npm run build
 ```
 
-### 7.2 Common Issues & Troubleshooting
+### 7.3 Common Issues & Troubleshooting
 
 | Symptom | Probable Cause | Resolution |
 | :--- | :--- | :--- |
+| **Circular dependency alert (`test:circular`)** | A lower-level module imported from a higher-level feature slice or a barrel pulling UI into types | Import only from `@/features/<domain>/types` or relative sibling domain modules |
+| **Architectural boundary violation (`lint`)** | Direct import from an internal feature subpath (e.g. `@/features/quran/model/quran-store`) | Import exclusively through the public root facade (`@/features/quran`) |
 | **CORS audio playback failure** | Direct stream URL blocked by remote CDN headers | Route stream through `/api/proxy-stream?url=...` |
-| **PDF canvas rendering glitch** | Simultaneous canvas reuse during rapid scrolling | Ensure `_activeRenderTask.cancel()` is called before re-rendering (handled in `PageRenderer.tsx`) |
-| **Arabic text search misses terms** | Missing normalization (Hamza forms, Ta Marbuta, Tashkeel) | Always process search queries and target texts with `normalizeArabic()` from `src/lib/arabic/normalizer.ts` |
+| **PDF canvas rendering glitch** | Simultaneous canvas reuse during rapid scrolling | Ensure `_activeRenderTask.cancel()` is called before re-rendering |
+| **Arabic text search misses terms** | Missing normalization (Hamza forms, Ta Marbuta, Tashkeel) | Always process search queries and target texts with `normalizeArabic()` from `src/lib/arabic` |
 | **IndexedDB QuotaExceededError** | User device storage exhausted by cached books | Catch `DOMException` and evict least recently used entries using LRU timestamp eviction |
-| **HLS Stream stall on live stations** | Dropped fragments on low-bandwidth connections | HLS player auto-switches to audio-only lower bitrate rendition via `hls.js` event recovery |
 
 ---
 
 ## 8. Summary
 
-The Noor Platform codebase is built for extreme reliability, scholarly precision, zero memory leaks, and offline readiness. All domain components maintain strict single-responsibility boundaries, enabling long-term maintainability and effortless extensibility.
+The Noor Platform codebase is built for extreme reliability, scholarly precision, zero circular dependencies, zero memory leaks, and offline readiness. All domain components maintain strict single-responsibility boundaries, enabling long-term maintainability and effortless extensibility.
+
