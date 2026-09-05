@@ -10,5 +10,5 @@ export type {
   AdhkarSearchResult,
   DhikrAudioMapping,
   AdhkarAudioMapping,
-} from '@/features/adhkar';
+} from '@/features/adhkar/types';
 

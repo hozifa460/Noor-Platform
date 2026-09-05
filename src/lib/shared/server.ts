@@ -4,6 +4,8 @@
  * from leaking into client-side components.
  */
 
+import 'server-only';
+
 export * from './security';
 export * from './rate-limiter';
 export * from './csp-nonce';

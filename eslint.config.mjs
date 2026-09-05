@@ -185,7 +185,6 @@ const eslintConfig = [
   // Architectural Boundaries: src/lib/shared must not import from feature domains (preventing inverted/circular dependencies)
   {
     files: ["src/lib/shared/**/*.{ts,tsx}"],
-    ignores: ["src/lib/shared/micro-shard-engine.ts"],
     rules: {
       "no-restricted-imports": [
         "error",

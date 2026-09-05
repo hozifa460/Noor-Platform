@@ -12,4 +12,3 @@ export * from './classifier';
 export * from './observability';
 export * from './fetcher';
 export * from './repositories';
-export * from './micro-shard-engine';

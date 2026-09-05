@@ -48,6 +48,7 @@ export {
   FatwaWorkerClient,
   fatwaWorkerClient,
 } from './engines/worker-client';
+export { microShardEngine } from './engines/micro-shard-engine';
 
 // Store & State
 export { useFatwaStore } from './store';

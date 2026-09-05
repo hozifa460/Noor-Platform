@@ -36,7 +36,7 @@ async function testAll() {
   // 3. Check seed-fatwas.ts and micro-shard-engine.ts
   const seedFatwasPath = path.join(process.cwd(), 'src', 'lib', 'fatwa', 'seed-fatwas.ts');
   assert(fs.existsSync(seedFatwasPath), 'seed-fatwas.ts created with instant categorized fatwas');
-  const microShardPath = path.join(process.cwd(), 'src', 'lib', 'shared', 'micro-shard-engine.ts');
+  const microShardPath = path.join(process.cwd(), 'src', 'features', 'fatwa', 'engines', 'micro-shard-engine.ts');
   const microCode = fs.readFileSync(microShardPath, 'utf-8');
   assert(microCode.includes('BUILTIN_SEED_FATWAS'), 'micro-shard-engine integrates BUILTIN_SEED_FATWAS');
 
