@@ -43,22 +43,29 @@ export function useDhikrCounter(initialCatalog?: AdhkarCategory[]) {
   const handleDecrement = useCallback((item: DhikrItem) => {
     if (!item || typeof item.id !== 'number') return;
 
+    let justCompleted = false;
+
     setCounterMap((prev) => {
       const current = prev[item.id] ?? item.count;
       if (current <= 0) return prev;
 
       const next = current - 1;
       if (next === 0) {
-        setCompletedDhikrs((completedPrev) => {
-          const updated = new Set(completedPrev);
-          updated.add(item.id);
-          return updated;
-        });
-        toast.success('تقبل الله طاعتكم وذكركم! تم إتمام هذا الذكر المبارك.');
+        justCompleted = true;
       }
 
       return { ...prev, [item.id]: next };
     });
+
+    if (justCompleted) {
+      setCompletedDhikrs((completedPrev) => {
+        if (completedPrev.has(item.id)) return completedPrev;
+        const updated = new Set(completedPrev);
+        updated.add(item.id);
+        return updated;
+      });
+      toast.success('تقبل الله طاعتكم وذكركم! تم إتمام هذا الذكر المبارك.');
+    }
 
     if (typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in navigator) {
       try {

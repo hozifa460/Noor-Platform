@@ -1,4 +1,8 @@
-import type { SheikhBadgeInfo } from '@/types/radio';
+export interface SheikhBadgeInfo {
+  initials: string;
+  gradientClass: string;
+  displayName: string;
+}
 
 /**
  * Helper to generate consistent, distinct geometric gradient and initials for a sheikh / radio station.

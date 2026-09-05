@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import type { MediaItem } from '@/lib/types';
-import { microShardEngine } from '@/lib/shared';
+import { microShardEngine } from './engines/micro-shard-engine';
 import { normalizeArabic } from '@/lib/arabic';
 import type { FatwaIndexItem, BrowseItem } from './types';
 import { scholarFilterQuery } from './engines/scholar-filter';

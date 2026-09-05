@@ -3,4 +3,3 @@
  * The Fatwa domain has migrated to Feature-Sliced Design at @/features/fatwa.
  */
 export * from '@/features/fatwa';
-export { microShardEngine } from '../shared/micro-shard-engine';

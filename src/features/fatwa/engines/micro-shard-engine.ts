@@ -1,8 +1,11 @@
 'use client';
 
 import { normalizeArabic, scoreArabicSearch, extractConceptGroups } from '@/lib/arabic';
-import { FATWA_CATEGORIES, scholarFilterQuery, BUILTIN_SEED_FATWAS, type FatwaIndexItem } from '@/lib/fatwa';
-import { dataUrl, shardUrl } from './data-base';
+import { dataUrl, shardUrl } from '@/lib/shared';
+import { FATWA_CATEGORIES } from './index-data';
+import { scholarFilterQuery } from './scholar-filter';
+import { BUILTIN_SEED_FATWAS } from './seed-fatwas';
+import type { FatwaIndexItem } from '../types';
 
 interface CompactMicroItem {
   id: string;
