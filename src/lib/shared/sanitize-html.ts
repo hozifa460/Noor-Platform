@@ -32,6 +32,16 @@ export function sanitizeTafsirHtml(html: string): string {
   return DOMPurify.sanitize(html, TAFSIR_CONFIG) as string;
 }
 
+const HTML_ENTITY_MAP: Record<string, string> = {
+  '&amp;': '&',
+  '&lt;': '<',
+  '&gt;': '>',
+  '&quot;': '"',
+  '&#39;': "'",
+  '&apos;': "'",
+  '&nbsp;': ' ',
+};
+
 function stripTagsLinear(str: string): string {
   let out = '';
   let inTag = false;
@@ -46,12 +56,7 @@ function stripTagsLinear(str: string): string {
     }
   }
   return out
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
+    .replace(/&(?:amp|lt|gt|quot|apos|#39|nbsp);/g, (entity) => HTML_ENTITY_MAP[entity] || entity)
     .trim();
 }
 
