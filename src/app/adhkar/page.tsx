@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { AdhkarHubView } from '@/components/adhkar/AdhkarHubView';
+import { AdhkarHubView } from '@/features/adhkar';
 
 export const metadata: Metadata = {
   title: 'الأذكار وحصن المسلم — أذكار اليوم والليلة والتسجيلات الصوتية | منصة نور',

@@ -46,14 +46,15 @@ const eslintConfig = [
     },
   },
   {
-    files: ["scripts/**/*.{js,mjs}"],
+    files: ["scripts/**/*.{js,mjs}", "tools/**/*.{js,mjs}"],
     rules: {
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
-  // Architectural Boundaries: Domains only import through approved public APIs
+  // Architectural Boundaries: Domains only import through approved public APIs and cannot import higher-level feature slices
   {
     files: ["src/lib/**/*.{ts,tsx}"],
+    ignores: ["src/lib/adhkar/**"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -72,16 +73,19 @@ const eslintConfig = [
                 "@/lib/radio/**",
                 "@/lib/shared/**",
                 "@/lib/sheikh/**",
+                "@/features",
+                "@/features/**",
               ],
               message:
-                "Architecture violation: Cross-domain imports must go through approved domain facades (e.g. '@/lib/arabic'), not internal private subpaths.",
+                "Architecture violation: Lower-level library domain modules must not import from higher-level feature slices ('@/features'), and cross-domain imports must go through approved domain facades.",
             },
           ],
         },
       ],
     },
   },
-  // Architectural Boundaries: Components, hooks, stores must access domain functionality through approved root facades
+
+  // Architectural Boundaries: Components, hooks, stores must access domain & feature functionality through approved facades
   {
     files: [
       "src/components/**/*.{ts,tsx}",
@@ -106,16 +110,17 @@ const eslintConfig = [
                 "@/lib/radio/**",
                 "@/lib/shared/**",
                 "@/lib/sheikh/**",
+                "@/features/*/**",
               ],
               message:
-                "Architecture violation: Components and UI state layers must access domain functionality through approved root facades (e.g. '@/lib/quran'), not private internal subpaths.",
+                "Architecture violation: Components and UI state layers must access domain/feature functionality through approved root facades (e.g. '@/lib/quran', '@/features/adhkar'), not private internal subpaths.",
             },
           ],
         },
       ],
     },
   },
-  // Architectural Boundaries: App routes may access approved root facades and server facade '@/lib/shared/server'
+  // Architectural Boundaries: App routes may access approved root facades, feature facades, and server facade '@/lib/shared/server'
   {
     files: ["src/app/**/*.{ts,tsx}"],
     rules: {
@@ -137,9 +142,40 @@ const eslintConfig = [
                 "@/lib/shared/!(server)",
                 "@/lib/shared/!(server)/**",
                 "@/lib/sheikh/**",
+                "@/features/*/**",
               ],
               message:
-                "Architecture violation: App layer must access domain functionality through approved root facades or approved server facade ('@/lib/shared/server').",
+                "Architecture violation: App layer must access domain/feature functionality through approved root facades (e.g. '@/features/adhkar') or approved server facade ('@/lib/shared/server').",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // Architectural Boundaries: Feature Slices boundary enforcement
+  {
+    files: ["src/features/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@/features/*/**",
+                "@/lib/adhkar/**",
+                "@/lib/arabic/**",
+                "@/lib/book-text/**",
+                "@/lib/books/**",
+                "@/lib/fatwa/**",
+                "@/lib/hadith/**",
+                "@/lib/pdf/**",
+                "@/lib/quran/**",
+                "@/lib/radio/**",
+                "@/lib/sheikh/**",
+              ],
+              message:
+                "Architecture violation: Features must only access other features or domains through their approved root public facade, not internal private subpaths.",
             },
           ],
         },
@@ -166,6 +202,7 @@ const eslintConfig = [
                 "@/lib/quran", "@/lib/quran/**",
                 "@/lib/radio", "@/lib/radio/**",
                 "@/lib/sheikh", "@/lib/sheikh/**",
+                "@/features", "@/features/**",
                 "../adhkar", "../adhkar/**",
                 "../books", "../books/**",
                 "../book-text", "../book-text/**",
