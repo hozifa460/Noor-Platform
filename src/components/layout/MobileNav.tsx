@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, BookOpen, Scroll, Library, Radio, Search, Sparkles } from 'lucide-react';
-import { useNavStore } from '@/stores/nav.store';
+import { useNavStore } from '@/stores/nav-store';
 import type { ViewKind } from '@/lib/types';
 import { cn } from '@/lib/utils';
 

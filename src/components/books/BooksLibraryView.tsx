@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useBooksStore, BOOK_CATEGORIES } from '@/stores/books-store';
-import { usePlayerStore } from '@/stores/player.store';
+import { usePlayerStore } from '@/stores/player-store';
 import { BookCard } from './BookCard';
 import { FeaturedClassicsRibbon } from './FeaturedClassicsRibbon';
 import { BooksFilterToolbar } from './BooksFilterToolbar';

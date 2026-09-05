@@ -2,7 +2,7 @@
 
 import { MediaGrid } from '@/components/media/MediaGrid';
 import { MediaCardSkeleton } from '@/components/media/MediaCardSkeleton';
-import { useLibraryStore } from '@/stores/library.store';
+import { useLibraryStore } from '@/stores/library-store';
 import { FatwaLibraryView } from '@/components/fatwa/FatwaLibraryView';
 import { useYouTubeDates } from '@/hooks/use-youtube-dates';
 import type { MediaItem, SectionKind } from '@/lib/types';

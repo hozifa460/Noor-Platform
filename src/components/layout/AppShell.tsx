@@ -9,10 +9,10 @@ import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { KeyboardShortcuts } from "@/components/KeyboardShortcuts";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { FloatingAIButton } from "@/components/ai/FloatingAIButton";
-import { usePlayerStore } from "@/stores/player.store";
+import { usePlayerStore } from "@/stores/player-store";
 import { useLibrarySync } from "@/hooks/use-library";
 import { useLiveMonitor } from "@/hooks/use-live-monitor";
-import { useSettingsStore } from "@/stores/settings.store";
+import { useSettingsStore } from "@/stores/settings-store";
 import { useTheme } from "next-themes";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 

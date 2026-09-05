@@ -2,9 +2,9 @@
 
 import { History, ChevronLeft } from 'lucide-react';
 import { MediaCard } from '@/components/media/MediaCard';
-import { useContinueWatchingStore } from '@/stores/continue-watching.store';
-import { useLibraryStore } from '@/stores/library.store';
-import { useNavStore } from '@/stores/nav.store';
+import { useContinueWatchingStore } from '@/stores/continue-watching-store';
+import { useLibraryStore } from '@/stores/library-store';
+import { useNavStore } from '@/stores/nav-store';
 
 export function ContinueWatching() {
   const sessions = useContinueWatchingStore((s) => s.sessions);

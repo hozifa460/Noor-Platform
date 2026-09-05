@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { useLibraryStore } from '@/stores/library.store';
-import { usePlayerStore } from '@/stores/player.store';
+import { useLibraryStore } from '@/stores/library-store';
+import { usePlayerStore } from '@/stores/player-store';
 import type { MediaItem } from '@/lib/types';
 import { Play, Radio, Users, Sparkles } from 'lucide-react';
 

@@ -8,8 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useTheme } from 'next-themes';
 import { useState } from 'react';
-import { useNavStore } from '@/stores/nav.store';
-import { useLibraryStore } from '@/stores/library.store';
+import { useNavStore } from '@/stores/nav-store';
+import { useLibraryStore } from '@/stores/library-store';
 import { useLibrarySync } from '@/hooks/use-library';
 import { useMounted } from '@/hooks/use-mounted';
 

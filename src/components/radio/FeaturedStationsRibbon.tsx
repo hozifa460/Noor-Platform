@@ -1,7 +1,7 @@
 'use client';
 
 import { Sparkles, Play, Volume2 } from 'lucide-react';
-import { usePlayerStore } from '@/stores/player.store';
+import { usePlayerStore } from '@/stores/player-store';
 import { getSheikhBadgeInfo } from '@/lib/shared/sheikh-badge';
 import type { MediaItem } from '@/lib/types';
 import { cn } from '@/lib/utils';

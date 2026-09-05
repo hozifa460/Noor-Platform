@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ChevronLeft, type LucideIcon } from 'lucide-react';
 import { MediaCard } from '@/components/media/MediaCard';
 import { MediaRailSkeleton } from '@/components/media/MediaCardSkeleton';
-import { useLibraryStore } from '@/stores/library.store';
+import { useLibraryStore } from '@/stores/library-store';
 import { useYouTubeDates } from '@/hooks/use-youtube-dates';
 import type { MediaItem, SectionKind } from '@/lib/types';
 import { useMemo } from 'react';

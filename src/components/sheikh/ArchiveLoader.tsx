@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Archive, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useLibraryStore } from '@/stores/library.store';
+import { useLibraryStore } from '@/stores/library-store';
 import { loadArchiveFile } from '@/hooks/use-library';
 import { toast } from 'sonner';
 

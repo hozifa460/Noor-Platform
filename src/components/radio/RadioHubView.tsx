@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Search, Volume2 } from 'lucide-react';
-import { useLibraryStore } from '@/stores/library.store';
+import { useLibraryStore } from '@/stores/library-store';
 import { MediaCardSkeleton } from '@/components/media/MediaCardSkeleton';
 import { Input } from '@/components/ui/input';
 import { RadioHeroBanner } from './RadioHeroBanner';

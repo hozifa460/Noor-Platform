@@ -5,7 +5,7 @@ import { Users, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { SheikhCard } from '@/components/sheikh/SheikhCard';
 import { SheikhCardSkeleton } from '@/components/sheikh/SheikhCardSkeleton';
-import { useLibraryStore } from '@/stores/library.store';
+import { useLibraryStore } from '@/stores/library-store';
 
 export function SheikhsListView() {
   const sheikhsList = useLibraryStore((s) => s.sheikhsArray);
