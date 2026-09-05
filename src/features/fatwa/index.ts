@@ -4,7 +4,7 @@
  * accessible to other features and external layers.
  */
 
-// Types (exported first to prevent circular dependency evaluation issues)
+// Domain Layer (Types, Rules & Constants)
 export type {
   FatwaIndexItem,
   FatwaCategory,
@@ -14,51 +14,45 @@ export type {
   BrowseItem,
   AnswerRecord,
   FatwaStoreState,
-} from './types';
+} from './domain';
 
-// Engines & Pure Logic (pure constants and index data evaluated before state)
 export {
-  BUILTIN_SEED_FATWAS,
-  SEED_FATWAS,
-} from './engines/seed-fatwas';
-export {
-  FatwaIndexManager,
-  fatwaIndexManager,
   FATWA_CATEGORIES,
   SCHOLARS_LIST,
-} from './engines/index-data';
+  scholarFilterQuery,
+  BUILTIN_SEED_FATWAS,
+  SEED_FATWAS,
+  cleanFatwaText,
+} from './domain';
+
+// Infrastructure Layer (Remote Shards, Caches, Workers & Inverted Index)
 export {
+  microShardEngine,
   getFatwaContent,
   getFatwaContentBatch,
   prefetchFatwaContent,
   preloadAnswerShards,
   hasAnswerShardEntry,
   shardHashForId,
-} from './engines/answers';
-export {
   loadCategory,
   isCategoryLoaded,
   filterByScholar,
   getCategoryCount,
   BROWSE_TOTALS,
-} from './engines/browse';
-export { scholarFilterQuery } from './engines/scholar-filter';
-export { cleanFatwaText } from './engines/text';
-export {
   FatwaWorkerClient,
   fatwaWorkerClient,
-} from './engines/worker-client';
-export { microShardEngine } from './engines/micro-shard-engine';
+  FatwaIndexManager,
+  fatwaIndexManager,
+} from './infrastructure';
 
-// Store & State
-export { useFatwaStore } from './store';
-export type { FatwaState } from './store';
+// Model Layer (Zustand Store & React State Hooks)
+export { useFatwaStore, type FatwaState } from './model';
+export { useFatwaAnswers } from './model';
 
-// Hooks
-export { useFatwaAnswers } from './hooks/use-fatwa-answers';
-
-// Components
-export { FatwaLibraryView } from './components/FatwaLibraryView';
-export { FatwaHeroBanner } from './components/FatwaHeroBanner';
-export { FatwaCard } from './components/FatwaCard';
-export { FatwaFilterBar } from './components/FatwaFilterBar';
+// UI Layer (Presentational Views, Banners & Cards)
+export {
+  FatwaLibraryView,
+  FatwaHeroBanner,
+  FatwaCard,
+  FatwaFilterBar,
+} from './ui';
