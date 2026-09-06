@@ -138,8 +138,14 @@ async function fetchShard(hash: string): Promise<Map<string, AnswerRecord> | nul
 }
 
 function toContent(rec: AnswerRecord | undefined): FatwaFullContent {
-  if (!rec) return { question: '', answer: '', found: false };
-  return { question: rec.q || '', answer: rec.a || '', found: Boolean(rec.a || rec.q) };
+  if (!rec) return { question: '', answer: '', found: false, status: 'not_found' };
+  const found = Boolean(rec.a || rec.q);
+  return {
+    question: rec.q || '',
+    answer: rec.a || '',
+    found,
+    status: found ? 'ok' : 'not_found',
+  };
 }
 
 /**
@@ -147,14 +153,14 @@ function toContent(rec: AnswerRecord | undefined): FatwaFullContent {
  * Fast path: direct hash shard (one ~2KB request, no index).
  */
 export async function getFatwaContent(id: string): Promise<FatwaFullContent> {
-  if (!id) return { question: '', answer: '', found: false };
-  if (negativeCache.has(id)) return { question: '', answer: '', found: false };
+  if (!id) return { question: '', answer: '', found: false, status: 'not_found' };
+  if (negativeCache.has(id)) return { question: '', answer: '', found: false, status: 'not_found' };
 
   const hash = await shardHashForId(id);
   const shard = await fetchShard(hash);
   if (!shard) {
     // Network or transient failure: return not found for now, but DO NOT poison negativeCache
-    return { question: '', answer: '', found: false };
+    return { question: '', answer: '', found: false, status: 'error' };
   }
 
   const rec = shard.get(id);
@@ -162,7 +168,7 @@ export async function getFatwaContent(id: string): Promise<FatwaFullContent> {
 
   // Shard was successfully fetched and verified to NOT contain this id
   negativeCache.add(id);
-  return { question: '', answer: '', found: false };
+  return { question: '', answer: '', found: false, status: 'not_found' };
 }
 
 /** Batch variant used by list views to hydrate visible cards. */
@@ -185,7 +191,7 @@ export async function getFatwaContentBatch(ids: string[]): Promise<Map<string, F
       if (!shard) {
         // Network failure for this shard: return unfound without negativeCache poisoning
         for (const id of wanted) {
-          out.set(id, { question: '', answer: '', found: false });
+          out.set(id, { question: '', answer: '', found: false, status: 'error' });
         }
         return;
       }
@@ -194,7 +200,7 @@ export async function getFatwaContentBatch(ids: string[]): Promise<Map<string, F
         if (rec) {
           out.set(id, toContent(rec));
         } else {
-          out.set(id, { question: '', answer: '', found: false });
+          out.set(id, { question: '', answer: '', found: false, status: 'not_found' });
           negativeCache.add(id);
         }
       }
