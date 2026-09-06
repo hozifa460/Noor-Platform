@@ -1,34 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 /**
- * Generate a cryptographically secure nonce for CSP.
- * Used to allow inline scripts/styles only with matching nonce,
- * eliminating the need for 'unsafe-inline'.
+ * Noor Platform Edge Middleware - Content Security Policy & Security Headers.
+ *
+ * Architecture Note on CSP & Static Site Generation (SSG):
+ * Noor Platform is pre-rendered statically (output: "export" on Cloudflare Pages,
+ * static routes on Vercel) for instant offline capabilities, edge caching, and PWA resilience.
+ * In static export mode, HTML files are generated at build time, precluding per-request nonces
+ * without forcing dynamic server rendering (SSR). Per W3C CSP Level 2/3 specifications, the
+ * presence of any 'nonce-*' directive unconditionally invalidates 'unsafe-inline' across modern
+ * browsers, which breaks static Next.js hydration scripts.
+ *
+ * To ensure optimal defense-in-depth within static constraints:
+ * 1. Strict input sanitization is enforced via DOMPurify across all dynamic rendering (`sanitize-html.ts`).
+ * 2. `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, and `frame-ancestors 'self'` prevent injection attacks.
+ * 3. `connect-src`, `frame-src`, and `media-src` are locked down to explicit trusted domains.
  */
-function generateNonce(): string {
-  // Generate 16 random bytes → base64
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  // Convert to base64
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
-
-export function middleware(request: NextRequest) {
-  // Generate a fresh nonce for each request
-  const nonce = generateNonce();
-
-  // Build CSP with nonce (replaces 'unsafe-inline' for scripts)
+export function middleware() {
   const isDev = process.env.NODE_ENV === 'development';
   const csp = [
     `default-src 'self'`,
-    // Allow Next.js inline bootstrap/hydration scripts without nonce conflict
-    `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://www.youtube.com https://s.ytimg.com`,
-    // Styles still use 'unsafe-inline' (CSS-in-JS, many libraries need this)
-    // TODO: migrate to nonce for styles too
+    // Allow Next.js inline bootstrap/hydration scripts without nonce conflict in SSG
+    `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''} https://www.youtube.com https://s.ytimg.com`,
+    // Styles still use 'unsafe-inline' (CSS-in-JS and Tailwind utilities)
     `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
     `img-src 'self' data: blob: https:`,
     `media-src 'self' blob: https:`,
@@ -42,16 +36,7 @@ export function middleware(request: NextRequest) {
     `frame-ancestors 'self'`,
   ].join('; ');
 
-  // Pass nonce via request header (so server components can read it)
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set('x-nonce', nonce);
-
-  // Forward to the page
-  const response = NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
-  });
+  const response = NextResponse.next();
 
   // Set CSP header on response
   response.headers.set('Content-Security-Policy', csp);
