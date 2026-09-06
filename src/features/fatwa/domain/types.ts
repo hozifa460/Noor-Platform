@@ -35,6 +35,7 @@ export interface FatwaContentResult {
   question: string;
   answer: string;
   found: boolean;
+  status?: 'ok' | 'not_found' | 'error';
 }
 
 export type FatwaFullContent = FatwaContentResult;
