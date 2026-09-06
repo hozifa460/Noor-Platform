@@ -44,20 +44,20 @@ test.describe('Noor Platform — Search Flows & Results Assertions', () => {
     const searchInput = page.locator('main input[placeholder*="ابحث"]').first();
     await expect(searchInput).toBeVisible({ timeout: 15000 });
 
-    // 2. Search for "صيام"
-    await searchInput.fill('صيام');
+    // 2. Search for "المسح على الخف" to target a deterministic fatwa with full answer
+    await searchInput.fill('المسح على الخف');
 
     // 3. Assert that results header updates with fatwa count for the query
     await expect(page.locator('text=/نتائج البحث عن/')).toBeVisible({ timeout: 10000 });
     // Wait for search indicator to settle
     await expect(page.locator('text=جاري البحث')).not.toBeVisible({ timeout: 10000 });
 
-    // 4. Locate the first visible fatwa card
+    // 4. Locate the targeted fatwa card deterministically
     const card = page.locator('.rounded-3xl.bg-card').first();
-    await expect(card).toBeVisible();
+    await expect(card).toBeVisible({ timeout: 10000 });
 
     const cardTitle = ((await card.locator('h3').textContent()) || '').trim();
-    expect(cardTitle.length).toBeGreaterThan(0);
+    expect(cardTitle).toContain('مسح على خف');
 
     const answerContainer = card.locator('.leading-relaxed');
     await expect(answerContainer).toBeVisible();
@@ -75,7 +75,8 @@ test.describe('Noor Platform — Search Flows & Results Assertions', () => {
     // Verify answer container expanded (no line-clamp-2) and substantive answer text is loaded
     await expect(answerContainer).not.toHaveClass(/line-clamp-2/);
 
-    // Verify answer text is substantive, distinct from the question/title, and matches authentic scholarly answer phrases
+    // 6. Verify deterministic answer text binding:
+    // Assert displayed text is specifically the scholarly answer for the wiping over socks fatwa
     await expect(async () => {
       const text = ((await answerContainer.textContent()) || '').trim();
       expect(text.length).toBeGreaterThan(20);
@@ -83,12 +84,9 @@ test.describe('Noor Platform — Search Flows & Results Assertions', () => {
       // Assert displayed answer text is distinct from the question / card title
       expect(text).not.toEqual(cardTitle);
       expect(text).not.toContain(cardTitle);
-      // Assert displayed answer text does not regress to the question prompt
-      expect(text).not.toContain('هل يفسد صيام المريض');
-      // Assert authentic scholarly answer phrases exclusive to the answer
-      expect(text).toMatch(
-        /لا يفطر.*الصائم|لا يفطران الصائم|لتوسيع الشعب|أصح قولي أهل العلم|يجوز لك.*تُفْطر|الإفطار أفضل للمُسافر|يجوز أن تصوم/
-      );
+      // Assert exact scholarly ruling tokens exclusive to this specific fatwa answer
+      expect(text).toContain('سنة ورخصة');
+      expect(text).toContain('يمسح المقيم');
     }).toPass({ timeout: 10000 });
 
     // 6. Click "طي الفتوى" to collapse and verify state restored
