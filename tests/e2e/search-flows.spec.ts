@@ -59,6 +59,10 @@ test.describe('Noor Platform — Search Flows & Results Assertions', () => {
     const cardTitle = ((await card.locator('h3').textContent()) || '').trim();
     expect(cardTitle.length).toBeGreaterThan(0);
 
+    const answerContainer = card.locator('.leading-relaxed');
+    await expect(answerContainer).toBeVisible();
+    await expect(answerContainer).toHaveClass(/line-clamp-2/);
+
     // 5. Verify accordion toggle: click "قراءة الفتوى كاملة"
     const toggleBtn = card.locator('button:has-text("قراءة الفتوى كاملة")');
     await expect(toggleBtn).toBeVisible({ timeout: 15000 });
@@ -69,8 +73,6 @@ test.describe('Noor Platform — Search Flows & Results Assertions', () => {
     await expect(collapseBtn).toBeVisible({ timeout: 10000 });
 
     // Verify answer container expanded (no line-clamp-2) and substantive answer text is loaded
-    const answerContainer = card.locator('.leading-relaxed');
-    await expect(answerContainer).toBeVisible();
     await expect(answerContainer).not.toHaveClass(/line-clamp-2/);
 
     // Verify answer text is substantive, distinct from the question/title, and matches authentic scholarly answer phrases
@@ -80,6 +82,8 @@ test.describe('Noor Platform — Search Flows & Results Assertions', () => {
       expect(text).not.toContain('انقر لعرض تفاصيل الفتوى والجواب الشافي');
       // Assert displayed answer text is distinct from the question / card title
       expect(text).not.toEqual(cardTitle);
+      expect(text).not.toContain(cardTitle);
+      // Assert displayed answer text does not regress to the question prompt
       expect(text).not.toContain('هل يفسد صيام المريض');
       // Assert authentic scholarly answer phrases exclusive to the answer
       expect(text).toMatch(

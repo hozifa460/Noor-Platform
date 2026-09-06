@@ -51,6 +51,7 @@ const MEDIA_ORIGINS = [
   "https://*.radiojar.com",
   "https://*.zeno.fm",
   "https://stream.zeno.fm",
+  "https://raw.githubusercontent.com",
 ];
 
 const CONNECT_ORIGINS = [
