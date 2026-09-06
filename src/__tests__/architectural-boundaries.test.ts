@@ -72,6 +72,42 @@ describe('Architectural Boundaries Enforcement (ESLint Rules)', () => {
     expect(violation).toBeDefined();
   }, 15000);
 
+  it('rejects domain layer importing other feature private engines via relative path', async () => {
+    const invalidDomainCode = `
+      import { resolveRadioStream } from '../../radio/engines/stream-engine';
+      export const testVal = 4;
+    `;
+
+    const [result] = await eslint.lintText(invalidDomainCode, {
+      filePath: 'src/features/fatwa/domain/audit-probe-relative.ts',
+    });
+
+    expect(result.errorCount).toBeGreaterThan(0);
+    const violation = result.messages.find((m) =>
+      m.message.includes('Domain layer must only access other features through their approved root public facade') ||
+      m.message.includes('Architecture violation')
+    );
+    expect(violation).toBeDefined();
+  }, 15000);
+
+  it('rejects domain layer importing other feature private engines via @/features alias', async () => {
+    const invalidDomainCode = `
+      import { resolveRadioStream } from '@/features/radio/engines/stream-engine';
+      export const testVal = 5;
+    `;
+
+    const [result] = await eslint.lintText(invalidDomainCode, {
+      filePath: 'src/features/fatwa/domain/audit-probe-alias.ts',
+    });
+
+    expect(result.errorCount).toBeGreaterThan(0);
+    const violation = result.messages.find((m) =>
+      m.message.includes('Domain layer must only access other features through their approved root public facade') ||
+      m.message.includes('Architecture violation')
+    );
+    expect(violation).toBeDefined();
+  }, 15000);
+
   it('permits pure domain sibling imports within the same layer', async () => {
     const validDomainCode = `
       import type { SurahMeta } from './types';
