@@ -11,10 +11,12 @@ import { NextResponse } from 'next/server';
  * presence of any 'nonce-*' directive unconditionally invalidates 'unsafe-inline' across modern
  * browsers, which breaks static Next.js hydration scripts.
  *
- * To ensure optimal defense-in-depth within static constraints:
- * 1. Strict input sanitization is enforced via DOMPurify across all dynamic rendering (`sanitize-html.ts`).
- * 2. `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, and `frame-ancestors 'self'` prevent injection attacks.
- * 3. `connect-src`, `frame-src`, and `media-src` are locked down to explicit trusted domains.
+ * Consequently, retaining 'unsafe-inline' in script-src is an intentional architectural tradeoff
+ * necessitated by Next.js static site generation (SSG) / Cloudflare Pages export. Platform security
+ * relies on multi-layered defense-in-depth:
+ * 1. Strict input and HTML sanitization is enforced via DOMPurify across all dynamic rendering (`sanitize-html.ts`).
+ * 2. Restrictive baseline policies (`object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, and `frame-ancestors 'self'`) prevent injection and framing attacks.
+ * 3. Network ingress and egress are strictly contained by locking down `connect-src` and `media-src` to explicit trusted Islamic audio and media sources rather than permissive wildcards.
  */
 export function middleware() {
   const isDev = process.env.NODE_ENV === 'development';
@@ -25,7 +27,7 @@ export function middleware() {
     // Styles still use 'unsafe-inline' (CSS-in-JS and Tailwind utilities)
     `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
     `img-src 'self' data: blob: https:`,
-    `media-src 'self' blob: https:`,
+    `media-src 'self' blob: https://everyayah.com https://*.everyayah.com https://mp3quran.net https://*.mp3quran.net https://archive.org https://*.archive.org https://huggingface.co https://*.huggingface.co https://raw.githubusercontent.com`,
     `frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com`,
     `connect-src 'self' blob: data: https://everyayah.com https://*.everyayah.com https://huggingface.co https://*.huggingface.co https://raw.githubusercontent.com https://api.alquran.cloud https://api.qurancdn.com https://mp3quran.net https://*.mp3quran.net https://archive.org https://*.archive.org https://gitlab.com https://*.ytimg.com https://www.youtube.com https://*.upstash.io`,
     `font-src 'self' data: https://fonts.gstatic.com`,

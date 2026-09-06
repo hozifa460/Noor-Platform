@@ -263,4 +263,51 @@ describe('Security & SSRF Protection (shared/security.ts)', () => {
       expect(clean.length).toBeLessThanOrEqual(150);
     });
   });
+
+  describe('Edge Middleware Content-Security-Policy (middleware.ts)', () => {
+    it('sets hardened CSP headers with locked-down media-src and no https: wildcard', async () => {
+      const { middleware } = await import('@/middleware');
+      const response = middleware();
+      const csp = response.headers.get('Content-Security-Policy');
+
+      expect(csp).toBeDefined();
+      expect(csp).toBeTruthy();
+
+      // Verify media-src is locked down to trusted Islamic audio/media sources
+      const mediaDirective = csp!
+        .split(';')
+        .map((s) => s.trim())
+        .find((s) => s.startsWith('media-src'));
+      expect(mediaDirective).toBeDefined();
+
+      // Must allow explicit trusted origins
+      expect(mediaDirective).toContain("'self'");
+      expect(mediaDirective).toContain('blob:');
+      expect(mediaDirective).toContain('https://everyayah.com');
+      expect(mediaDirective).toContain('https://*.everyayah.com');
+      expect(mediaDirective).toContain('https://mp3quran.net');
+      expect(mediaDirective).toContain('https://*.mp3quran.net');
+      expect(mediaDirective).toContain('https://archive.org');
+      expect(mediaDirective).toContain('https://*.archive.org');
+      expect(mediaDirective).toContain('https://huggingface.co');
+      expect(mediaDirective).toContain('https://*.huggingface.co');
+      expect(mediaDirective).toContain('https://raw.githubusercontent.com');
+
+      // MUST NOT contain the permissive wildcard https:
+      const tokens = mediaDirective!.split(/\s+/);
+      expect(tokens).not.toContain('https:');
+
+      // Verify defense-in-depth baseline directives
+      expect(csp).toContain("object-src 'none'");
+      expect(csp).toContain("base-uri 'self'");
+      expect(csp).toContain("form-action 'self'");
+      expect(csp).toContain("frame-ancestors 'self'");
+
+      // Verify other security headers
+      expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(response.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
+      expect(response.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+    });
+  });
 });
+
