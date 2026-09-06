@@ -25,8 +25,8 @@ export function middleware(request: NextRequest) {
   const isDev = process.env.NODE_ENV === 'development';
   const csp = [
     `default-src 'self'`,
-    // Nonce allows inline scripts ONLY with matching nonce
-    `script-src 'self' 'nonce-${nonce}'${isDev ? " 'unsafe-eval'" : ""} https://www.youtube.com https://s.ytimg.com`,
+    // Allow Next.js inline bootstrap/hydration scripts without nonce conflict
+    `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://www.youtube.com https://s.ytimg.com`,
     // Styles still use 'unsafe-inline' (CSS-in-JS, many libraries need this)
     // TODO: migrate to nonce for styles too
     `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
