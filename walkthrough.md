@@ -15,13 +15,12 @@ This document records the resolution of the two deficiencies identified during t
 - **Fix**:
   - Scoped the search input locator to the library's search bar: `page.locator('main input[placeholder*="ابحث"]').first()`.
   - Added synchronization on search execution: waiting for the results header (`نتائج البحث عن`) to appear and the search spinner (`جاري البحث`) to disappear.
-  - Captured both the card title (`cardTitle`) and the pre-expansion fallback text (`initialFallbackQuestion` from `answerContainer`), verifying it initially has `line-clamp-2` and contains `'هل يفسد صيام المريض'`.
+  - Verified pre-expansion state: card is visible with non-empty `cardTitle` and answer container clamped with `line-clamp-2`.
   - Deepened answer assertions to verify that:
     1. The answer container has substantive text (`> 20` characters) and is not placeholder text.
     2. The displayed answer is distinct from the card title/question (`expect(text).not.toEqual(cardTitle)`, `expect(text).not.toContain(cardTitle)`).
-    3. The displayed answer is distinct from the pre-expansion fallback question (`expect(text).not.toEqual(initialFallbackQuestion)`, `expect(text).not.toContain(initialFallbackQuestion)`).
-    4. The displayed answer does not contain the question prompt (`expect(text).not.toContain('هل يفسد صيام المريض')`).
-    5. The text contains authentic scholarly answer phrases exclusive to the answer (`expect(text).toMatch(/لا يفطر.*الصائم|لا يفطران الصائم|لتوسيع الشعب|أصح قولي أهل العلم|يجوز لك.*تُفْطر|الإفطار أفضل للمُسافر|يجوز أن تصوم/)`).
+    3. The displayed answer does not regress to the seed question prompt (`expect(text).not.toContain('هل يفسد صيام المريض')`).
+    4. The text contains authentic scholarly answer phrases exclusive to the answer (`expect(text).toMatch(/لا يفطر.*الصائم|لا يفطران الصائم|لتوسيع الشعب|أصح قولي أهل العلم|يجوز لك.*تُفْطر|الإفطار أفضل للمُسافر|يجوز أن تصوم/)`).
 
 ### 1.2 CSP Media Sources Lockdown & Honest Architectural Documentation (`src/middleware.ts`, `public/_headers`, `next.config.ts`)
 - **Problem**:
