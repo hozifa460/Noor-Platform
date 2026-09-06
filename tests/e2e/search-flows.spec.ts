@@ -52,9 +52,10 @@ test.describe('Noor Platform — Search Flows & Results Assertions', () => {
     // Wait for search indicator to settle
     await expect(page.locator('text=جاري البحث')).not.toBeVisible({ timeout: 10000 });
 
-    // 4. Locate the targeted fatwa card deterministically
-    const card = page.locator('.rounded-3xl.bg-card').first();
-    await expect(card).toBeVisible({ timeout: 10000 });
+    // 4. Locate the targeted fatwa card deterministically by its unique ID (independent of result ordering)
+    const targetFatwaId = 'hf-fatawa_binbaz-1026';
+    const card = page.locator(`[data-fatwa-id="${targetFatwaId}"]`);
+    await expect(card).toBeVisible({ timeout: 15000 });
 
     const cardTitle = ((await card.locator('h3').textContent()) || '').trim();
     expect(cardTitle).toContain('مسح على خف');

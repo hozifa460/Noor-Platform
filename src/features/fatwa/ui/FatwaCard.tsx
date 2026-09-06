@@ -41,7 +41,11 @@ export function FatwaCard({
   const displayAnswer = cleanFatwaText(content?.answer || fatwa.description || '');
 
   return (
-    <div className="p-5 sm:p-6 rounded-3xl bg-card border border-border/80 hover:border-primary/40 transition-all duration-300 shadow-xs space-y-4">
+    <div
+      data-fatwa-id={fatwa.id}
+      data-testid={`fatwa-card-${fatwa.id}`}
+      className="p-5 sm:p-6 rounded-3xl bg-card border border-border/80 hover:border-primary/40 transition-all duration-300 shadow-xs space-y-4"
+    >
       {/* Top badges & actions */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
