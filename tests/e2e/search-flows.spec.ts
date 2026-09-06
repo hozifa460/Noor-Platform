@@ -57,14 +57,28 @@ test.describe('Noor Platform — Search Flows & Results Assertions', () => {
 
     // 5. Verify accordion toggle: click "قراءة الفتوى كاملة"
     const toggleBtn = card.locator('button:has-text("قراءة الفتوى كاملة")');
-    if (await toggleBtn.isVisible()) {
-      await toggleBtn.click();
-      // Verify button transitioned to "طي الفتوى"
-      await expect(card.locator('button:has-text("طي الفتوى")')).toBeVisible({ timeout: 10000 });
+    await expect(toggleBtn).toBeVisible({ timeout: 15000 });
+    await toggleBtn.click();
 
-      // Click "طي الفتوى" to collapse
-      await card.locator('button:has-text("طي الفتوى")').click();
-      await expect(card.locator('button:has-text("قراءة الفتوى كاملة")')).toBeVisible({ timeout: 10000 });
-    }
+    // Verify button transitioned to "طي الفتوى"
+    const collapseBtn = card.locator('button:has-text("طي الفتوى")');
+    await expect(collapseBtn).toBeVisible({ timeout: 10000 });
+
+    // Verify answer container expanded (no line-clamp-2) and substantive answer text is loaded
+    const answerContainer = card.locator('.leading-relaxed');
+    await expect(answerContainer).toBeVisible();
+    await expect(answerContainer).not.toHaveClass(/line-clamp-2/);
+
+    // Verify answer text is substantive and not merely placeholder text
+    await expect(async () => {
+      const text = (await answerContainer.textContent()) || '';
+      expect(text.trim().length).toBeGreaterThan(20);
+      expect(text).not.toContain('انقر لعرض تفاصيل الفتوى والجواب الشافي');
+    }).toPass({ timeout: 10000 });
+
+    // 6. Click "طي الفتوى" to collapse and verify state restored
+    await collapseBtn.click();
+    await expect(card.locator('button:has-text("قراءة الفتوى كاملة")')).toBeVisible({ timeout: 10000 });
+    await expect(answerContainer).toHaveClass(/line-clamp-2/);
   });
 });
