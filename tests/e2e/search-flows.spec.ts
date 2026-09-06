@@ -59,6 +59,16 @@ test.describe('Noor Platform — Search Flows & Results Assertions', () => {
     const cardTitle = ((await card.locator('h3').textContent()) || '').trim();
     expect(cardTitle.length).toBeGreaterThan(0);
 
+    const answerContainer = card.locator('.leading-relaxed');
+    await expect(answerContainer).toBeVisible();
+    await expect(answerContainer).toHaveClass(/line-clamp-2/);
+
+    // Capture the initial fallback text displayed in the card prior to accordion expansion.
+    // In FatwaCard.tsx:41, displayAnswer falls back to fatwa.description (which is item.question).
+    const initialFallbackQuestion = ((await answerContainer.textContent()) || '').trim();
+    expect(initialFallbackQuestion.length).toBeGreaterThan(0);
+    expect(initialFallbackQuestion).toContain('هل يفسد صيام المريض');
+
     // 5. Verify accordion toggle: click "قراءة الفتوى كاملة"
     const toggleBtn = card.locator('button:has-text("قراءة الفتوى كاملة")');
     await expect(toggleBtn).toBeVisible({ timeout: 15000 });
@@ -69,8 +79,6 @@ test.describe('Noor Platform — Search Flows & Results Assertions', () => {
     await expect(collapseBtn).toBeVisible({ timeout: 10000 });
 
     // Verify answer container expanded (no line-clamp-2) and substantive answer text is loaded
-    const answerContainer = card.locator('.leading-relaxed');
-    await expect(answerContainer).toBeVisible();
     await expect(answerContainer).not.toHaveClass(/line-clamp-2/);
 
     // Verify answer text is substantive, distinct from the question/title, and matches authentic scholarly answer phrases
@@ -78,8 +86,11 @@ test.describe('Noor Platform — Search Flows & Results Assertions', () => {
       const text = ((await answerContainer.textContent()) || '').trim();
       expect(text.length).toBeGreaterThan(20);
       expect(text).not.toContain('انقر لعرض تفاصيل الفتوى والجواب الشافي');
-      // Assert displayed answer text is distinct from the question / card title
+      // Assert displayed answer text is distinct from both the card title and the pre-expansion fallback question
       expect(text).not.toEqual(cardTitle);
+      expect(text).not.toContain(cardTitle);
+      expect(text).not.toEqual(initialFallbackQuestion);
+      expect(text).not.toContain(initialFallbackQuestion);
       expect(text).not.toContain('هل يفسد صيام المريض');
       // Assert authentic scholarly answer phrases exclusive to the answer
       expect(text).toMatch(

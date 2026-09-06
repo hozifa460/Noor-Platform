@@ -297,6 +297,24 @@ describe('Security & SSRF Protection (shared/security.ts)', () => {
       const tokens = mediaDirective!.split(/\s+/);
       expect(tokens).not.toContain('https:');
 
+      // Verify connect-src is also locked down without wildcard https:
+      const connectDirective = csp!
+        .split(';')
+        .map((s) => s.trim())
+        .find((s) => s.startsWith('connect-src'));
+      expect(connectDirective).toBeDefined();
+      const connectTokens = connectDirective!.split(/\s+/);
+      expect(connectTokens).not.toContain('https:');
+      expect(connectTokens).not.toContain('*');
+
+      // Verify script-src retains 'unsafe-inline' for SSG hydration
+      const scriptDirective = csp!
+        .split(';')
+        .map((s) => s.trim())
+        .find((s) => s.startsWith('script-src'));
+      expect(scriptDirective).toBeDefined();
+      expect(scriptDirective).toContain("'unsafe-inline'");
+
       // Verify defense-in-depth baseline directives
       expect(csp).toContain("object-src 'none'");
       expect(csp).toContain("base-uri 'self'");
