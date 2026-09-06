@@ -6,6 +6,7 @@ import {
   sanitizeFilename,
   ALLOWED_MEDIA_HOSTS,
 } from '@/lib/shared/security';
+import { middleware } from '@/middleware';
 
 describe('Security & SSRF Protection (shared/security.ts)', () => {
   describe('isPrivateIp', () => {
@@ -291,6 +292,18 @@ describe('Security & SSRF Protection (shared/security.ts)', () => {
       expect(mediaDirective).toContain('https://*.archive.org');
       expect(mediaDirective).toContain('https://huggingface.co');
       expect(mediaDirective).toContain('https://*.huggingface.co');
+      expect(mediaDirective).toContain('https://*.radiojar.com');
+      expect(mediaDirective).toContain('https://stream.radiojar.com');
+      expect(mediaDirective).toContain('https://*.zeno.fm');
+      expect(mediaDirective).toContain('https://stream.zeno.fm');
+      expect(mediaDirective).toContain('https://*.itworkscdn.net');
+      expect(mediaDirective).toContain('https://*.mp3islam.com');
+      expect(mediaDirective).toContain('https://*.radio.co');
+      expect(mediaDirective).toContain('https://*.simplestreaming.co.za');
+      expect(mediaDirective).toContain('https://*.fastcast4u.com');
+      expect(mediaDirective).toContain('https://qurango.net');
+      expect(mediaDirective).toContain('https://*.qurango.net');
+      expect(mediaDirective).toContain('https://download.quranicaudio.com');
       expect(mediaDirective).toContain('https://raw.githubusercontent.com');
 
       // MUST NOT contain the permissive wildcard https:
@@ -325,6 +338,42 @@ describe('Security & SSRF Protection (shared/security.ts)', () => {
       expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
       expect(response.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
       expect(response.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+    });
+
+    it('verifies all audio/radio media providers are whitelisted in media-src CSP directive', () => {
+      const response = middleware();
+      const csp = response.headers.get('Content-Security-Policy') || '';
+      const mediaDirective =
+        csp
+          .split(';')
+          .map((s: string) => s.trim())
+          .find((s: string) => s.startsWith('media-src')) || '';
+
+      const representativeProviders = [
+        'https://everyayah.com/data/Alafasy_128kbps/001001.mp3',
+        'https://server6.mp3quran.net/akdr/001.mp3',
+        'https://stream.radiojar.com/0tpy1h0kxtzuv',
+        'https://stream.zeno.fm/f3wvbbqmdg8uv',
+        'https://download.quranicaudio.com/quran/ahmed_ibn_3ali_al-3ajamy/001.mp3',
+        'https://archive.org/download/item/recitation.mp3',
+        'https://l3.itworkscdn.net/itwlive/3/playlist.m3u8',
+        'https://radio.mp3islam.com/stream',
+        'https://streams.radio.co/s8630043aa/listen',
+        'https://qurango.net/radio/tarateel',
+        'https://backup.qurango.net/radio/tarateel',
+        'https://huggingface.co/datasets/hozifa460/noor-platform-adhkar/raw/main/audio/1.mp3',
+        'https://raw.githubusercontent.com/hozifa460/Noor-Platform/main/audio.mp3',
+      ];
+
+      for (const audioUrl of representativeProviders) {
+        const parsed = new URL(audioUrl);
+        const host = parsed.hostname;
+        const rootDomain = host.split('.').slice(-2).join('.');
+        const matchesOrigin =
+          mediaDirective.includes(`https://${host}`) ||
+          mediaDirective.includes(`https://*.${rootDomain}`);
+        expect(matchesOrigin).toBe(true);
+      }
     });
   });
 });

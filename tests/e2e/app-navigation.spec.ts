@@ -22,8 +22,22 @@ test.describe("Noor Platform — Core App Navigation & Hub Routes", () => {
     await expect(page.locator("main").first()).toBeVisible();
   });
 
-  test("Directly loads /radio route with Radio Stations", async ({ page }) => {
+  test("Directly loads /radio route and verifies radio stations load without CSP media errors", async ({ page }) => {
+    const cspErrors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error' && msg.text().includes('Content Security Policy')) {
+        cspErrors.push(msg.text());
+      }
+    });
+
     await page.goto("/radio");
     await expect(page.locator("main").first()).toBeVisible();
+
+    // Verify radio cards or category tabs are rendered cleanly
+    const radioContent = page.locator('main').locator('text=/إذاعات القرآن|الإذاعات|إذاعة|بث مباشر/');
+    await expect(radioContent.first()).toBeVisible({ timeout: 15000 });
+
+    // Assert zero CSP violations occurred
+    expect(cspErrors).toHaveLength(0);
   });
 });
