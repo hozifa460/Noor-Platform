@@ -24,6 +24,8 @@ export function IslamicRadioCard({ radio }: IslamicRadioCardProps) {
   return (
     <div
       onClick={() => openPlayer(radio)}
+      data-testid="islamic-radio-card"
+      data-radio-id={radio.id}
       className={cn(
         'group relative flex flex-col justify-between rounded-2xl overflow-hidden border transition-all duration-300 cursor-pointer text-right bg-card hover:shadow-xl hover:-translate-y-1',
         isPlaying

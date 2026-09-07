@@ -16,6 +16,11 @@ export type PlayerKind =
  * Decide which player kind to use based on available URLs and item tags.
  */
 export function pickPlayer(item: MediaItem): PlayerKind {
+  // 0. Radio stations and audio broadcasts always use audio/live player
+  if (item.section === 'radio') {
+    return item.liveUrl ? 'live' : item.audioUrl ? 'audio' : null;
+  }
+
   // 1. Quran Mushaf items (Always check FIRST to prevent Quran items from being swallowed by book reader)
   if (isQuranBook(item)) {
     return 'mushaf';

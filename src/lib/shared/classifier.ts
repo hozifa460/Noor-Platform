@@ -94,6 +94,15 @@ export function isMainCollectionFile(filePath: string): boolean {
  * Common book and media item classification utilities.
  */
 export function isQuranBook(book: MediaItem): boolean {
+  if (
+    book.section === 'radio' ||
+    book.section === 'videos' ||
+    book.section === 'shorts' ||
+    book.section === 'live' ||
+    Boolean(book.liveUrl)
+  ) {
+    return false;
+  }
   return (
     (book.tags || []).some(
       (t) => t.includes('quran') || t.includes('مصحف') || t.includes('قراءة')

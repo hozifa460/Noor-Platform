@@ -353,7 +353,9 @@ describe('Security & SSRF Protection (shared/security.ts)', () => {
         'https://everyayah.com/data/Alafasy_128kbps/001001.mp3',
         'https://server6.mp3quran.net/akdr/001.mp3',
         'https://stream.radiojar.com/0tpy1h0kxtzuv',
+        'http://n11.radiojar.com/0tpy1h0kxtzuv',
         'https://stream.zeno.fm/f3wvbbqmdg8uv',
+        'https://stream-178.surfernetwork.com/f3wvbbqmdg8uv',
         'https://download.quranicaudio.com/quran/ahmed_ibn_3ali_al-3ajamy/001.mp3',
         'https://archive.org/download/item/recitation.mp3',
         'https://l3.itworkscdn.net/itwlive/3/playlist.m3u8',
@@ -370,8 +372,8 @@ describe('Security & SSRF Protection (shared/security.ts)', () => {
         const host = parsed.hostname;
         const rootDomain = host.split('.').slice(-2).join('.');
         const matchesOrigin =
-          mediaDirective.includes(`https://${host}`) ||
-          mediaDirective.includes(`https://*.${rootDomain}`);
+          mediaDirective.includes(`${parsed.protocol}//${host}`) ||
+          mediaDirective.includes(`${parsed.protocol}//*.${rootDomain}`);
         expect(matchesOrigin).toBe(true);
       }
     });
