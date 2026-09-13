@@ -177,6 +177,9 @@ const eslintConfig = [
       "src/hooks/**/*.{ts,tsx}",
       "src/stores/**/*.{ts,tsx}",
     ],
+    ignores: [
+      "src/components/books/**", // Documented compatibility facades re-exporting canonical feature components
+    ],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -240,6 +243,9 @@ const eslintConfig = [
   // Architectural Boundaries: Feature Slices boundary enforcement
   {
     files: ["src/features/**/*.{ts,tsx}"],
+    ignores: [
+      "src/features/**/__tests__/**", // Feature tests verifying compatibility facades and parity are exempted
+    ],
     rules: {
       "no-restricted-imports": [
         "error",

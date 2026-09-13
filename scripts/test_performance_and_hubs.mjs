@@ -41,7 +41,9 @@ async function testAll() {
   assert(microCode.includes('BUILTIN_SEED_FATWAS'), 'micro-shard-engine integrates BUILTIN_SEED_FATWAS');
 
   // 4. book-text-engine uses an in-memory cache in chapters.ts for 0ms slicing.
-  const bookEnginePath = path.join(process.cwd(), 'src', 'lib', 'book-text', 'chapters.ts');
+  const bookEnginePath = fs.existsSync(path.join(process.cwd(), 'src', 'features', 'books', 'infrastructure', 'text', 'chapters.ts'))
+    ? path.join(process.cwd(), 'src', 'features', 'books', 'infrastructure', 'text', 'chapters.ts')
+    : path.join(process.cwd(), 'src', 'lib', 'book-text', 'chapters.ts');
   const bookEngineCode = fs.readFileSync(bookEnginePath, 'utf-8');
   assert(/Cache\s*=\s*new\s+Map/.test(bookEngineCode), 'book-text-engine uses an in-memory Map cache for 0ms slicing');
 

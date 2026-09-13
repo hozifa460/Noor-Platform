@@ -18,6 +18,7 @@ import {
   searchBooksWithIntent,
   dedupeBooks,
   cachedLoadShamelaCatalog,
+  loadSearchIndexOnDemand,
   getInitialCachedBooks,
   LOCAL_CACHE_KEY,
 } from '../infrastructure';
@@ -74,7 +75,12 @@ export const useBooksStore = create<BooksState>((set, get) => ({
       get().loadLanguageBooks(selectedLanguage);
     }
   },
-  setSearchQuery: (searchQuery) => set({ searchQuery }),
+  setSearchQuery: (searchQuery) => {
+    set({ searchQuery });
+    if (searchQuery && searchQuery.trim().length > 0) {
+      loadSearchIndexOnDemand(set, get);
+    }
+  },
   setViewMode: (viewMode) => set({ viewMode }),
 
   loadLanguageBooks: async (langCode: string) => {

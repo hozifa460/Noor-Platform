@@ -1,6 +1,6 @@
 import type { MediaItem } from '@/lib/types';
 import { normalizeArabic } from '@/lib/arabic';
-import { dataUrl, isRemoteData } from '@/lib/shared';
+import { booksUrl, isRemoteData } from '@/lib/shared';
 import { QURANIC_MUS_HAFS } from '@/data/books';
 
 export const LOCAL_CACHE_KEY = 'noor-books-shamela-v4';
@@ -38,37 +38,102 @@ export async function cachedLoadShamelaCatalog<TState extends { books: MediaItem
   }
   shamelaCatalogPromise = (async () => {
     try {
-      const letters = 'ابتثجحخدذرزسشصضطظعغفقكلمنهوي'.split('');
-      const urls = isRemoteData()
-        ? [...letters, '__'].map((l) =>
-            dataUrl(`data/books/catalogs/shamela/_index_${l}.json`),
-          )
-        : ['/data/ebooks/shamela_arabic_catalog.json'];
-      const responses = await Promise.all(
-        urls.map((u) => fetch(u).then((r) => (r.ok ? r.json() : [])).catch(() => [])),
-      );
-      const items = responses.flat();
-      if (items.length > 0) {
-        set((s: TState) => {
-          const nextFiles = new Set(s.loadedFiles);
-          nextFiles.add('shamela');
-          nextFiles.add('openiti');
-          return {
-            ...s,
-            books: dedupeBooks([...s.books, ...items]),
-            loadedFiles: nextFiles,
-          };
-        });
+      if (!isRemoteData()) {
+        const res = await fetch('/data/ebooks/shamela_arabic_catalog.json').catch(() => null);
+        if (res && res.ok) {
+          const items = await res.json();
+          if (Array.isArray(items) && items.length > 0) {
+            set((s: TState) => {
+              const nextFiles = new Set(s.loadedFiles);
+              nextFiles.add('shamela');
+              return { ...s, books: dedupeBooks([...s.books, ...items]), loadedFiles: nextFiles };
+            });
+          }
+        }
+        return;
       }
+
+      // Step 1: Responsive initial load — Letter 'ا' (~4,000 books, 45% of entire library)
+      const primaryRes = await fetch(booksUrl('data/books/catalogs/shamela/_index_ا.json')).catch(() => null);
+      if (primaryRes && primaryRes.ok) {
+        const primaryItems = await primaryRes.json();
+        if (Array.isArray(primaryItems) && primaryItems.length > 0) {
+          set((s: TState) => {
+            const nextFiles = new Set(s.loadedFiles);
+            nextFiles.add('shamela');
+            return {
+              ...s,
+              books: dedupeBooks([...s.books, ...primaryItems]),
+              loadedFiles: nextFiles,
+            };
+          });
+        }
+      }
+
+      // Initial load complete for responsive entry (Letter 'ا' ~4,000 books)
+      // Note: No background downloading of the other 28 letter shards is performed to respect user bandwidth.
     } catch {
-      // non-critical: shamela is optional
+      // non-critical
     }
   })();
+
   try {
     await shamelaCatalogPromise;
   } finally {
-    // Keep resolved cache
+    // Keep promise resolved
   }
+}
+
+let searchIndexPromise: Promise<MediaItem[]> | null = null;
+let searchIndexLoaded = false;
+
+export function _resetSearchIndexStateForTesting(): void {
+  searchIndexPromise = null;
+  searchIndexLoaded = false;
+}
+
+/**
+ * On-demand lazy loader for the comprehensive books search index.
+ * Loaded ONCE only when the user types in the search bar.
+ */
+export async function loadSearchIndexOnDemand<TState extends { books: MediaItem[]; loadedFiles: Set<string> }>(
+  set: (partial: Partial<TState> | ((s: TState) => Partial<TState>)) => void,
+  _get: () => TState,
+): Promise<void> {
+  if (searchIndexLoaded) return;
+  if (searchIndexPromise) {
+    await searchIndexPromise;
+    return;
+  }
+
+  searchIndexPromise = (async () => {
+    try {
+      const res = await fetch('/data/ebooks/books_search_index.json').catch(() => null);
+      if (res && res.ok) {
+        const items = (await res.json()) as MediaItem[];
+        if (Array.isArray(items) && items.length > 0) {
+          searchIndexLoaded = true;
+          set((s: TState) => {
+            const nextFiles = new Set(s.loadedFiles);
+            nextFiles.add('shamela_search_index');
+            return {
+              ...s,
+              books: dedupeBooks([...s.books, ...items]),
+              loadedFiles: nextFiles,
+            };
+          });
+          return items;
+        }
+      }
+    } catch (e) {
+      console.warn('[store-loader] Failed to load search index:', e);
+    }
+    // On failure: clear promise so subsequent search interactions can retry
+    searchIndexPromise = null;
+    return [];
+  })();
+
+  await searchIndexPromise;
 }
 
 export function getInitialCachedBooks(): MediaItem[] {

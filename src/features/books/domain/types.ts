@@ -34,10 +34,12 @@ export interface TableOfContentsItem {
   id: string;
   title: string;
   chapterIndex: number;
-  pageNumber: number;
+  pageNumber?: number;
+  pageId?: number;
   level: 1 | 2 | 3;
   volumeNumber?: number;
   children?: TableOfContentsItem[];
+  isMapped?: boolean;
 }
 
 export interface EBookMetadata {
@@ -73,6 +75,7 @@ export interface SectionParagraph {
   isHeading?: boolean;
   headingLevel?: 1 | 2 | 3 | 4;
   pageNumber: number;
+  pageId?: number;
   volumeNumber?: number;
   volumePageBadge?: string; // e.g. "[ج ١، ص ٢٤]"
   isPoetry?: boolean;

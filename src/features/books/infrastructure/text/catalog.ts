@@ -64,8 +64,9 @@ export async function loadShamelaCatalogFull(): Promise<EBookMetadata[]> {
 /** Lookup a single shamela book — fetches per-letter indexes on demand. */
 export async function lookupShamelaBook(bookId: string): Promise<EBookMetadata | null> {
   if (shamelaCatalogCache.has(bookId)) return shamelaCatalogCache.get(bookId)!;
-  await loadShamelaCatalogFull();
-  return shamelaCatalogCache.get(bookId) ?? null;
+  // Non-blocking: Do NOT load the entire 29-letter catalog for a single book.
+  // The caller directly fetches the book's metadata file via shamelaBookMetaUrl.
+  return null;
 }
 
 /** Fetch ONLY the per-letter index that *might* contain this book. */
