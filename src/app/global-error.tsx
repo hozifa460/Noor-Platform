@@ -18,6 +18,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
 
   const handleHardReload = () => {
     if (typeof window !== 'undefined') {
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- In fatal global-error, router may be unmounted; full hard navigation is required.
       window.location.href = '/';
     }
   };
