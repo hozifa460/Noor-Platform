@@ -131,8 +131,14 @@ export function EBookContentView({
           return (
             <div
               key={p.id}
+              id={p.pageNumber ? `page-${p.pageNumber}` : undefined}
+              data-page-num={p.pageNumber}
+              data-page-id={p.pageId}
               className="my-6 py-4 px-6 rounded-2xl bg-amber-500/[0.04] dark:bg-amber-400/[0.03] border border-amber-500/15 max-w-2xl mx-auto shadow-sm"
             >
+              {p.pageId !== undefined && (
+                <span id={`page-id-${p.pageId}`} className="sr-only" aria-hidden="true" />
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6 items-center text-center">
                 <div
                   className="font-medium text-right sm:text-center text-amber-950 dark:text-amber-200"
@@ -160,7 +166,16 @@ export function EBookContentView({
         // 2. Section Headings
         if (p.isHeading) {
           return (
-            <div key={p.id} className="pt-8 pb-3 border-b border-amber-500/20 my-4">
+            <div
+              key={p.id}
+              id={p.pageNumber ? `page-${p.pageNumber}` : undefined}
+              data-page-num={p.pageNumber}
+              data-page-id={p.pageId}
+              className="pt-8 pb-3 border-b border-amber-500/20 my-4"
+            >
+              {p.pageId !== undefined && (
+                <span id={`page-id-${p.pageId}`} className="sr-only" aria-hidden="true" />
+              )}
               <div className="flex items-center gap-2">
                 <span className="text-amber-600 dark:text-amber-400 text-lg">§</span>
                 <h3
