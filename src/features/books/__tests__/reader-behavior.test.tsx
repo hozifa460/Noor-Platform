@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React, { act } from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import { useEBookReader } from '../ui/ebook/use-ebook-reader';
+import { EBookContentView } from '../ui/ebook/EBookContentView';
 import { clearChunkCache, clearMetaCache } from '../infrastructure/text/chapters';
 import type { MediaItem } from '@/lib/types';
 import { toast } from 'sonner';
@@ -42,8 +43,23 @@ describe('useEBookReader & useBookOrchestration — Behavioral & Precision Navig
     endPage: 20,
     paragraphs: [
       { id: 'p-1', text: 'بداية الباب الأول في المقطع الأول', pageNumber: 1, pageId: 50 },
-      { id: 'p-2', text: 'نص صفحة خمسة ضمن المقطع الأول', pageNumber: 5, pageId: 100 },
-      { id: 'p-3', text: 'نص صفحة خمسة عشر في نفس المقطع الأول', pageNumber: 15, pageId: 200 },
+      {
+        id: 'p-2',
+        text: 'فصل في بيان فضائل العلم',
+        isHeading: true,
+        headingLevel: 2,
+        pageNumber: 5,
+        pageId: 100,
+      },
+      {
+        id: 'p-3',
+        text: 'تعلم فليس المرء يولد عالماً',
+        isPoetry: true,
+        hemistich1: 'تعلم فليس المرء يولد عالماً',
+        hemistich2: 'وليس أخو علم كمن هو جاهل',
+        pageNumber: 15,
+        pageId: 200,
+      },
     ],
     wordCount: 150,
   };
@@ -366,5 +382,133 @@ describe('useEBookReader & useBookOrchestration — Behavioral & Precision Navig
     });
 
     expect(chunk2Signal?.signal.aborted).toBe(true);
+  });
+
+  it('5. renders the reader in DOM and executes scrollIntoView on target heading and poetry elements when jumping within the same chunk', async () => {
+    const scrolledElements: Element[] = [];
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = vi.fn(function (this: Element) {
+      scrolledElements.push(this);
+    });
+
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes('meta.json')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => sampleMetaResponse,
+        } as Response;
+      }
+      if (u.includes('chunk_1.json')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => sampleChunk1,
+        } as Response;
+      }
+      return { ok: false, status: 404 } as Response;
+    });
+
+    let hookRef = null as unknown as ReaderHookState;
+
+    function TestFullReaderComponent() {
+      const reader = useEBookReader(mockBookItem);
+      React.useEffect(() => {
+        hookRef = reader;
+      });
+      return (
+        <div>
+          <EBookContentView
+            chunkData={reader.chunkData}
+            metaRes={reader.metaRes}
+            tashkeel={reader.tashkeel}
+            fontFamily={reader.fontFamily}
+            fontSize={reader.fontSize}
+            highlightTerm={reader.highlightTerm}
+            targetPageNumber={reader.targetPageNumber}
+            targetPageId={reader.targetPageId}
+            targetJumpNonce={reader.targetJumpNonce}
+            onCopyCitation={reader.handleCopyCitation}
+            onHighlightParagraph={reader.handleHighlightParagraph}
+            onGoToStart={() => reader.setCurrentChapter(1)}
+            onOpenToc={() => {}}
+          />
+        </div>
+      );
+    }
+
+    await act(async () => {
+      root?.render(<TestFullReaderComponent />);
+    });
+
+    // Allow meta and chunk_1 fetch and DOM render to complete
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 60));
+    });
+
+    // 1. Verify DOM elements for all content types are actually rendered with unified page attributes
+    const headingEl = container?.querySelector('[data-page-id="100"]');
+    const poetryEl = container?.querySelector('[data-page-id="200"]');
+    const proseEl = container?.querySelector('[data-page-id="50"]');
+
+    expect(headingEl).not.toBeNull();
+    expect(poetryEl).not.toBeNull();
+    expect(proseEl).not.toBeNull();
+
+    // Verify unified page markers are present on heading and poetry
+    expect(headingEl?.getAttribute('data-page-num')).toBe('5');
+    expect(headingEl?.getAttribute('id')).toBe('page-5');
+    expect(headingEl?.querySelector('#page-id-100')).not.toBeNull();
+
+    expect(poetryEl?.getAttribute('data-page-num')).toBe('15');
+    expect(poetryEl?.getAttribute('id')).toBe('page-15');
+    expect(poetryEl?.querySelector('#page-id-200')).not.toBeNull();
+
+    expect(scrolledElements.length).toBe(0);
+
+    // 2. Jump within the same chunk to section heading (page 5, pageId 100)
+    await act(async () => {
+      hookRef?.handleJumpToChapter(1, 5, 100);
+    });
+
+    // Wait for the 100ms scrollIntoView timer in EBookContentView
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 160));
+    });
+
+    expect(scrolledElements.length).toBeGreaterThanOrEqual(1);
+    const scrolledTarget1 = scrolledElements[scrolledElements.length - 1];
+    expect(headingEl?.contains(scrolledTarget1) || headingEl === scrolledTarget1).toBe(true);
+
+    // 3. Jump within the same chunk to poetry verse (page 15, pageId 200)
+    const countBeforePoetryJump = scrolledElements.length;
+    await act(async () => {
+      hookRef?.handleJumpToChapter(1, 15, 200);
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 160));
+    });
+
+    expect(scrolledElements.length).toBeGreaterThan(countBeforePoetryJump);
+    const scrolledTarget2 = scrolledElements[scrolledElements.length - 1];
+    expect(poetryEl?.contains(scrolledTarget2) || poetryEl === scrolledTarget2).toBe(true);
+
+    // 4. Jump within the same chunk using pageNumber alone (fallback to page-15)
+    const countBeforePageNumJump = scrolledElements.length;
+    await act(async () => {
+      hookRef?.handleJumpToChapter(1, 15);
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 160));
+    });
+
+    expect(scrolledElements.length).toBeGreaterThan(countBeforePageNumJump);
+    const scrolledTarget3 = scrolledElements[scrolledElements.length - 1];
+    expect(poetryEl?.contains(scrolledTarget3) || poetryEl === scrolledTarget3).toBe(true);
+
+    Element.prototype.scrollIntoView = originalScrollIntoView;
   });
 });
