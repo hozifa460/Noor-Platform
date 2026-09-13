@@ -1,92 +1,77 @@
 /**
  * Compatibility facade for Hadith domain libraries and engines.
- * Re-exports local domain modules for 100% backward compatibility.
+ * Canonical implementation lives in @/features/hadith.
  */
-export * from './types';
-export * from './matn';
-export * from './loader';
-export * from './sharh';
-export * from './search';
-export * from './data';
-export * from './grade-engine';
-export * from './isnad-engine';
-export * from './narrator-engine';
-export * from './semantic';
-export * from './fake-engine';
-export * from './translations-engine';
-export * from './storage';
-export * from './seed-sharh';
-
 export {
+  HADITH_BOOKS_LIST,
+  GRADE_FILTER_OPTIONS,
   COMMON_STOP_WORDS,
   extractCleanMatn,
-} from './matn';
-
-export {
   prepareBookData,
   loadHadithBook,
   loadHadithBookFromShards,
   loadSpecificHadith,
-} from './loader';
-
-export {
+  clearBookCache,
+  getBookCacheSize,
   buildSharhInvertedIndex,
   loadHadeethEncSharh,
   findHadithSharh,
   getSharhByHadithId,
-} from './sharh';
-
-export {
+  clearSharhCache,
+  isSharhCacheLoaded,
   parseMicroIndexPayload,
   loadHadithMicroIndex,
   searchHadithsInBook,
   searchAcrossAllBooks,
-} from './search';
-
-export {
-  HADITH_BOOKS_LIST,
-} from './data';
-
-export {
   loadSunanGrades,
   getHadithGrade,
   isMuttafaqunAlayh,
-} from './grade-engine';
-
-export {
   parseHadithIsnad,
-} from './isnad-engine';
-
-export {
   findNarratorBio,
-} from './narrator-engine';
-
-export {
   HADITH_INTENT_CLUSTERS,
   extractQueryCore,
   expandSemanticTerms,
   resolveSemanticConcept,
-} from './semantic';
-
-export {
   FAKE_HADITH_CATEGORIES,
   loadFakeHadiths,
   searchFakeHadiths,
   checkHadithAuthenticity,
-} from './fake-engine';
-
-export {
   SUPPORTED_TRANSLATION_LANGUAGES,
   isBookTranslationAvailable,
   fetchHadithTranslation,
-} from './translations-engine';
-
-export {
   getCachedHadithBook,
   setCachedHadithBook,
-} from './storage';
-
-export {
   BUILTIN_SEED_SHARH,
-} from './seed-sharh';
+  useHadithStore,
+  HadithHubView,
+  HadithCard,
+  HadithDetailModal,
+  HadithSearchHeader,
+  HadithBookSelectorModal,
+  HadithChapterSelectorModal,
+  HadithGradesGuideModal,
+  HadithIsnadTree,
+  NarratorBioModal,
+  FakeHadithChecker,
+  HadithTranslationsView,
+  type HadithBookMeta,
+  type HadithItem,
+  type HadithChapter,
+  type HadithBookData,
+  type HadeethEncSharhItem,
+  type GlobalSearchResultItem,
+  type NarratorScholarlyOpinion,
+  type NarratorProfile,
+  type IsnadNodeRole,
+  type IsnadNode,
+  type ParsedIsnad,
+  type GradeFilterOption,
+  type MicroIndexEntry,
+  type FakeHadithCategory,
+  type FakeHadithCategoryMeta,
+  type FakeHadithItem,
+  type AuthenticityCheckResult,
+  type HadithState,
+} from '@/features/hadith';
 
+export * from '@/features/hadith';

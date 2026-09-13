@@ -179,6 +179,7 @@ const eslintConfig = [
     ],
     ignores: [
       "src/components/books/**", // Documented compatibility facades re-exporting canonical feature components
+      "src/components/hadith/**", // Documented compatibility facades re-exporting canonical feature components
     ],
     rules: {
       "no-restricted-imports": [
