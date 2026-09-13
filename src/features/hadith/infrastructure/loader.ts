@@ -15,6 +15,20 @@ import type {
 
 const bookCache = new Map<string, HadithBookData>();
 
+/**
+ * Clears the in-memory book cache (used for unit testing and state resets)
+ */
+export function clearBookCache(): void {
+  bookCache.clear();
+}
+
+/**
+ * Gets the number of books cached in memory
+ */
+export function getBookCacheSize(): number {
+  return bookCache.size;
+}
+
 const HF_SUNNAH_BASE =
   'https://huggingface.co/datasets/hozifa1/quran_and_sunnah/resolve/main/sunnahset';
 

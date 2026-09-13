@@ -8,6 +8,21 @@ import { extractCleanMatn, COMMON_STOP_WORDS } from './matn';
 let sharhCache: HadeethEncSharhItem[] | null = null;
 let sharhInvertedIndex: Map<string, HadeethEncSharhItem[]> | null = null;
 
+/**
+ * Clears the in-memory sharh cache and inverted index (used for testing and cache reset)
+ */
+export function clearSharhCache(): void {
+  sharhCache = null;
+  sharhInvertedIndex = null;
+}
+
+/**
+ * Checks if the sharh cache is currently loaded in memory
+ */
+export function isSharhCacheLoaded(): boolean {
+  return sharhCache !== null;
+}
+
 const HF_SUNNAH_BASE =
   'https://huggingface.co/datasets/hozifa1/quran_and_sunnah/resolve/main/sunnahset';
 
