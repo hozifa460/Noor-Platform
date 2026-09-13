@@ -56,6 +56,9 @@ export function EBookTextReader({
     highlights,
     isSpeaking,
     scrollContainerRef,
+    targetPageNumber,
+    targetPageId,
+    targetJumpNonce,
     handleSearch,
     handleJumpToSearch,
     handleJumpToChapter,
@@ -147,6 +150,9 @@ export function EBookTextReader({
                   fontFamily={fontFamily}
                   fontSize={fontSize}
                   highlightTerm={highlightTerm}
+                  targetPageNumber={targetPageNumber}
+                  targetPageId={targetPageId}
+                  targetJumpNonce={targetJumpNonce}
                   onCopyCitation={handleCopyCitation}
                   onHighlightParagraph={handleHighlightParagraph}
                   onGoToStart={() => setCurrentChapter(1)}

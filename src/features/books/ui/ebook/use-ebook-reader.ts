@@ -74,9 +74,11 @@ export function useEBookReader(bookItem: MediaItem) {
     setSidebarOpen(false);
   };
 
-  const handleJumpToChapter = (chapIdx: number) => {
-    orchestration.handleJumpToChapter(chapIdx);
-    setSidebarOpen(false);
+  const handleJumpToChapter = (chapIdx: number, pageNum?: number, pageId?: number) => {
+    orchestration.handleJumpToChapter(chapIdx, pageNum, pageId);
+    if (chapIdx > 0) {
+      setSidebarOpen(false);
+    }
   };
 
   // Offline Cache
@@ -146,6 +148,9 @@ export function useEBookReader(bookItem: MediaItem) {
     setCurrentChapter: orchestration.setCurrentChapter,
     chunkData: orchestration.chunkData,
     loading: orchestration.loading,
+    targetPageNumber: orchestration.targetPageNumber,
+    targetPageId: orchestration.targetPageId,
+    targetJumpNonce: orchestration.targetJumpNonce,
     scrollContainerRef: orchestration.scrollContainerRef,
     handleJumpToChapter,
 
