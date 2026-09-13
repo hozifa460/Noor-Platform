@@ -190,20 +190,23 @@ Single-purpose utility domains avoid artificial folder overhead and organize dir
 ## 6. Guide: Adding New Features
 
 ### 6.1 Adding a New Hadith Collection
-1. **Catalog Registration**: Add the collection metadata in `src/lib/hadith-engine.ts` inside `HADITH_COLLECTIONS`:
+1. **Catalog Registration**: Add the collection metadata in `src/features/hadith/domain/data.ts` inside `HADITH_BOOKS_LIST`:
    ```ts
    {
      id: 'adab-al-mufrad',
-     title: 'الأدب المفرد',
-     author: 'الإمام البخاري',
-     totalHadiths: 1322,
-     hasSharh: true,
-     source: 'shamela'
+     nameAr: 'الأدب المفرد',
+     nameEn: 'Al-Adab Al-Mufrad',
+     authorAr: 'الإمام البخاري',
+     authorEn: 'Imam al-Bukhari',
+     fileName: 'adab-al-mufrad.json',
+     hadithCount: 1322,
+     category: 'akhlak',
+     description: 'أحاديث مسندة في الآداب ومكارم الأخلاق الإسلامية.',
    }
    ```
 2. **Data Shard**: Place the JSON data file in `public/data/hadith/adab-al-mufrad.json`.
 3. **Grade Map (Optional)**: If scholarly gradings exist, add `public/data/hadith/grades/adab-al-mufrad.json`.
-4. **Verification**: Run `node scripts/test_hadith_integration.mjs` to ensure indexing and search match correctly.
+4. **Verification**: Run `node scripts/test_hadith_integration.mjs` and `npx vitest run src/features/hadith/` to ensure indexing and search match correctly.
 
 ### 6.2 Adding a New Quran Reciter or Riwayah
 1. **Reciter Definition**: Open `src/lib/quran-audio-engine.ts` and add entry to `QURAN_RECITERS`:

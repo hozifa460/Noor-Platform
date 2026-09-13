@@ -1,2 +1,7 @@
-export * from '@/components/shared/ArabicHighlight';
-export { ArabicHighlight as default } from '@/components/shared/ArabicHighlight';
+'use client';
+
+/**
+ * Compatibility facade for ArabicHighlight.
+ * Canonical implementation lives in @/features/hadith.
+ */
+export { ArabicHighlight } from '@/features/hadith/ui/ArabicHighlight';

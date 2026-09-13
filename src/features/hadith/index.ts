@@ -18,7 +18,16 @@ export type {
   IsnadNode,
   ParsedIsnad,
   GradeFilterOption,
+  MicroIndexEntry,
 } from './domain';
+
+export type {
+  HadithGradeInfo,
+  FakeHadithCategory,
+  FakeHadithCategoryMeta,
+  FakeHadithItem,
+  AuthenticityCheckResult,
+} from './infrastructure';
 
 export {
   HADITH_BOOKS_LIST,
@@ -27,12 +36,22 @@ export {
 
 // Infrastructure Layer
 export {
+  COMMON_STOP_WORDS,
   extractCleanMatn,
+  prepareBookData,
   loadHadithBook,
+  loadHadithBookFromShards,
   loadSpecificHadith,
+  clearBookCache,
+  getBookCacheSize,
+  buildSharhInvertedIndex,
   loadHadeethEncSharh,
   findHadithSharh,
   getSharhByHadithId,
+  clearSharhCache,
+  isSharhCacheLoaded,
+  parseMicroIndexPayload,
+  loadHadithMicroIndex,
   searchHadithsInBook,
   searchAcrossAllBooks,
   loadSunanGrades,
@@ -40,6 +59,10 @@ export {
   isMuttafaqunAlayh,
   parseHadithIsnad,
   findNarratorBio,
+  HADITH_INTENT_CLUSTERS,
+  extractQueryCore,
+  expandSemanticTerms,
+  resolveSemanticConcept,
   FAKE_HADITH_CATEGORIES,
   loadFakeHadiths,
   searchFakeHadiths,
@@ -47,6 +70,9 @@ export {
   SUPPORTED_TRANSLATION_LANGUAGES,
   isBookTranslationAvailable,
   fetchHadithTranslation,
+  getCachedHadithBook,
+  setCachedHadithBook,
+  BUILTIN_SEED_SHARH,
 } from './infrastructure';
 
 // Model Layer
