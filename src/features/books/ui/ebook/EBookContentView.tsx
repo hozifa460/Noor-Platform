@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { Sparkles, FileText, Copy, Highlighter, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -20,6 +21,9 @@ interface EBookContentViewProps {
   fontFamily: FontFamily;
   fontSize: number;
   highlightTerm: string;
+  targetPageNumber?: number | null;
+  targetPageId?: number | null;
+  targetJumpNonce?: number;
   onCopyCitation: (text: string, pageNum: number) => void;
   onHighlightParagraph: (p: SectionParagraph, color: 'yellow' | 'green' | 'blue' | 'pink') => void;
   onGoToStart: () => void;
@@ -33,11 +37,33 @@ export function EBookContentView({
   fontFamily,
   fontSize,
   highlightTerm,
+  targetPageNumber,
+  targetPageId,
+  targetJumpNonce,
   onCopyCitation,
   onHighlightParagraph,
   onGoToStart,
   onOpenToc,
 }: EBookContentViewProps) {
+  useEffect(() => {
+    if ((targetPageId || targetPageNumber) && chunkData) {
+      const timer = setTimeout(() => {
+        let el: HTMLElement | null = null;
+        if (targetPageId) {
+          el = document.getElementById(`page-id-${targetPageId}`) ||
+               (document.querySelector(`[data-page-id="${targetPageId}"]`) as HTMLElement | null);
+        }
+        if (!el && targetPageNumber) {
+          el = document.getElementById(`page-${targetPageNumber}`) ||
+               (document.querySelector(`[data-page-num="${targetPageNumber}"]`) as HTMLElement | null);
+        }
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [targetPageId, targetPageNumber, targetJumpNonce, chunkData]);
   if (!chunkData) {
     return (
       <div className="py-24 text-center space-y-4 animate-in fade-in duration-300">
@@ -154,8 +180,14 @@ export function EBookContentView({
         return (
           <div
             key={p.id}
+            id={p.pageNumber ? `page-${p.pageNumber}` : undefined}
+            data-page-num={p.pageNumber}
+            data-page-id={p.pageId}
             className="group relative text-justify leading-loose my-4 transition-colors rounded-xl p-3 -mx-2 hover:bg-black/[0.02] dark:hover:bg-white/[0.02]"
           >
+            {p.pageId !== undefined && (
+              <span id={`page-id-${p.pageId}`} className="sr-only" aria-hidden="true" />
+            )}
             <p
               className={cn(
                 'transition-colors leading-[2.2]',

@@ -27,7 +27,7 @@ interface EBookSidebarTocProps {
   setActiveTab: (tab: SidebarTab) => void;
   metaRes: EBookMetaResponse | null;
   currentChapter: number;
-  onJumpToChapter: (chapterIndex: number) => void;
+  onJumpToChapter: (chapterIndex: number, pageNumber?: number, pageId?: number) => void;
   searchQuery: string;
   onSearch: (q: string) => void;
   searchResults: InBookSearchResult[];
@@ -118,24 +118,40 @@ export function EBookSidebarToc({
             metaRes.toc.map((item) => (
               <button
                 key={item.id}
-                onClick={() => onJumpToChapter(item.chapterIndex)}
+                onClick={() => onJumpToChapter(item.chapterIndex, item.pageNumber, item.pageId)}
                 className={cn(
                   'w-full text-right p-2.5 rounded-xl transition-all flex items-start gap-2 text-xs leading-relaxed',
                   item.level === 2 && 'mr-2 text-[11px] opacity-90',
                   item.level === 3 && 'mr-4 text-[10px] opacity-80',
+                  item.isMapped === false && 'opacity-65 hover:opacity-90',
                   currentChapter === item.chapterIndex
                     ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold shadow-sm border border-amber-500/30'
                     : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-85 hover:opacity-100'
                 )}
               >
-                <span className="size-5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 font-mono">
-                  {item.chapterIndex}
+                <span
+                  className={cn(
+                    'size-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 font-mono',
+                    item.isMapped !== false
+                      ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                      : 'bg-muted text-muted-foreground'
+                  )}
+                  title={item.isMapped === false ? 'موضع غير معاير بفهرسة موثقة' : undefined}
+                >
+                  {item.isMapped !== false && item.chapterIndex > 0 ? item.chapterIndex : '—'}
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="line-clamp-2">{item.title}</p>
                   <div className="flex items-center gap-2 mt-0.5 text-[10px] opacity-60 font-mono">
                     {item.volumeNumber && <span>ج {item.volumeNumber}</span>}
-                    <span>ص {item.pageNumber}</span>
+                    {item.pageNumber !== undefined && item.pageNumber !== null && (
+                      <span>ص {item.pageNumber}</span>
+                    )}
+                    {item.isMapped === false && (
+                      <span className="text-[9px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1 rounded">
+                        غير محقق
+                      </span>
+                    )}
                   </div>
                 </div>
               </button>
