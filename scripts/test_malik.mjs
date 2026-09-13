@@ -1,4 +1,4 @@
-import { loadHadithBook } from '../src/lib/hadith/index.ts';
+import { loadHadithBook } from '../src/features/hadith/index.ts';
 import { extractHadithMatn, normalizeArabicText } from './generate_hadiths_micro_index.mjs';
 
 async function testMalik() {

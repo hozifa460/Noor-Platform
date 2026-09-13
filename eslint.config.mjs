@@ -136,9 +136,6 @@ const eslintConfig = [
       "src/lib/radio/**",
       "src/lib/fatwa/**",
       "src/lib/quran/**",
-      "src/lib/hadith/**",
-      "src/lib/books/**",
-      "src/lib/book-text/**",
     ],
     rules: {
       "no-restricted-imports": [
@@ -170,16 +167,45 @@ const eslintConfig = [
     },
   },
 
+  // Architectural Boundaries: Prevent re-importing from retired legacy paths across entire codebase
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@/lib/books",
+                "@/lib/books/**",
+                "@/lib/book-text",
+                "@/lib/book-text/**",
+                "@/lib/hadith",
+                "@/lib/hadith/**",
+                "@/components/books",
+                "@/components/books/**",
+                "@/components/hadith",
+                "@/components/hadith/**",
+                "@/stores/books-store",
+                "@/stores/hadith-store",
+                "@/hooks/use-ebook-reader",
+              ],
+              message:
+                "Architecture violation: Legacy compatibility paths for books and hadith have been retired. Use canonical feature imports: '@/features/books' or '@/features/hadith'.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+
   // Architectural Boundaries: Components, hooks, stores must access domain & feature functionality through approved facades
   {
     files: [
       "src/components/**/*.{ts,tsx}",
       "src/hooks/**/*.{ts,tsx}",
       "src/stores/**/*.{ts,tsx}",
-    ],
-    ignores: [
-      "src/components/books/**", // Documented compatibility facades re-exporting canonical feature components
-      "src/components/hadith/**", // Documented compatibility facades re-exporting canonical feature components
     ],
     rules: {
       "no-restricted-imports": [

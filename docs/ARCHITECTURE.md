@@ -125,7 +125,7 @@ Single-purpose utility domains avoid artificial folder overhead and organize dir
     - `ebook/EBookPaginationBar.tsx`: Bottom chapter slider and page indicator.
     - `ebook/EBookContentView.tsx`: Typography canvas for prose, poetry verses, headings, and footnotes.
     - `VectorMushafReader.tsx` & `mushaf/`: Vector and SVG Quran mushaf reader.
-  - `Compatibility Facades`: Thin 1-line re-export facades preserved in `src/components/books/*`, `src/lib/books/*`, `src/lib/book-text/*`, `src/hooks/use-ebook-reader.ts`, and `src/stores/books-store.ts` ensuring 100% backward compatibility and single-instance memory cache sharing.
+  - `Canonical Architecture`: All Books domain functionality is canonically unified under `src/features/books` with its single public entrypoint at `src/features/books/index.ts`. All legacy compatibility facades in `src/components/books/`, `src/lib/books/`, `src/lib/book-text/`, `src/stores/books-store.ts`, and `src/hooks/use-ebook-reader.ts` have been fully retired and removed.
 
 ### 4.2 PDF Viewer Subsystem (`src/components/pdf-viewer/`)
 - **Offscreen Canvas Rendering**: Renders pages via PDF.js offscreen canvas to avoid blank canvas race conditions.
@@ -174,7 +174,7 @@ Single-purpose utility domains avoid artificial folder overhead and organize dir
 ```
 
 1. **Memory Caches (L1)**:
-   - Chunk cache in `book-text-engine.ts` keeps up to 50 active chapter chunks in memory for instant chapter navigation.
+   - Chunk cache in `src/features/books/infrastructure/text/chapters.ts` keeps up to 50 active chapter chunks in memory for instant chapter navigation.
    - Preloads adjacent chapters (`n-1`, `n+1`) in the background.
 2. **IndexedDB Persistent Cache (L2)**:
    - Offline eBooks stored in `noor-ebooks-cache`.

@@ -9,3 +9,4 @@ export * from './HadithIsnadTree';
 export * from './HadithTranslationsView';
 export * from './NarratorBioModal';
 export * from './FakeHadithChecker';
+export * from './ArabicHighlight';

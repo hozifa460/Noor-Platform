@@ -514,7 +514,7 @@ function ensureRoutePages() {
       name: 'Hadith',
       title: 'الموسوعة الحديثية الشاملة — كتب السنة وشروحها | منصة نور',
       desc: 'بحث متقدم وتخريج فوري لأحاديث النبي ﷺ من كتب الصحاح والسنن والمسانيد مع بيان الأحكام والشروح المعتمدة.',
-      componentImport: "import { HadithHubView } from '@/components/hadith/HadithHubView';",
+      componentImport: "import { HadithHubView } from '@/features/hadith';",
       component: '<HadithHubView />',
     },
     {
@@ -522,7 +522,7 @@ function ensureRoutePages() {
       name: 'Books',
       title: 'المكتبة الإسلامية الرقمية — المكتبة الشاملة والمصاحف | منصة نور',
       desc: 'أكبر مكتبة إسلامية رقمية تضم أكثر من 8,500 كتاب محقق وموافق للمطبوع في التفسير والحديث والفقه والعقيدة.',
-      componentImport: "import { BooksLibraryView } from '@/components/books/BooksLibraryView';",
+      componentImport: "import { BooksLibraryView } from '@/features/books';",
       component: '<BooksLibraryView />',
     },
     {

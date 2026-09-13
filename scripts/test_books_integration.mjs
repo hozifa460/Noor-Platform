@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { useBooksStore, BOOK_CATEGORIES, BOOK_LANGUAGES } from '../src/stores/books-store.ts';
+import { useBooksStore, BOOK_CATEGORIES, BOOK_LANGUAGES } from '../src/features/books/index.ts';
 
 async function runBooksIntegrationTests() {
   console.log('📚 Starting Deluxe Islamic Books Library Tests...\n');
