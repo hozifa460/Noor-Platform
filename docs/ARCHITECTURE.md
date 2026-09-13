@@ -105,15 +105,27 @@ Single-purpose utility domains avoid artificial folder overhead and organize dir
 
 ## 4. Key Domains & Subsystem Blueprints
 
-### 4.1 Classical EBook Reader Subsystem (`src/components/books/`)
-- **Deconstructed Architecture**:
-  - `EBookTextReader.tsx`: Minimal coordinator (< 160 lines) orchestrating presentation.
-  - `ebook/use-ebook-reader.ts`: Domain hook encapsulating chunk loading, adjacent chapter preloading, search, and reading progress.
-  - `ebook/EBookToolbar.tsx`: Font size, font family, color themes (Light, Sepia, Oasis, OLED), Tashkeel level, speech TTS, and PDF facsimile toggle.
-  - `ebook/EBookSidebarToc.tsx`: Drawer for chapters, in-book text search, and saved highlights.
-  - `ebook/EBookSearchModal.tsx`: Search dialog with live term highlight and instant navigation.
-  - `ebook/EBookPaginationBar.tsx`: Navigation bar with chapter slider, page indicators, and RTL pagination.
-  - `ebook/EBookContentView.tsx`: Typography canvas handling classical prose, poetry verses, headings, and footnotes.
+### 4.1 Classical EBook Reader & Library Subsystem (`src/features/books/`)
+- **Layered Architecture**:
+  - `domain/`: Pure domain types, taxonomy (`BOOK_CATEGORIES`, `BOOK_LANGUAGES`, `QURANIC_MUS_HAFS`), title normalizer (`normBookTitle`), and classification predicates.
+  - `infrastructure/`: Data-fetching engines, global byte-budget LRU cache (8MB max), reference-counted request deduplication (`fetchWithRefCount`), Shamela chunk sharding, and IndexedDB progress storage (`progress.ts`).
+  - `application/`: Separated reader application hooks:
+    - `use-book-orchestration.ts`: Loading metadata, chapter navigation, chunk fetching, and adjacent chapter preloading.
+    - `use-book-preferences.ts`: Reading theme (Sepia, Light, Dark), typography, tashkeel mode, and focus mode.
+    - `use-book-audio.ts`: Chapter audio speech via the canonical `useTextToSpeech` hook.
+    - `use-book-search.ts`: In-book search state and jump navigation.
+  - `model/`: Zustand catalog store (`books-store.ts`) managing catalog filtering, search query, and view modes.
+  - `ui/`: Clean React components:
+    - `BooksLibraryView.tsx`: Main book catalog and filter hub.
+    - `EBookTextReader.tsx`: Minimal reader coordinator orchestrating subcomponents.
+    - `ebook/use-ebook-reader.ts`: Reader facade hook cleanly composing the application hooks.
+    - `ebook/EBookToolbar.tsx`: Top controls for font size, theme, tashkeel, TTS, and PDF toggle.
+    - `ebook/EBookSidebarToc.tsx`: Drawer for chapters and table of contents navigation.
+    - `ebook/EBookSearchModal.tsx`: In-book keyword search modal.
+    - `ebook/EBookPaginationBar.tsx`: Bottom chapter slider and page indicator.
+    - `ebook/EBookContentView.tsx`: Typography canvas for prose, poetry verses, headings, and footnotes.
+    - `VectorMushafReader.tsx` & `mushaf/`: Vector and SVG Quran mushaf reader.
+  - `Compatibility Facades`: Thin 1-line re-export facades preserved in `src/components/books/*`, `src/lib/books/*`, `src/lib/book-text/*`, `src/hooks/use-ebook-reader.ts`, and `src/stores/books-store.ts` ensuring 100% backward compatibility and single-instance memory cache sharing.
 
 ### 4.2 PDF Viewer Subsystem (`src/components/pdf-viewer/`)
 - **Offscreen Canvas Rendering**: Renders pages via PDF.js offscreen canvas to avoid blank canvas race conditions.

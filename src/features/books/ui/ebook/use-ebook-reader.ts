@@ -1,156 +1,81 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
-  loadEBookMeta,
-  loadChapterChunk,
-  preloadAdjacentChapters,
-  searchInsideEBook,
   saveEBookForOffline,
   isEBookCachedOffline,
-  getReadingProgress,
-  saveReadingProgress,
   getBookHighlights,
   saveBookHighlight,
   downloadBookTextFile,
-  type EBookMetaResponse,
 } from '../../infrastructure';
 import type {
-  BookChapterChunk,
   InBookSearchResult,
   BookHighlight,
   SectionParagraph,
 } from '../../domain';
 import type { MediaItem } from '@/lib/types';
 import { toast } from 'sonner';
-import type { ReadingTheme, TashkeelMode, FontFamily, SidebarTab } from './types';
+import type { SidebarTab } from './types';
 import { copyToClipboard } from '@/lib/shared';
-import { useTextToSpeech } from '@/hooks/use-text-to-speech';
+import {
+  useBookPreferences,
+  useBookAudio,
+  useBookSearch,
+  useBookOrchestration,
+} from '../../application';
 
 export function useEBookReader(bookItem: MediaItem) {
   const bookId = bookItem.id.replace(/^ebook-/, '');
 
-  // Book Data State
-  const [metaRes, setMetaRes] = useState<EBookMetaResponse | null>(null);
-  const [currentChapter, setCurrentChapter] = useState<number>(1);
-  const [chunkData, setChunkData] = useState<BookChapterChunk | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-
-  // Typography & UI Preferences
-  const [fontSize, setFontSize] = useState<number>(20);
-  const [theme, setTheme] = useState<ReadingTheme>('sepia');
-  const [tashkeel, setTashkeel] = useState<TashkeelMode>('full');
-  const [fontFamily, setFontFamily] = useState<FontFamily>('amiri');
-  const [focusMode, setFocusMode] = useState<boolean>(false);
-
-  // Drawers & Modals
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+  // 1. Audio Application Subsystem
+  // We need a stable reference to chunkData for audio, so we declare orchestration first
+  // with a callback to stop audio on chapter change.
   const [activeTab, setActiveTab] = useState<SidebarTab>('toc');
-  const [searchModalOpen, setSearchModalOpen] = useState<boolean>(false);
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
 
-  // In-Book Search
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [searchResults, setSearchResults] = useState<InBookSearchResult[]>([]);
-  const [searching, setSearching] = useState<boolean>(false);
-  const [highlightTerm, setHighlightTerm] = useState<string>('');
+  // 2. Preferences Subsystem
+  const preferences = useBookPreferences();
 
-  // Offline, Export & Highlights
+  // 3. Orchestration Subsystem
+  const orchestration = useBookOrchestration(bookId, () => {
+    audio.ttsStop();
+  });
+
+  // 4. Audio Subsystem
+  const audio = useBookAudio(orchestration.chunkData);
+
+  // 5. In-Book Search Subsystem
+  const search = useBookSearch(bookId, (chapIdx) => {
+    orchestration.handleJumpToChapter(chapIdx);
+    setSidebarOpen(false);
+  });
+
+  // 6. Offline, Export & Highlights Subsystem
   const [isOfflineCached, setIsOfflineCached] = useState<boolean>(false);
   const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [highlights, setHighlights] = useState<BookHighlight[]>([]);
 
-  // Speech TTS Audio
-  const { isSpeaking, speak: ttsSpeak, stop: ttsStop } = useTextToSpeech({ lang: 'ar-SA', rate: 0.9 });
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-
-  // 1. Initial Load: Metadata & Saved Progress
   useEffect(() => {
     let isMounted = true;
     (async () => {
-      setLoading(true);
-      const meta = await loadEBookMeta(bookId);
-      if (!isMounted) return;
-      setMetaRes(meta);
-
       const cached = await isEBookCachedOffline(bookId);
       if (isMounted) setIsOfflineCached(cached);
-
-      const progress = getReadingProgress(bookId);
-      const initialChapter = progress ? progress.chapterIndex : 1;
-      setCurrentChapter(initialChapter);
-      setHighlights(getBookHighlights(bookId));
+      if (isMounted) setHighlights(getBookHighlights(bookId));
     })();
-
     return () => {
       isMounted = false;
     };
   }, [bookId]);
 
-
-  // 2. Load Chapter Chunk on Chapter Change
-  useEffect(() => {
-    let isMounted = true;
-    (async () => {
-      setLoading(true);
-      const chunk = await loadChapterChunk(bookId, currentChapter);
-      if (!isMounted) return;
-      setChunkData(chunk);
-      setLoading(false);
-
-      if (scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-
-      if (metaRes?.meta) {
-        preloadAdjacentChapters(bookId, currentChapter, metaRes.meta.totalChapters);
-      }
-
-      if (chunk && metaRes?.meta) {
-        const percent = Math.round((currentChapter / metaRes.meta.totalChapters) * 100);
-        saveReadingProgress({
-          bookId,
-          chapterIndex: currentChapter,
-          pageNumber: chunk.startPage,
-          scrollRatio: 0,
-          lastReadTimestamp: Date.now(),
-          completedPercent: percent,
-        });
-      }
-    })();
-
-    return () => {
-      isMounted = false;
-      ttsStop();
-    };
-  }, [bookId, currentChapter, metaRes?.meta, ttsStop]);
-
-  // Search Handler
-  const handleSearch = useCallback(
-    async (q: string) => {
-      setSearchQuery(q);
-      if (!q.trim() || q.trim().length < 2) {
-        setSearchResults([]);
-        return;
-      }
-      setSearching(true);
-      const hits = await searchInsideEBook(bookId, q);
-      setSearchResults(hits);
-      setSearching(false);
-    },
-    [bookId]
-  );
-
+  // Jump to search result wrapper
   const handleJumpToSearch = (result: InBookSearchResult) => {
-    setCurrentChapter(result.chapterIndex);
-    setHighlightTerm(searchQuery.trim());
+    search.handleJumpToSearch(result);
     setSidebarOpen(false);
-    setSearchModalOpen(false);
-    toast.success(`الانتقال إلى ${result.chapterTitle} (صفحة ${result.pageNumber})`);
   };
 
   const handleJumpToChapter = (chapIdx: number) => {
-    setCurrentChapter(chapIdx);
+    orchestration.handleJumpToChapter(chapIdx);
     setSidebarOpen(false);
   };
 
@@ -179,7 +104,7 @@ export function useEBookReader(bookItem: MediaItem) {
     setIsExporting(true);
     toast.info('جاري تجهيز الكتاب للتحميل على جهازك...');
     try {
-      const ok = await downloadBookTextFile(bookId, metaRes?.meta.title || bookItem.title);
+      const ok = await downloadBookTextFile(bookId, orchestration.metaRes?.meta.title || bookItem.title);
       if (ok) {
         toast.success('تم تحميل الكتاب على جهازك بنجاح!');
       } else {
@@ -192,23 +117,12 @@ export function useEBookReader(bookItem: MediaItem) {
     }
   };
 
-  // Text-to-Speech (TTS)
-  const handleToggleSpeech = () => {
-    if (isSpeaking) {
-      ttsStop('تم إيقاف القراءة الصوتية');
-      return;
-    }
-    if (!chunkData?.paragraphs?.length) return;
-    const fullText = chunkData.paragraphs.map((p) => p.text).join(' ');
-    ttsSpeak(fullText.slice(0, 4000), 'بدأت القراءة الصوتية للنص');
-  };
-
   // Highlight & Citation
-  const handleHighlightParagraph = (p: SectionParagraph, color: 'yellow' | 'green' | 'blue' | 'pink') => {
+  const handleHighlightParagraph = useCallback((p: SectionParagraph, color: 'yellow' | 'green' | 'blue' | 'pink') => {
     const newHighlight: BookHighlight = {
-      id: `${bookId}-${currentChapter}-${p.id}-${Date.now()}`,
+      id: `${bookId}-${orchestration.currentChapter}-${p.id}-${Date.now()}`,
       bookId,
-      chapterIndex: currentChapter,
+      chapterIndex: orchestration.currentChapter,
       pageNumber: p.pageNumber,
       text: p.text.slice(0, 150) + (p.text.length > 150 ? '...' : ''),
       color,
@@ -217,54 +131,58 @@ export function useEBookReader(bookItem: MediaItem) {
     saveBookHighlight(newHighlight);
     setHighlights((prev) => [newHighlight, ...prev]);
     toast.success('تم حفظ الفائدة في دفتر الملاحظات');
-  };
+  }, [bookId, orchestration.currentChapter]);
 
-  const handleCopyCitation = (text: string, pageNum: number) => {
-    const title = metaRes?.meta.title || bookItem.title;
-    const author = metaRes?.meta.author || bookItem.sheikhName || '';
+  const handleCopyCitation = useCallback((text: string, pageNum: number) => {
+    const title = orchestration.metaRes?.meta.title || bookItem.title;
+    const author = orchestration.metaRes?.meta.author || bookItem.sheikhName || '';
     const citation = `«${text}»\n\n— [كتاب: ${title} - ${author}، صفحة: ${pageNum}] (منصة نور)`;
     copyToClipboard(citation, 'تم نسخ النص مع التوثيق والعزو');
-  };
-
+  }, [orchestration.metaRes?.meta.title, orchestration.metaRes?.meta.author, bookItem.title, bookItem.sheikhName]);
 
   return {
-    metaRes,
-    currentChapter,
-    setCurrentChapter,
-    chunkData,
-    loading,
-    fontSize,
-    setFontSize,
-    theme,
-    setTheme,
-    tashkeel,
-    setTashkeel,
-    fontFamily,
-    setFontFamily,
-    focusMode,
-    setFocusMode,
+    metaRes: orchestration.metaRes,
+    currentChapter: orchestration.currentChapter,
+    setCurrentChapter: orchestration.setCurrentChapter,
+    chunkData: orchestration.chunkData,
+    loading: orchestration.loading,
+    scrollContainerRef: orchestration.scrollContainerRef,
+    handleJumpToChapter,
+
+    fontSize: preferences.fontSize,
+    setFontSize: preferences.setFontSize,
+    theme: preferences.theme,
+    setTheme: preferences.setTheme,
+    tashkeel: preferences.tashkeel,
+    setTashkeel: preferences.setTashkeel,
+    fontFamily: preferences.fontFamily,
+    setFontFamily: preferences.setFontFamily,
+    focusMode: preferences.focusMode,
+    setFocusMode: preferences.setFocusMode,
+
     sidebarOpen,
     setSidebarOpen,
     activeTab,
     setActiveTab,
-    searchModalOpen,
-    setSearchModalOpen,
-    searchQuery,
-    searchResults,
-    searching,
-    highlightTerm,
+
+    searchModalOpen: search.searchModalOpen,
+    setSearchModalOpen: search.setSearchModalOpen,
+    searchQuery: search.searchQuery,
+    searchResults: search.searchResults,
+    searching: search.searching,
+    highlightTerm: search.highlightTerm,
+    handleSearch: search.handleSearch,
+    handleJumpToSearch,
+
+    isSpeaking: audio.isSpeaking,
+    handleToggleSpeech: audio.handleToggleSpeech,
+
     isOfflineCached,
     downloadProgress,
     isExporting,
     highlights,
-    isSpeaking,
-    scrollContainerRef,
-    handleSearch,
-    handleJumpToSearch,
-    handleJumpToChapter,
     handleSaveOffline,
     handleDownloadDeviceFile,
-    handleToggleSpeech,
     handleHighlightParagraph,
     handleCopyCitation,
   };

@@ -58,3 +58,6 @@ export {
   VectorMushafReader,
 } from './ui';
 
+export { useEBookReader } from './ui/ebook/use-ebook-reader';
+
+

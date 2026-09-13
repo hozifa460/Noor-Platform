@@ -1,10 +1,5 @@
 /**
- * Compatibility facade for Books domain libraries and engines.
- * Re-exports local domain modules for 100% backward compatibility.
+ * Compatibility facade for Books domain.
+ * Canonical implementation lives in @/features/books.
  */
-export * from './types';
-export * from './utils';
-export * from './intent-engine';
-export * from './store-loader';
-export * from './featured-books';
-
+export * from '@/features/books';

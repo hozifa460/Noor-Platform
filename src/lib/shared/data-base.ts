@@ -106,7 +106,7 @@ export function booksIndexUrl(source: 'shamela' | 'openiti', firstLetter: string
   // Non-Arabic / letterless titles land in _index__.json
   const inArabic = firstLetter && '\u0600' <= firstLetter && firstLetter <= '\u06FF';
   const suffix = inArabic ? firstLetter : '__';
-  return dataUrl(`data/books/catalogs/${source}/_index_${suffix}.json`);
+  return booksUrl(`data/books/catalogs/${source}/_index_${suffix}.json`);
 }
 
 /** URL for a per-prefix book details shard, keyed by the 3-char Arabic prefix
@@ -117,7 +117,42 @@ export function booksShardUrl(source: 'shamela' | 'openiti', prefix: string): st
   const p1 = safe[0] || '_';
   const p2 = safe[1] || '_';
   const p3 = safe[2] || '_';
-  return dataUrl(`data/books/catalogs/${source}/_by_prefix/${p1}/${p2}/${p3}.json`);
+  return booksUrl(`data/books/catalogs/${source}/_by_prefix/${p1}/${p2}/${p3}.json`);
+}
+
+/* -------------------- Shamela book helpers --------------------------- */
+
+/** Safely extract 5-digit folder name for a Shamela book ID (e.g. "shamela-1" -> "00001", "123" -> "00123"). */
+export function shamelaBookFolder(bookId: string): string {
+  const match = String(bookId).match(/\d+/);
+  const num = match ? parseInt(match[0], 10) : 0;
+  return String(num).padStart(5, '0');
+}
+
+/** URL for a Shamela book metadata JSON. */
+export function shamelaBookMetaUrl(folder: string): string {
+  return booksUrl(`data/books/shamela/${folder}/book_metadata.json`);
+}
+
+/** URL for a Shamela book index JSON. */
+export function shamelaBookIndexUrl(folder: string): string {
+  return booksUrl(`data/books/shamela/${folder}/index.json`);
+}
+
+/** URL for a Shamela book table of contents JSON. */
+export function shamelaBookTocUrl(folder: string): string {
+  return booksUrl(`data/books/shamela/${folder}/toc.json`);
+}
+
+/** URL for a Shamela book chapter slice JSON (20 pages per chunk). */
+export function shamelaBookChapterUrl(folder: string, chunkIndex: number): string {
+  const i = String(chunkIndex).padStart(3, '0');
+  return booksUrl(`data/books/shamela/${folder}/chapters/${i}.json`);
+}
+
+/** URL for a Shamela book chunk access manifest (if pre-generated). */
+export function shamelaChunksManifestUrl(folder: string): string {
+  return booksUrl(`data/books/shamela/${folder}/chunks_manifest.json`);
 }
 
 /* -------------------- Hadith helpers --------------------------------- */
