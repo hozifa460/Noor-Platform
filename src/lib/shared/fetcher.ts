@@ -116,23 +116,46 @@ export async function tryFetchJson<T>(
 /**
  * Fetches a single JSON file from the best available repository.
  *
- * @param repos Ordered list of repositories to try (GitHub first, then GitLab).
+ * Discovered candidates from fetchMergedIndex (sourceRepoIds) are tried first in deterministic
+ * order without being disqualified by path heuristics, followed by any other suitable repositories.
+ * Repositories with enabled: false are strictly respected and never queried.
+ *
+ * @param repos Ordered list of repositories to try.
  * @param filePath Relative path inside the repo.
+ * @param timeoutMs Request timeout in milliseconds.
+ * @param sourceRepoIds Discovered originating repository ID or ordered list of fallback repository IDs.
  */
 export async function fetchJsonWithFallback<T>(
   repos: RepositorySource[],
   filePath: string,
   timeoutMs?: number,
-  sourceRepoId?: string,
+  sourceRepoIds?: string | string[],
 ): Promise<FetchResult<T>> {
-  const suitableRepos = filterReposForPath(repos, filePath);
-  let enabled = suitableRepos.filter((r) => r.enabled !== false);
+  const discoveredIds: string[] = Array.isArray(sourceRepoIds)
+    ? sourceRepoIds
+    : sourceRepoIds
+      ? [sourceRepoIds]
+      : [];
 
-  // If a known source repository is specified, prioritize it at the front of the fallback chain
-  if (sourceRepoId) {
-    const preferredRepo = repos.find((r) => r.id === sourceRepoId && r.enabled !== false);
-    if (preferredRepo) {
-      enabled = [preferredRepo, ...enabled.filter((r) => r.id !== sourceRepoId)];
+  const candidateRepos: RepositorySource[] = [];
+  const seenRepoIds = new Set<string>();
+
+  // 1. Try discovered & enabled sources in their deterministic priority order.
+  // Do NOT exclude a source proven to contain the file because of heuristics/guessing from its name alone.
+  for (const id of discoveredIds) {
+    const repo = repos.find((r) => r.id === id);
+    if (repo && repo.enabled !== false && !seenRepoIds.has(repo.id)) {
+      seenRepoIds.add(repo.id);
+      candidateRepos.push(repo);
+    }
+  }
+
+  // 2. Then try other suitable repositories as further fallbacks, without duplicates.
+  const suitableRepos = filterReposForPath(repos, filePath);
+  for (const repo of suitableRepos) {
+    if (repo.enabled !== false && !seenRepoIds.has(repo.id)) {
+      seenRepoIds.add(repo.id);
+      candidateRepos.push(repo);
     }
   }
 
@@ -141,7 +164,7 @@ export async function fetchJsonWithFallback<T>(
   let bestSourceId: string | null = null;
   let lastErr: string | undefined;
 
-  for (const repo of enabled) {
+  for (const repo of candidateRepos) {
     const url = fileUrl(repo, filePath);
     try {
       const { data, lastModified: lm } = await tryFetchJson<T>(url, timeoutMs);
@@ -303,19 +326,36 @@ export async function fetchBlobWithFallback(
   repos: RepositorySource[],
   filePath: string,
   timeoutMs?: number,
-  sourceRepoId?: string,
+  sourceRepoIds?: string | string[],
 ): Promise<Blob | null> {
-  const suitableRepos = filterReposForPath(repos, filePath);
-  let enabled = suitableRepos.filter((r) => r.enabled !== false);
+  const discoveredIds: string[] = Array.isArray(sourceRepoIds)
+    ? sourceRepoIds
+    : sourceRepoIds
+      ? [sourceRepoIds]
+      : [];
 
-  if (sourceRepoId) {
-    const preferredRepo = repos.find((r) => r.id === sourceRepoId && r.enabled !== false);
-    if (preferredRepo) {
-      enabled = [preferredRepo, ...enabled.filter((r) => r.id !== sourceRepoId)];
+  const candidateRepos: RepositorySource[] = [];
+  const seenRepoIds = new Set<string>();
+
+  // 1. Try discovered & enabled sources in deterministic order
+  for (const id of discoveredIds) {
+    const repo = repos.find((r) => r.id === id);
+    if (repo && repo.enabled !== false && !seenRepoIds.has(repo.id)) {
+      seenRepoIds.add(repo.id);
+      candidateRepos.push(repo);
     }
   }
 
-  for (const repo of enabled) {
+  // 2. Then try other suitable repositories without duplicates
+  const suitableRepos = filterReposForPath(repos, filePath);
+  for (const repo of suitableRepos) {
+    if (repo.enabled !== false && !seenRepoIds.has(repo.id)) {
+      seenRepoIds.add(repo.id);
+      candidateRepos.push(repo);
+    }
+  }
+
+  for (const repo of candidateRepos) {
     try {
       const url = fileUrl(repo, filePath);
       const res = await fetchWithTimeout(url, { method: 'GET' }, timeoutMs);

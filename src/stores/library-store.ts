@@ -34,6 +34,10 @@ interface LibraryState {
   archiveFiles: string[];
   /** Set of archive file paths that have already been lazy-loaded. */
   loadedArchives: Set<string>;
+  /** Discovered file-to-repository primary origins from fetchMergedIndex. */
+  fileSources: Record<string, string>;
+  /** Discovered file-to-repositories ordered fallback lists from fetchMergedIndex. */
+  fileFallbacks: Record<string, string[]>;
 
   setItems: (items: MediaItem[], sheikhMetaByFile?: Map<string, NormalizeResult['sheikhMeta']>) => void;
   addItems: (items: MediaItem[]) => void;
@@ -41,6 +45,7 @@ interface LibraryState {
   setSyncing: (v: boolean) => void;
   setRepoStatus: (s: LibraryState['repoStatus']) => void;
   setLastSync: (t: number) => void;
+  setDiscoveredSources: (sources: Record<string, string>, fallbacks: Record<string, string[]>) => void;
   /** Register the list of archive files discovered during sync. */
   setArchiveFiles: (files: string[]) => void;
   /** Mark an archive file as lazy-loaded (hide its "Load older" button). */
@@ -76,6 +81,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   sheikhsArray: [],
   archiveFiles: [],
   loadedArchives: new Set(),
+  fileSources: {},
+  fileFallbacks: {},
 
   setItems: (items, sheikhMetaByFile) => {
     const deduped = dedupeItems(items);
@@ -131,6 +138,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   setSyncing: (syncing) => set({ syncing }),
   setRepoStatus: (repoStatus) => set({ repoStatus }),
   setLastSync: (lastSync) => set({ lastSync }),
+  setDiscoveredSources: (fileSources, fileFallbacks) => set({ fileSources, fileFallbacks }),
 
   setArchiveFiles: (files) => set({ archiveFiles: files, loadedArchives: new Set() }),
 
@@ -187,6 +195,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       sheikhMetaByFile: new Map(),
       archiveFiles: [],
       loadedArchives: new Set(),
+      fileSources: {},
+      fileFallbacks: {},
     });
   },
 }));

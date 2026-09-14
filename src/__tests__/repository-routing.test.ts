@@ -779,6 +779,122 @@ describe('Repository Routing & Retry Optimization Suite', () => {
       expect(contentResult.sourceId).toBe('repo-priority-2');
       expect(contentResult.data).toEqual({ recoveredData: 'from-backup' });
     });
+
+    it('tries discovered fallbacks in deterministic order and succeeds when primary 404s, even if fallback would be excluded by standard filtering, while strictly respecting enabled: false', async () => {
+      // Setup repositories:
+      // repoPrimary supports only 'videos' (matches standard filtering for this path)
+      const repoPrimary: RepositorySource = {
+        id: 'repo-primary-video',
+        provider: 'huggingface',
+        owner: 'hozifa1',
+        repo: 'videos_repo',
+        path: 'videos',
+        enabled: true,
+        supportedTypes: ['videos'],
+      };
+
+      // repoBackup supports only 'fatwa'
+      // Standard heuristic filtering for a video path will EXCLUDE repoBackup!
+      const repoBackup: RepositorySource = {
+        id: 'repo-backup-fatwa',
+        provider: 'huggingface',
+        owner: 'hozifa1',
+        repo: 'fatwa_repo',
+        path: 'fatawa',
+        enabled: true,
+        supportedTypes: ['fatwa'],
+      };
+
+      // repoDisabled is disabled (enabled: false)
+      const repoDisabled: RepositorySource = {
+        id: 'repo-disabled',
+        provider: 'huggingface',
+        owner: 'hozifa1',
+        repo: 'disabled_repo',
+        path: 'data',
+        enabled: false,
+        supportedTypes: ['videos'],
+      };
+
+      const testPath = 'sheikh/lecture.videos.json';
+
+      // 1. Verify that standard filtering excludes repoBackup and repoDisabled
+      const standardFiltered = filterReposForPath([repoPrimary, repoBackup, repoDisabled], testPath);
+      expect(standardFiltered.map((r) => r.id)).toEqual(['repo-primary-video']);
+      expect(standardFiltered.some((r) => r.id === 'repo-backup-fatwa')).toBe(false);
+      expect(standardFiltered.some((r) => r.id === 'repo-disabled')).toBe(false);
+
+      // 2. Discovered fallbacks from fetchMergedIndex containing both repoPrimary and repoBackup:
+      const discoveredFallbacks = ['repo-primary-video', 'repo-backup-fatwa', 'repo-disabled'];
+
+      const fetchMock = vi.fn().mockImplementation((url: string) => {
+        // Primary returns 404
+        if (url.includes('videos_repo')) {
+          return Promise.resolve({
+            ok: false,
+            status: 404,
+            headers: new Headers(),
+            text: () => Promise.resolve('Not Found'),
+          });
+        }
+        // Discovered fallback returns 200 with data
+        if (url.includes('fatwa_repo')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers(),
+            text: () => Promise.resolve(JSON.stringify([{ id: 'video-fatwa-1', title: 'شرح بالفيديو' }])),
+          });
+        }
+        // Disabled repo must NEVER be queried
+        if (url.includes('disabled_repo')) {
+          return Promise.reject(new Error('Disabled repo should never be called'));
+        }
+        return Promise.reject(new Error(`Unexpected URL: ${url}`));
+      });
+      global.fetch = fetchMock;
+
+      // 3. Fetch with discovered fallbacks:
+      // repoPrimary is tried first -> 404 (single request, zero 404 retries)
+      // repoBackup is tried second despite standard filter exclusion, and succeeds!
+      const result = await fetchJsonWithFallback<{ id: string; title: string }[]>(
+        [repoPrimary, repoBackup, repoDisabled],
+        testPath,
+        2000,
+        discoveredFallbacks,
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.status).toBe(200);
+      expect(result.sourceId).toBe('repo-backup-fatwa');
+      expect(result.data).toEqual([{ id: 'video-fatwa-1', title: 'شرح بالفيديو' }]);
+
+      // Verify repoPrimary called exactly once
+      expect(fetchMock.mock.calls.filter((c) => (c[0] as string).includes('videos_repo')).length).toBe(1);
+      // Verify repoBackup called exactly once
+      expect(fetchMock.mock.calls.filter((c) => (c[0] as string).includes('fatwa_repo')).length).toBe(1);
+      // Verify repoDisabled NEVER called
+      expect(fetchMock.mock.calls.some((c) => (c[0] as string).includes('disabled_repo'))).toBe(false);
+
+      // 4. Prove that if repoBackup is disabled (enabled: false), it is strictly respected
+      fetchMock.mockClear();
+      const repoBackupDisabled = { ...repoBackup, enabled: false };
+
+      const disabledResult = await fetchJsonWithFallback(
+        [repoPrimary, repoBackupDisabled, repoDisabled],
+        testPath,
+        2000,
+        discoveredFallbacks,
+      );
+
+      expect(disabledResult.ok).toBe(false);
+      // Primary was tried and failed
+      expect(fetchMock.mock.calls.filter((c) => (c[0] as string).includes('videos_repo')).length).toBe(1);
+      // Backup was NOT called because enabled === false
+      expect(fetchMock.mock.calls.some((c) => (c[0] as string).includes('fatwa_repo'))).toBe(false);
+      // Disabled repo was NOT called
+      expect(fetchMock.mock.calls.some((c) => (c[0] as string).includes('disabled_repo'))).toBe(false);
+    });
   });
 
   describe('5. Overall Request Reduction Quantification', () => {
