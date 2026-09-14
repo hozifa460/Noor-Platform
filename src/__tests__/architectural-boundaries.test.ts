@@ -513,6 +513,92 @@ describe('Architectural Boundaries Enforcement (ESLint Rules)', () => {
       );
       expect(violation).toBeDefined();
     }, 15000);
+
+    it('rejects a Component importing from retired legacy hooks/use-ayah-audio-loop path', async () => {
+      const invalidCode = `
+        import { useAyahAudioLoop } from '@/hooks/use-ayah-audio-loop';
+        export const testHook = useAyahAudioLoop;
+      `;
+      const [result] = await eslint.lintText(invalidCode, {
+        filePath: 'src/components/shared/TestAudioLoopHook.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects a Component importing from retired legacy components/media/FatwaCard path', async () => {
+      const invalidCode = `
+        import { FatwaCard } from '@/components/media/FatwaCard';
+        export const testComp = FatwaCard;
+      `;
+      const [result] = await eslint.lintText(invalidCode, {
+        filePath: 'src/components/shared/TestMediaFatwaCard.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects importing from retired legacy types/hadith facade path', async () => {
+      const invalidCode = `
+        import type { HadithItem } from '@/types/hadith';
+        export type TestHadith = HadithItem;
+      `;
+      const [result] = await eslint.lintText(invalidCode, {
+        filePath: 'src/components/shared/TestHadithType.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects importing from retired generic @/types barrel', async () => {
+      const invalidCode = `
+        import type { MediaItem } from '@/types';
+        export type TestMedia = MediaItem;
+      `;
+      const [result] = await eslint.lintText(invalidCode, {
+        filePath: 'src/components/shared/TestTypesBarrel.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects importing from retired generic @/types/index barrel', async () => {
+      const invalidCode = `
+        import type { MediaItem } from '@/types/index';
+        export type TestMedia = MediaItem;
+      `;
+      const [result] = await eslint.lintText(invalidCode, {
+        filePath: 'src/components/shared/TestTypesIndexBarrel.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('permits canonical importing of active shared reader types from @/types/reader', async () => {
+      const validCode = `
+        import type { ReadingTheme, MushafTheme } from '@/types/reader';
+        export type TestTheme = ReadingTheme | MushafTheme;
+      `;
+      const [result] = await eslint.lintText(validCode, {
+        filePath: 'src/components/shared/TestReaderTheme.tsx',
+      });
+      expect(result.errorCount).toBe(0);
+    }, 15000);
   });
 
   describe('Feature and Domain Boundaries Enforcement', () => {
