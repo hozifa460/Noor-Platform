@@ -20,7 +20,7 @@ function assert(cond, msg) {
 }
 
 async function runTests() {
-  const { searchBooksWithIntent } = await import('../src/lib/books/intent-engine.ts');
+  const { searchBooksWithIntent } = await import('../src/features/books/index.ts');
   const { normalizeArabic } = await import('../src/lib/arabic/normalizer.ts');
 
   // 1. Load Catalog & Pre-index as books-store does

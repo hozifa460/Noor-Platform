@@ -1,64 +1,55 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
-// 1. Chapters & Chunk Cache (Infrastructure vs Legacy Facade)
+// 1. Chapters & Chunk Cache (Canonical Feature Layer)
 import {
-  chunkCache as featureChunkCache,
-  metaCache as featureMetaCache,
-  loadChapterChunk as featureLoadChapterChunk,
-  loadEBookMeta as featureLoadEBookMeta,
+  chunkCache,
+  metaCache,
+  loadChapterChunk as directLoadChapterChunk,
+  loadEBookMeta as directLoadEBookMeta,
   clearChunkCache,
   setCachedChunk,
   getCachedChunk,
 } from '../infrastructure/text/chapters';
 
+// 2. Catalog Cache (Canonical Feature Layer)
 import {
-  chunkCache as legacyChunkCache,
-  metaCache as legacyMetaCache,
-  loadChapterChunk as legacyLoadChapterChunk,
-  loadEBookMeta as legacyLoadEBookMeta,
-} from '@/lib/book-text/chapters';
+  shamelaCatalogCache,
+} from '../infrastructure/text/catalog';
 
-// 2. Catalog Cache (Infrastructure vs Legacy Facade)
-import { shamelaCatalogCache as featureShamelaCache } from '../infrastructure/text/catalog';
-import { shamelaCatalogCache as legacyShamelaCache } from '@/lib/book-text/catalog';
-
-// 3. Store Loader (Infrastructure vs Legacy Facade)
+// 3. Store Loader (Canonical Feature Layer)
 import {
-  loadSearchIndexOnDemand as featureLoadIndex,
+  loadSearchIndexOnDemand,
 } from '../infrastructure/store-loader';
+
+// 4. Feature Root Facade
 import {
-  loadSearchIndexOnDemand as legacyLoadIndex,
-} from '@/lib/books/store-loader';
+  loadChapterChunk,
+  loadEBookMeta,
+  useBooksStore,
+  useEBookReader,
+  BOOK_CATEGORIES,
+  BOOK_LANGUAGES,
+} from '../index';
 
-// 4. Zustand Store (Feature vs Legacy Facade)
-import { useBooksStore as featureBooksStore } from '../index';
-import { useBooksStore as legacyBooksStore } from '@/stores/books-store';
+import { useEBookReader as directUseEBookReader } from '../ui/ebook/use-ebook-reader';
 
-// 5. useEBookReader Hook (Feature vs Legacy Facades)
-import { useEBookReader as featureUseEBookReader } from '../index';
-import { useEBookReader as hooksUseEBookReader } from '@/hooks/use-ebook-reader';
-import { useEBookReader as componentsUseEBookReader } from '@/components/books/ebook/use-ebook-reader';
-
-describe('Books Facade & Singleton Parity Verification', () => {
+describe('Books Domain Canonical Architecture — Cache Singletons & Lifecycle Verification', () => {
   beforeEach(() => {
     clearChunkCache();
-    featureMetaCache.clear();
+    metaCache.clear();
+    shamelaCatalogCache.clear();
   });
 
-  describe('Memory Cache Referencing (No Split State)', () => {
-    it('shares the EXACT same chunkCache Map instance between feature and lib facade', () => {
-      expect(legacyChunkCache).toBe(featureChunkCache);
+  describe('Memory Cache Referencing & Isolation', () => {
+    it('initializes single-instance chunkCache and metaCache Maps', () => {
+      expect(chunkCache instanceof Map).toBe(true);
+      expect(metaCache instanceof Map).toBe(true);
+      expect(shamelaCatalogCache instanceof Map).toBe(true);
+      expect(chunkCache.size).toBe(0);
+      expect(metaCache.size).toBe(0);
     });
 
-    it('shares the EXACT same metaCache Map instance between feature and lib facade', () => {
-      expect(legacyMetaCache).toBe(featureMetaCache);
-    });
-
-    it('shares the EXACT same shamelaCatalogCache Map instance between feature and lib facade', () => {
-      expect(legacyShamelaCache).toBe(featureShamelaCache);
-    });
-
-    it('propagates mutations bidirectionally through memory cache', () => {
+    it('mutates and retrieves chunks cleanly through cache operations', () => {
       const dummyChunk = {
         bookId: 'test-parity-1',
         chapterIndex: 1,
@@ -69,39 +60,37 @@ describe('Books Facade & Singleton Parity Verification', () => {
         wordCount: 7,
       };
 
-      // Set via feature
       setCachedChunk('test-parity-1:1', dummyChunk);
 
-      // Verify immediate presence in legacy facade
-      expect(legacyChunkCache.has('test-parity-1:1')).toBe(true);
+      expect(chunkCache.has('test-parity-1:1')).toBe(true);
       expect(getCachedChunk('test-parity-1:1')).toEqual(dummyChunk);
 
-      // Mutate via legacy facade
-      legacyChunkCache.delete('test-parity-1:1');
-
-      // Verify immediate reflection in feature
-      expect(featureChunkCache.has('test-parity-1:1')).toBe(false);
+      clearChunkCache();
+      expect(chunkCache.has('test-parity-1:1')).toBe(false);
       expect(getCachedChunk('test-parity-1:1')).toBeNull();
     });
   });
 
-  describe('Function Identity & Re-export Parity', () => {
-    it('re-exports the exact same chapter loader functions', () => {
-      expect(legacyLoadChapterChunk).toBe(featureLoadChapterChunk);
-      expect(legacyLoadEBookMeta).toBe(featureLoadEBookMeta);
+  describe('Canonical Re-export Parity in @/features/books', () => {
+    it('re-exports the exact same chapter loader functions from root facade', () => {
+      expect(loadChapterChunk).toBe(directLoadChapterChunk);
+      expect(loadEBookMeta).toBe(directLoadEBookMeta);
     });
 
-    it('re-exports the exact same store loader functions', () => {
-      expect(legacyLoadIndex).toBe(featureLoadIndex);
+    it('re-exports the exact same useEBookReader hook from root facade', () => {
+      expect(useEBookReader).toBe(directUseEBookReader);
     });
 
-    it('re-exports the exact same Zustand store instance between @/stores and @/features/books', () => {
-      expect(legacyBooksStore).toBe(featureBooksStore);
-    });
-
-    it('re-exports the exact same useEBookReader hook between @/features/books, @/hooks, and @/components', () => {
-      expect(hooksUseEBookReader).toBe(featureUseEBookReader);
-      expect(componentsUseEBookReader).toBe(featureUseEBookReader);
+    it('exposes valid store loader, Zustand store and catalog constants', () => {
+      expect(typeof loadSearchIndexOnDemand).toBe('function');
+      expect(typeof useBooksStore).toBe('function');
+      const state = useBooksStore.getState();
+      expect(state).toBeDefined();
+      expect(Array.isArray(state.books)).toBe(true);
+      expect(Array.isArray(BOOK_CATEGORIES)).toBe(true);
+      expect(BOOK_CATEGORIES.length).toBeGreaterThan(0);
+      expect(Array.isArray(BOOK_LANGUAGES)).toBe(true);
+      expect(BOOK_LANGUAGES.length).toBeGreaterThan(0);
     });
   });
 });

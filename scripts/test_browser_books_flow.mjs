@@ -30,8 +30,7 @@ function assert(cond, msg) {
 }
 
 async function runBrowserFlow() {
-  const { useBooksStore } = await import('../src/stores/books-store.ts');
-  const { loadEBookMeta, loadChapterChunk } = await import('../src/lib/book-text/index.ts');
+  const { useBooksStore, loadEBookMeta, loadChapterChunk } = await import('../src/features/books/index.ts');
 
   // 1. Initial State
   const initialStore = useBooksStore.getState();

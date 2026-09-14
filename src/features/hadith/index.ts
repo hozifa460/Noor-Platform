@@ -94,5 +94,8 @@ export {
   NarratorBioModal,
   FakeHadithChecker,
   HadithTranslationsView,
+  HADITH_BOOK_CATEGORIES,
+  GRADE_FILTERS,
+  ArabicHighlight,
 } from './ui';
 

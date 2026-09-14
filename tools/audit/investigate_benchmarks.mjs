@@ -1,4 +1,4 @@
-import { loadHadithBook } from '../../src/lib/hadith/index.ts';
+import { loadHadithBook } from '../../src/features/hadith/index.ts';
 import { extractHadithMatn } from '../../scripts/generate_hadiths_micro_index.mjs';
 import { arabicSearchMatch } from '../../src/lib/arabic/normalizer.ts';
 

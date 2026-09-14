@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { HADITH_BOOKS_LIST } from '../src/lib/hadith/data.ts';
+import { HADITH_BOOKS_LIST } from '../src/features/hadith/index.ts';
 import { normalizeArabic } from '../src/lib/arabic/normalizer.ts';
 
 const HF_SUNNAH_BASE =

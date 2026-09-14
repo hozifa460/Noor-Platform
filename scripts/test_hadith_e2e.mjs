@@ -14,22 +14,22 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 
-import { HADITH_BOOKS_LIST } from '../src/lib/hadith/data.ts';
 import {
-  normalizeArabic,
-  tokenizeArabic,
-  arabicSearchMatch,
-  arabicSearchScore,
-} from '../src/lib/arabic/normalizer.ts';
-import {
+  HADITH_BOOKS_LIST,
   loadHadithBook,
   loadHadithMicroIndex,
   loadHadeethEncSharh,
   findHadithSharh,
   searchHadithsInBook,
   searchAcrossAllBooks,
-} from '../src/lib/hadith/index.ts';
-import { getHadithGrade } from '../src/lib/hadith/grade-engine.ts';
+  getHadithGrade,
+} from '../src/features/hadith/index.ts';
+import {
+  normalizeArabic,
+  tokenizeArabic,
+  arabicSearchMatch,
+  arabicSearchScore,
+} from '../src/lib/arabic/normalizer.ts';
 
 // ANSI Terminal Colors
 const C = {
