@@ -376,6 +376,82 @@ describe('Architectural Boundaries Enforcement (ESLint Rules)', () => {
       );
       expect(violation).toBeDefined();
     }, 15000);
+
+    it('rejects a Component importing from retired legacy adhkar components path', async () => {
+      const invalidCode = `
+        import { AdhkarHubView } from '@/components/adhkar/AdhkarHubView';
+        export const testComp = AdhkarHubView;
+      `;
+      const [result] = await eslint.lintText(invalidCode, {
+        filePath: 'src/components/shared/TestAdhkarComp.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects a Feature importing from retired legacy adhkar lib path', async () => {
+      const invalidCode = `
+        import { searchAdhkar } from '@/lib/adhkar/engine';
+        export const testFn = searchAdhkar;
+      `;
+      const [result] = await eslint.lintText(invalidCode, {
+        filePath: 'src/features/books/ui/TestAdhkarImport.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects a Component importing from retired legacy adhkar hook path', async () => {
+      const invalidCode = `
+        import { useDhikrCounter } from '@/hooks/use-dhikr-counter';
+        export const testHook = useDhikrCounter;
+      `;
+      const [result] = await eslint.lintText(invalidCode, {
+        filePath: 'src/components/shared/TestAdhkarHook.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects importing from retired legacy types/adhkar facade path', async () => {
+      const invalidCode = `
+        import type { DhikrItem } from '@/types/adhkar';
+        export type TestDhikr = DhikrItem;
+      `;
+      const [result] = await eslint.lintText(invalidCode, {
+        filePath: 'src/components/shared/TestAdhkarType.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects library modules in src/lib importing higher-level feature slices like @/features/adhkar', async () => {
+      const invalidLibCode = `
+        import { searchAdhkar } from '@/features/adhkar';
+        export const testFn = searchAdhkar;
+      `;
+      const [result] = await eslint.lintText(invalidLibCode, {
+        filePath: 'src/lib/shared/test-adhkar-violation.ts',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Lower-level library domain modules must not import from higher-level feature slices') ||
+        m.message.includes('src/lib/shared must not import from feature domains')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
   });
 
   describe('Feature and Domain Boundaries Enforcement', () => {
@@ -429,7 +505,8 @@ describe('Architectural Boundaries Enforcement (ESLint Rules)', () => {
         import { BooksLibraryView } from '@/features/books';
         import { HadithHubView } from '@/features/hadith';
         import { FatwaLibraryView, useFatwaStore } from '@/features/fatwa';
-        export const testApp = { BooksLibraryView, HadithHubView, FatwaLibraryView, useFatwaStore };
+        import { AdhkarHubView } from '@/features/adhkar';
+        export const testApp = { BooksLibraryView, HadithHubView, FatwaLibraryView, useFatwaStore, AdhkarHubView };
       `;
       const [result] = await eslint.lintText(validAppCode, {
         filePath: 'src/app/unified/page.tsx',
