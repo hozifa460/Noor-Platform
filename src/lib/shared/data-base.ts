@@ -45,6 +45,9 @@ function sanitizeBooksBase(url?: string): string {
   if (clean.includes('/raw/main')) {
     clean = clean.replace('/raw/main', '/resolve/main');
   }
+  if (clean.includes('huggingface.co') && !clean.includes('/resolve/main')) {
+    clean = clean.replace(/\/+$/, '') + '/resolve/main';
+  }
   return clean || fallback;
 }
 
