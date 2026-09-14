@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { pickPlayer } from '@/lib/shared';
 import {
   BOOK_CATEGORIES,
   BOOK_LANGUAGES,
@@ -6,6 +7,9 @@ import {
   normBookTitle,
   firstLetterOf,
   FEATURED_ISLAMIC_CLASSICS,
+  getInitialCachedBooks,
+  loadCachedBooksPostHydration,
+  LOCAL_CACHE_KEY,
 } from '../index';
 
 describe('Books Feature Domain — Contract & Business Logic', () => {
@@ -115,4 +119,108 @@ describe('Books Feature Domain — Contract & Business Logic', () => {
       expect(quranCard?.artTag).toBe('quran');
     });
   });
+
+  describe('Player Resolution & Media Classification (pickPlayer)', () => {
+    it('correctly resolves shamela-2994 (Tafsir Ibn Kathir) to ebook player despite Quranic keywords', () => {
+      const ibnKathirCard = FEATURED_ISLAMIC_CLASSICS.find((c) => c.id === 'shamela-2994');
+      expect(ibnKathirCard).toBeDefined();
+
+      const item = {
+        id: ibnKathirCard!.id,
+        title: ibnKathirCard!.title,
+        sheikhName: ibnKathirCard!.author,
+        section: 'books' as const,
+        mediaType: 'shamela_archive',
+        tags: ['شاملة', 'تراث', ibnKathirCard!.discipline, 'أمهات الكتب', 'قرآن كريم'],
+      };
+
+      expect(pickPlayer(item)).toBe('ebook');
+    });
+
+    it('strictly routes Quran mushafs (quran-hafs) to mushaf player', () => {
+      const quranCard = FEATURED_ISLAMIC_CLASSICS.find((c) => c.id === 'quran-hafs');
+      expect(quranCard).toBeDefined();
+
+      const item = {
+        id: quranCard!.id,
+        title: quranCard!.title,
+        sheikhName: quranCard!.author,
+        section: 'books' as const,
+        tags: ['مصحف', 'قرآن كريم', 'quran'],
+      };
+
+      expect(pickPlayer(item)).toBe('mushaf');
+
+      const hafsCatalogItem = QURANIC_MUS_HAFS.find((m) => m.id === 'quran-hafs');
+      expect(hafsCatalogItem).toBeDefined();
+      expect(pickPlayer(hafsCatalogItem!)).toBe('mushaf');
+    });
+
+    it('routes all 9 Shamela featured classic cards to ebook player', () => {
+      const shamelaCards = FEATURED_ISLAMIC_CLASSICS.filter((c) => c.id.startsWith('shamela-'));
+      expect(shamelaCards).toHaveLength(9);
+
+      for (const card of shamelaCards) {
+        const item = {
+          id: card.id,
+          title: card.title,
+          sheikhName: card.author,
+          section: 'books' as const,
+          mediaType: 'shamela_archive',
+          tags: ['شاملة', 'تراث', card.discipline],
+        };
+        expect(pickPlayer(item), `Card ${card.id} (${card.title}) must resolve to ebook`).toBe('ebook');
+      }
+    });
+  });
+
+  describe('Hydration Safety & Post-Hydration Cache Recovery (React Error #418 Prevention)', () => {
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    afterEach(() => {
+      localStorage.clear();
+    });
+
+    it('strictly guarantees deterministic getInitialCachedBooks() returning identical items across SSR and hydration', () => {
+      // Seed localStorage with 600 items
+      const mockCached = Array.from({ length: 600 }, (_, i) => ({
+        id: `shamela-${i + 1}`,
+        title: `كتاب ${i + 1}`,
+        section: 'books' as const,
+      }));
+      localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(mockCached));
+
+      // getInitialCachedBooks MUST return QURANIC_MUS_HAFS and NOT the localStorage items during store creation
+      const initial = getInitialCachedBooks();
+      expect(initial).toEqual(QURANIC_MUS_HAFS);
+      expect(initial).toHaveLength(QURANIC_MUS_HAFS.length);
+    });
+
+    it('safely recovers cached items post-hydration without blocking initial render', () => {
+      const mockCached = Array.from({ length: 600 }, (_, i) => ({
+        id: `shamela-${i + 1}`,
+        title: `كتاب ${i + 1}`,
+        section: 'books' as const,
+      }));
+      localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(mockCached));
+
+      const recovered = loadCachedBooksPostHydration();
+      expect(recovered).not.toBeNull();
+      expect(recovered!.length).toBeGreaterThanOrEqual(600);
+      expect(recovered![0].id).toBe('shamela-1');
+    });
+
+    it('returns null from loadCachedBooksPostHydration when cache is empty or below threshold', () => {
+      localStorage.clear();
+      expect(loadCachedBooksPostHydration()).toBeNull();
+
+      // Below 500 threshold
+      const small = [{ id: 'shamela-1', title: 'كتاب', section: 'books' as const }];
+      localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(small));
+      expect(loadCachedBooksPostHydration()).toBeNull();
+    });
+  });
 });
+

@@ -136,8 +136,21 @@ export async function loadSearchIndexOnDemand<TState extends { books: MediaItem[
   await searchIndexPromise;
 }
 
+/**
+ * Initial books for store initialization.
+ * Must be strictly deterministic across SSR and initial client hydration
+ * to prevent React Error #418 (Text content hydration mismatch).
+ * Cached books from localStorage are loaded post-hydration in startLoading().
+ */
 export function getInitialCachedBooks(): MediaItem[] {
-  if (typeof window === 'undefined') return QURANIC_MUS_HAFS;
+  return QURANIC_MUS_HAFS;
+}
+
+/**
+ * Loads cached catalog items from localStorage safely after React hydration.
+ */
+export function loadCachedBooksPostHydration(): MediaItem[] | null {
+  if (typeof window === 'undefined') return null;
   try {
     const raw = window.localStorage.getItem(LOCAL_CACHE_KEY);
     if (raw) {
@@ -149,5 +162,6 @@ export function getInitialCachedBooks(): MediaItem[] {
   } catch {
     // fallback
   }
-  return QURANIC_MUS_HAFS;
+  return null;
 }
+
