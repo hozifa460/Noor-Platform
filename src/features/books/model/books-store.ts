@@ -20,6 +20,7 @@ import {
   cachedLoadShamelaCatalog,
   loadSearchIndexOnDemand,
   getInitialCachedBooks,
+  loadCachedBooksPostHydration,
   LOCAL_CACHE_KEY,
 } from '../infrastructure';
 
@@ -166,6 +167,14 @@ export const useBooksStore = create<BooksState>((set, get) => ({
   },
 
   startLoading: async () => {
+    // 1. Instantly restore cached books post-hydration before network fetches
+    const cached = loadCachedBooksPostHydration();
+    if (cached && cached.length > 0) {
+      set((s) => ({
+        books: dedupeBooks([...s.books, ...cached]),
+      }));
+    }
+
     if (get().loading) return;
     set({ loading: true });
 

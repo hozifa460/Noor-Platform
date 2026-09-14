@@ -35,6 +35,7 @@ export {
   dedupeBooks,
   cachedLoadShamelaCatalog,
   getInitialCachedBooks,
+  loadCachedBooksPostHydration,
   LOCAL_CACHE_KEY,
   FEATURED_ISLAMIC_CLASSICS,
   type FeaturedClassic,
