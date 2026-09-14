@@ -36,14 +36,14 @@ export const HADITH_BASE: string = sanitizeHadithBase(
 );
 
 function sanitizeBooksBase(url?: string): string {
-  const fallback = 'https://huggingface.co/datasets/hozifa1/noor-platform-books/raw/main';
+  const fallback = 'https://huggingface.co/datasets/hozifa1/noor-platform-books/resolve/main';
   if (!url) return fallback;
   let clean = url.trim();
   if (clean.includes('/tree/main')) {
-    clean = clean.replace('/tree/main', '/raw/main');
+    clean = clean.replace('/tree/main', '/resolve/main');
   }
-  if (clean.includes('/resolve/main')) {
-    clean = clean.replace('/resolve/main', '/raw/main');
+  if (clean.includes('/raw/main')) {
+    clean = clean.replace('/raw/main', '/resolve/main');
   }
   return clean || fallback;
 }

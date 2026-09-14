@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect, useMemo } from 'react';
 import {
   ListTree,
   Search,
@@ -53,6 +54,43 @@ export function EBookSidebarToc({
   highlights,
   themeStyle,
 }: EBookSidebarTocProps) {
+  const PAGE_SIZE = 300;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // Reset visibleCount when book changes
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [metaRes?.meta?.id, metaRes?.toc?.length]);
+
+  // Ensure current chapter is visible even if deep in the TOC
+  useEffect(() => {
+    if (!metaRes?.toc) return;
+    const currentIdx = metaRes.toc.findIndex((item) => item.chapterIndex === currentChapter);
+    if (currentIdx >= 0 && currentIdx >= visibleCount) {
+      setVisibleCount(Math.min(metaRes.toc.length, currentIdx + PAGE_SIZE));
+    }
+  }, [currentChapter, metaRes?.toc, visibleCount]);
+
+  const displayedToc = useMemo(() => {
+    if (!metaRes?.toc) return [];
+    return metaRes.toc.slice(0, visibleCount);
+  }, [metaRes?.toc, visibleCount]);
+
+  const hasMore = metaRes?.toc ? visibleCount < metaRes.toc.length : false;
+  const remainingCount = metaRes?.toc ? metaRes.toc.length - visibleCount : 0;
+
+  const handleLoadMore = () => {
+    if (!metaRes?.toc) return;
+    setVisibleCount((prev) => Math.min(metaRes.toc.length, prev + PAGE_SIZE));
+  };
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop - clientHeight < 200 && hasMore) {
+      handleLoadMore();
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -113,49 +151,63 @@ export function EBookSidebarToc({
 
       {/* Tab 1: Table of Contents */}
       {activeTab === 'toc' && (
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {metaRes?.toc && metaRes.toc.length > 0 ? (
-            metaRes.toc.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => onJumpToChapter(item.chapterIndex, item.pageNumber, item.pageId)}
-                className={cn(
-                  'w-full text-right p-2.5 rounded-xl transition-all flex items-start gap-2 text-xs leading-relaxed',
-                  item.level === 2 && 'mr-2 text-[11px] opacity-90',
-                  item.level === 3 && 'mr-4 text-[10px] opacity-80',
-                  item.isMapped === false && 'opacity-65 hover:opacity-90',
-                  currentChapter === item.chapterIndex
-                    ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold shadow-sm border border-amber-500/30'
-                    : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-85 hover:opacity-100'
-                )}
-              >
-                <span
+        <div onScroll={handleScroll} className="flex-1 overflow-y-auto p-2 space-y-1">
+          {displayedToc && displayedToc.length > 0 ? (
+            <>
+              {displayedToc.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => onJumpToChapter(item.chapterIndex, item.pageNumber, item.pageId)}
                   className={cn(
-                    'size-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 font-mono',
-                    item.isMapped !== false
-                      ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                      : 'bg-muted text-muted-foreground'
+                    'w-full text-right p-2.5 rounded-xl transition-all flex items-start gap-2 text-xs leading-relaxed',
+                    item.level === 2 && 'mr-2 text-[11px] opacity-90',
+                    item.level === 3 && 'mr-4 text-[10px] opacity-80',
+                    item.isMapped === false && 'opacity-65 hover:opacity-90',
+                    currentChapter === item.chapterIndex
+                      ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold shadow-sm border border-amber-500/30'
+                      : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-85 hover:opacity-100'
                   )}
-                  title={item.isMapped === false ? 'موضع غير معاير بفهرسة موثقة' : undefined}
                 >
-                  {item.isMapped !== false && item.chapterIndex > 0 ? item.chapterIndex : '—'}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="line-clamp-2">{item.title}</p>
-                  <div className="flex items-center gap-2 mt-0.5 text-[10px] opacity-60 font-mono">
-                    {item.volumeNumber && <span>ج {item.volumeNumber}</span>}
-                    {item.pageNumber !== undefined && item.pageNumber !== null && (
-                      <span>ص {item.pageNumber}</span>
+                  <span
+                    className={cn(
+                      'size-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 font-mono',
+                      item.isMapped !== false
+                        ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                        : 'bg-muted text-muted-foreground'
                     )}
-                    {item.isMapped === false && (
-                      <span className="text-[9px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1 rounded">
-                        غير محقق
-                      </span>
-                    )}
+                    title={item.isMapped === false ? 'موضع غير معاير بفهرسة موثقة' : undefined}
+                  >
+                    {item.isMapped !== false && item.chapterIndex > 0 ? item.chapterIndex : '—'}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="line-clamp-2">{item.title}</p>
+                    <div className="flex items-center gap-2 mt-0.5 text-[10px] opacity-60 font-mono">
+                      {item.volumeNumber && <span>ج {item.volumeNumber}</span>}
+                      {item.pageNumber !== undefined && item.pageNumber !== null && (
+                        <span>ص {item.pageNumber}</span>
+                      )}
+                      {item.isMapped === false && (
+                        <span className="text-[9px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1 rounded">
+                          غير محقق
+                        </span>
+                      )}
+                    </div>
                   </div>
+                </button>
+              ))}
+              {hasMore && (
+                <div className="p-2 pt-3 text-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLoadMore}
+                    className="w-full text-xs font-semibold rounded-xl border border-current/15 hover:bg-black/5 dark:hover:bg-white/5 transition-all text-amber-600 dark:text-amber-400 py-2"
+                  >
+                    تحميل المزيد ({remainingCount.toLocaleString('ar-SA')} متبقية)
+                  </Button>
                 </div>
-              </button>
-            ))
+              )}
+            </>
           ) : (
             <div className="p-8 text-center text-xs opacity-60">
               لا يتوفر فهرس تفصيلي لهذا الكتاب
