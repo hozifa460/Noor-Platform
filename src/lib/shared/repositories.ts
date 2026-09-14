@@ -1,5 +1,5 @@
 import type { RepositorySource } from '../types';
-import { classifyFile } from './classifier';
+import { detectExplicitSection } from './classifier';
 
 /**
  * Default repository sources on Hugging Face (and optional GitHub/GitLab).
@@ -87,6 +87,45 @@ function isValidRepository(r: unknown): r is RepositorySource {
   return true;
 }
 
+/**
+ * Migrates legacy saved default repository configurations that lack supportedTypes,
+ * while preserving user modifications (e.g. enabled, path, custom branch) and preserving
+ * custom user repositories. Does not replace the user's entire repository list.
+ */
+export function migrateSavedRepositories(repos: RepositorySource[]): {
+  repos: RepositorySource[];
+  migrated: boolean;
+} {
+  let migrated = false;
+
+  const defaultById = new Map<string, RepositorySource>();
+  const defaultByCoord = new Map<string, RepositorySource>();
+
+  for (const def of DEFAULT_REPOSITORIES) {
+    defaultById.set(def.id, def);
+    defaultByCoord.set(`${def.provider}:${def.owner.toLowerCase()}/${def.repo.toLowerCase()}`, def);
+  }
+
+  const updatedRepos = repos.map((repo) => {
+    const matched =
+      defaultById.get(repo.id) ||
+      defaultByCoord.get(`${repo.provider}:${(repo.owner || '').toLowerCase()}/${(repo.repo || '').toLowerCase()}`);
+
+    // If this entry corresponds to a known default repo and lacks supportedTypes, backfill supportedTypes
+    if (matched && matched.supportedTypes && (!repo.supportedTypes || repo.supportedTypes.length === 0)) {
+      migrated = true;
+      return {
+        ...repo,
+        supportedTypes: [...matched.supportedTypes],
+      };
+    }
+
+    return repo;
+  });
+
+  return { repos: updatedRepos, migrated };
+}
+
 /** Load repositories from localStorage (user may edit) or fallback to defaults. */
 export function loadRepositories(): RepositorySource[] {
   if (typeof window === 'undefined') return DEFAULT_REPOSITORIES;
@@ -100,14 +139,20 @@ export function loadRepositories(): RepositorySource[] {
     const validRepos = parsed.filter(isValidRepository);
     if (validRepos.length === 0) return DEFAULT_REPOSITORIES;
 
+    // Migrate legacy default repositories that lack supportedTypes while preserving user customizations
+    const { repos: migratedRepos, migrated } = migrateSavedRepositories(validRepos);
+    if (migrated) {
+      saveRepositories(migratedRepos);
+    }
+
     // Migrate old github/gitlab defaults to Hugging Face if user had old stored defaults
-    const hasOldDefault = validRepos.some((r) => r.owner === 'hozifa460' || r.owner === 'hazozahz-islamway');
+    const hasOldDefault = migratedRepos.some((r) => r.owner === 'hozifa460' || r.owner === 'hazozahz-islamway');
     if (hasOldDefault) {
       saveRepositories(DEFAULT_REPOSITORIES);
       return DEFAULT_REPOSITORIES;
     }
 
-    return validRepos;
+    return migratedRepos;
   } catch {
     return DEFAULT_REPOSITORIES;
   }
@@ -260,8 +305,16 @@ export function isRepoSuitableForPath(repo: RepositorySource, filePath: string):
     return true;
   }
 
-  const section = classifyFile(filePath);
-  return repo.supportedTypes.includes(section);
+  // Detect explicit section domain classification
+  const explicit = detectExplicitSection(filePath);
+
+  // If the path is unclassified (no explicit domain markers), provide safe routing:
+  // do NOT use the UI presentation fallback 'videos' as conclusive evidence to exclude sources.
+  if (!explicit) {
+    return true;
+  }
+
+  return repo.supportedTypes.includes(explicit);
 }
 
 /**

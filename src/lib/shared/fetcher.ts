@@ -123,9 +123,19 @@ export async function fetchJsonWithFallback<T>(
   repos: RepositorySource[],
   filePath: string,
   timeoutMs?: number,
+  sourceRepoId?: string,
 ): Promise<FetchResult<T>> {
   const suitableRepos = filterReposForPath(repos, filePath);
-  const enabled = suitableRepos.filter((r) => r.enabled !== false);
+  let enabled = suitableRepos.filter((r) => r.enabled !== false);
+
+  // If a known source repository is specified, prioritize it at the front of the fallback chain
+  if (sourceRepoId) {
+    const preferredRepo = repos.find((r) => r.id === sourceRepoId && r.enabled !== false);
+    if (preferredRepo) {
+      enabled = [preferredRepo, ...enabled.filter((r) => r.id !== sourceRepoId)];
+    }
+  }
+
   let lastModified: string | undefined;
   let bestData: T | null = null;
   let bestSourceId: string | null = null;
@@ -157,7 +167,7 @@ export async function fetchJsonWithFallback<T>(
 
 /**
  * Fetches and merges all index.json files from every enabled repository.
- * Deduplicates the merged file list.
+ * Deduplicates the merged file list and retains originating repository associations.
  */
 export async function fetchMergedIndex(
   repos: RepositorySource[],
@@ -165,10 +175,12 @@ export async function fetchMergedIndex(
 ): Promise<{
   files: string[];
   perRepo: { repoId: string; ok: boolean; fileCount: number; error?: string }[];
+  fileSources: Record<string, string>;
 }> {
   const enabled = repos.filter((r) => r.enabled !== false);
   const seen = new Set<string>();
   const files: string[] = [];
+  const fileSources: Record<string, string> = {};
   const perRepo: { repoId: string; ok: boolean; fileCount: number; error?: string }[] = [];
 
   await Promise.all(
@@ -213,14 +225,21 @@ export async function fetchMergedIndex(
 
         const subPath = (repo.path || '').replace(/^\/+|\/+$/g, '');
         for (const f of rawList) {
-          let cleaned = String(f).trim().replace(/^\/+/, '');
-          if (!cleaned) continue;
+          const rawTrimmed = String(f).trim().replace(/^\/+/, '');
+          if (!rawTrimmed) continue;
 
+          let cleaned = rawTrimmed;
           // Normalize relative path if returned with repo subPath prefix
           if (subPath && (cleaned === subPath || cleaned.startsWith(`${subPath}/`))) {
             cleaned = cleaned.slice(subPath.length).replace(/^\/+/, '');
           }
           if (!cleaned) continue;
+
+          // Retain association of discovered files with originating repository
+          fileSources[cleaned] = repo.id;
+          if (rawTrimmed !== cleaned) {
+            fileSources[rawTrimmed] = repo.id;
+          }
 
           if (!seen.has(cleaned)) {
             seen.add(cleaned);
@@ -239,7 +258,7 @@ export async function fetchMergedIndex(
     }),
   );
 
-  return { files, perRepo };
+  return { files, perRepo, fileSources };
 }
 
 /**
@@ -250,9 +269,18 @@ export async function fetchBlobWithFallback(
   repos: RepositorySource[],
   filePath: string,
   timeoutMs?: number,
+  sourceRepoId?: string,
 ): Promise<Blob | null> {
   const suitableRepos = filterReposForPath(repos, filePath);
-  const enabled = suitableRepos.filter((r) => r.enabled !== false);
+  let enabled = suitableRepos.filter((r) => r.enabled !== false);
+
+  if (sourceRepoId) {
+    const preferredRepo = repos.find((r) => r.id === sourceRepoId && r.enabled !== false);
+    if (preferredRepo) {
+      enabled = [preferredRepo, ...enabled.filter((r) => r.id !== sourceRepoId)];
+    }
+  }
+
   for (const repo of enabled) {
     try {
       const url = fileUrl(repo, filePath);

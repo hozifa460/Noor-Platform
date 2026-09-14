@@ -70,7 +70,7 @@ export function useLibrarySync() {
       const repos = loadRepositories();
       if (!repos || repos.length === 0) return;
 
-      const { files, perRepo } = await fetchMergedIndex(repos);
+      const { files, perRepo, fileSources } = await fetchMergedIndex(repos);
       setRepoStatus(perRepo);
 
       const primaryFiles: string[] = [];
@@ -102,7 +102,7 @@ export function useLibrarySync() {
       // Gentle single-threaded sequential ingestion with micro-sleeps (Zero Bandwidth Hogging)
       for (const path of queue) {
         try {
-          const res = await fetchJsonWithFallback<unknown>(repos, path, 2500);
+          const res = await fetchJsonWithFallback<unknown>(repos, path, 2500, fileSources?.[path]);
           if (res.data !== null) {
             const { items, sheikhMeta } = normalizeContentFile(
               res.data,

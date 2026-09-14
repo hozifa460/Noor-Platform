@@ -6,6 +6,8 @@ import {
   fetchJsonWithFallback,
   tryFetchJson,
   HttpError,
+  loadRepositories,
+  REPOS_STORAGE_KEY,
 } from '@/lib/shared';
 import type { RepositorySource } from '@/lib/types';
 
@@ -122,6 +124,87 @@ describe('Repository Routing & Retry Optimization Suite', () => {
 
       expect(isRepoSuitableForPath(disabledBookRepo, 'books/any.json')).toBe(false);
       expect(filterReposForPath([disabledBookRepo], 'books/any.json')).toEqual([]);
+    });
+
+    it('migrates legacy saved default repositories without supportedTypes while preserving user edits and custom repositories', () => {
+      const legacySavedRepos: RepositorySource[] = [
+        {
+          id: 'hf-telewat-dawah',
+          provider: 'huggingface',
+          owner: 'hozifa1',
+          repo: 'Telewat_Daawa_And_Channels',
+          branch: 'main',
+          path: 'Dawah_And_Channels',
+          indexFile: 'index.json',
+          primary: true,
+          enabled: false, // User customized: disabled telewat
+        },
+        {
+          id: 'hf-fatawa',
+          provider: 'huggingface',
+          owner: 'hozifa1',
+          repo: 'fatawaset',
+          branch: 'custom-branch', // User customized: custom branch
+          path: 'fatawa',
+          primary: false,
+          enabled: true,
+        },
+        {
+          id: 'hf-islamic-books',
+          provider: 'huggingface',
+          owner: 'hozifa1',
+          repo: 'islamic_books',
+          branch: 'main',
+          path: 'books',
+          primary: false,
+          enabled: true,
+        },
+        {
+          id: 'custom-user-repo-99',
+          provider: 'github',
+          owner: 'hozifa1',
+          repo: 'my_special_repo',
+          branch: 'main',
+          path: 'special',
+          enabled: true,
+        },
+      ];
+
+      // Store legacy configurations in localStorage
+      window.localStorage.setItem(REPOS_STORAGE_KEY, JSON.stringify(legacySavedRepos));
+
+      const loaded = loadRepositories();
+
+      // 1. Array length and composition is preserved (not overwritten with DEFAULT_REPOSITORIES)
+      expect(loaded.length).toBe(4);
+      expect(loaded.map((r) => r.id)).toEqual([
+        'hf-telewat-dawah',
+        'hf-fatawa',
+        'hf-islamic-books',
+        'custom-user-repo-99',
+      ]);
+
+      // 2. User customizations are preserved
+      const telewat = loaded.find((r) => r.id === 'hf-telewat-dawah');
+      expect(telewat?.enabled).toBe(false); // user edit preserved!
+      expect(telewat?.supportedTypes).toEqual(['videos', 'shorts', 'live', 'radio', 'main']); // backfilled!
+
+      const fatawa = loaded.find((r) => r.id === 'hf-fatawa');
+      expect(fatawa?.branch).toBe('custom-branch'); // user edit preserved!
+      expect(fatawa?.supportedTypes).toEqual(['fatwa']); // backfilled!
+
+      const books = loaded.find((r) => r.id === 'hf-islamic-books');
+      expect(books?.supportedTypes).toEqual(['books', 'articles']); // backfilled!
+
+      const customRepo = loaded.find((r) => r.id === 'custom-user-repo-99');
+      expect(customRepo).toBeDefined();
+      expect(customRepo?.repo).toBe('my_special_repo');
+      expect(customRepo?.supportedTypes).toBeUndefined(); // remains unconstrained!
+
+      // 3. Verify migrated state was persisted to localStorage
+      const persisted = JSON.parse(window.localStorage.getItem(REPOS_STORAGE_KEY) || '[]');
+      expect(persisted.find((r: Record<string, unknown>) => r.id === 'hf-fatawa')?.supportedTypes).toEqual(['fatwa']);
+      expect(persisted.find((r: Record<string, unknown>) => r.id === 'hf-telewat-dawah')?.enabled).toBe(false);
     });
   });
 
@@ -389,6 +472,117 @@ describe('Repository Routing & Retry Optimization Suite', () => {
       // bookRepo2 succeeded
       expect(fetchMock.mock.calls.filter((c) => (c[0] as string).includes('books_2')).length).toBe(1);
       expect(blob).not.toBeNull();
+    });
+
+    it('fetches a non-indicative file discovered via fetchMergedIndex without losing path prefix or origin', async () => {
+      const { fetchMergedIndex, fetchJsonWithFallback } = await import('@/lib/shared');
+
+      // Suppose hf-islamic-books index returns a file with a non-indicative name without 'books' keyword
+      // e.g. 'record_0842.json'
+      const nonIndicativeFileName = 'record_0842.json';
+      const expectedData = { title: 'مخطوطة نادرة', content: 'نص الكتاب' };
+
+      const fetchMock = vi.fn().mockImplementation((url: string) => {
+        // 1. hf-telewat candidate index.json -> returns 200 with standard media files
+        if (url.includes('Telewat_Daawa_And_Channels') && url.includes('index.json')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers(),
+            text: () => Promise.resolve(JSON.stringify(['iyad_alqunibi/iyad_alqunibi.videos.json'])),
+          });
+        }
+        // 2. hf-fatawa candidate index.json -> 404
+        if (url.includes('fatawaset') && url.includes('index.json')) {
+          return Promise.resolve({
+            ok: false,
+            status: 404,
+            headers: new Headers(),
+            text: () => Promise.resolve('Not Found'),
+          });
+        }
+        // 3. hf-fatawa tree API -> returns 200 with empty list
+        if (url.includes('fatawaset') && url.includes('tree')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers(),
+            text: () => Promise.resolve(JSON.stringify([])),
+          });
+        }
+        // 4. hf-islamic-books candidate index.json -> 404
+        if (url.includes('islamic_books') && url.includes('index.json')) {
+          return Promise.resolve({
+            ok: false,
+            status: 404,
+            headers: new Headers(),
+            text: () => Promise.resolve('Not Found'),
+          });
+        }
+        // 5. hf-islamic-books tree API -> returns 200 with non-indicative file
+        if (url.includes('islamic_books') && url.includes('tree')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers(),
+            text: () => Promise.resolve(JSON.stringify([{ path: `books/${nonIndicativeFileName}`, type: 'file' }])),
+          });
+        }
+        // 6. When fetching the content of the non-indicative file:
+        // If telewat is asked for it under Dawah_And_Channels -> 404
+        if (url.includes('Telewat_Daawa_And_Channels')) {
+          return Promise.resolve({
+            ok: false,
+            status: 404,
+            headers: new Headers(),
+            text: () => Promise.resolve('Not Found'),
+          });
+        }
+        // If islamic_books is asked for it under books -> 200
+        if (url.includes('islamic_books') && url.includes(nonIndicativeFileName)) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers(),
+            text: () => Promise.resolve(JSON.stringify(expectedData)),
+          });
+        }
+
+        return Promise.reject(new Error(`Unexpected URL: ${url}`));
+      });
+      global.fetch = fetchMock;
+
+      // Step A: Run fetchMergedIndex across DEFAULT_REPOSITORIES
+      const { files, fileSources } = await fetchMergedIndex(DEFAULT_REPOSITORIES);
+
+      expect(files).toContain(nonIndicativeFileName);
+      expect(fileSources[nonIndicativeFileName]).toBe('hf-islamic-books');
+
+      // Step B: Fetch the non-indicative file using origin tracking
+      const resultWithOrigin = await fetchJsonWithFallback<{ title: string; content: string }>(
+        DEFAULT_REPOSITORIES,
+        nonIndicativeFileName,
+        2500,
+        fileSources[nonIndicativeFileName],
+      );
+
+      expect(resultWithOrigin.ok).toBe(true);
+      expect(resultWithOrigin.status).toBe(200);
+      expect(resultWithOrigin.sourceId).toBe('hf-islamic-books');
+      expect(resultWithOrigin.data).toEqual(expectedData);
+
+      // Step C: Also verify that even WITHOUT passing sourceRepoId (blind path),
+      // the safe unclassified routing does NOT exclude hf-islamic-books based on default 'videos'
+      const resultWithoutOrigin = await fetchJsonWithFallback<{ title: string; content: string }>(
+        DEFAULT_REPOSITORIES,
+        nonIndicativeFileName,
+        2500,
+      );
+
+      expect(resultWithoutOrigin.ok).toBe(true);
+      expect(resultWithoutOrigin.status).toBe(200);
+      expect(resultWithoutOrigin.sourceId).toBe('hf-islamic-books');
+      expect(resultWithoutOrigin.data).toEqual(expectedData);
     });
   });
 
