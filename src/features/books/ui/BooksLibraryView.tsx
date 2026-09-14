@@ -145,7 +145,7 @@ export function BooksLibraryView() {
             <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-black/30 backdrop-blur-md border border-white/10">
               <BookOpen className="size-4 text-amber-400" />
               <span>
-                <strong suppressHydrationWarning className="text-white font-bold">{books.length.toLocaleString('ar-SA')}</strong> كتاب ومصحف متاح
+                <strong className="text-white font-bold">{books.length.toLocaleString('ar-SA')}</strong> كتاب ومصحف متاح
               </span>
             </div>
             <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-black/30 backdrop-blur-md border border-white/10">
