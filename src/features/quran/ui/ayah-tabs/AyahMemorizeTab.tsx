@@ -2,7 +2,7 @@
 
 import { Play, Pause, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { ReciterMeta } from '@/types/quran';
+import type { ReciterMeta } from '../../domain';
 
 interface AyahMemorizeTabProps {
   availableAyahReciters: ReciterMeta[];

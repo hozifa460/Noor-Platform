@@ -28,7 +28,7 @@ async function testAll() {
   assert(useLibraryCode.includes('setTimeout(r, 30)'), 'Polite micro-delay added to prevent internet bandwidth hogging');
 
   // 2. Check quran-store.ts for resilient AlQuran Cloud CDN fallback
-  const quranStorePath = path.join(process.cwd(), 'src', 'stores', 'quran-store.ts');
+  const quranStorePath = path.join(process.cwd(), 'src', 'features', 'quran', 'model', 'quran-store.ts');
   const quranCode = fs.readFileSync(quranStorePath, 'utf-8');
   assert(quranCode.includes('api.alquran.cloud/v1/surah'), 'quran-store has AlQuran Cloud CDN fallback');
   assert(quranCode.includes('ALL_SURAHS'), 'All 114 Surahs metadata registered');

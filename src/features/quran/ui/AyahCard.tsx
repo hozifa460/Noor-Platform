@@ -2,7 +2,7 @@
 
 import { Play, Pause, Copy, BookOpen, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { AyahItem } from '@/types/quran';
+import type { AyahItem } from '../domain';
 import { cn } from '@/lib/utils';
 
 interface AyahCardProps {

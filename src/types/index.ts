@@ -3,7 +3,6 @@
  */
 
 export * from '@/lib/types';
-export * from './quran';
 export * from './hadith';
 export * from './radio';
 export * from './adhkar';
