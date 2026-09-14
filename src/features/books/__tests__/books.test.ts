@@ -7,6 +7,7 @@ import {
   firstLetterOf,
   FEATURED_ISLAMIC_CLASSICS,
 } from '../index';
+import { pickPlayer, isQuranBook } from '@/lib/shared';
 
 describe('Books Feature Domain — Contract & Business Logic', () => {
   describe('Categories & Languages Taxonomy', () => {
@@ -113,6 +114,39 @@ describe('Books Feature Domain — Contract & Business Logic', () => {
       expect(quranCard).toBeDefined();
       expect(quranCard?.title).toBe('مصحف المدينة النبوية');
       expect(quranCard?.artTag).toBe('quran');
+    });
+
+    it('strictly verifies pickPlayer routes shamela-2994 (Tafsir Ibn Kathir) to ebook while quran-hafs routes to mushaf', () => {
+      const ibnKathirCard = FEATURED_ISLAMIC_CLASSICS.find((c) => c.id === 'shamela-2994');
+      expect(ibnKathirCard).toBeDefined();
+
+      const ibnKathirItem = {
+        id: ibnKathirCard!.id,
+        title: ibnKathirCard!.title,
+        sheikhName: ibnKathirCard!.author,
+        section: 'books' as const,
+        islamicArt: ibnKathirCard!.artTag,
+        mediaType: 'shamela_archive' as const,
+      };
+
+      // 1. Assert Tafsir Ibn Kathir is NOT misclassified as Quran Mushaf despite having 'القرآن' in title
+      expect(isQuranBook(ibnKathirItem)).toBe(false);
+      // 2. Assert pickPlayer resolves directly to pure text eBook reader
+      expect(pickPlayer(ibnKathirItem)).toBe('ebook');
+
+      // 3. Assert quran-hafs continues to resolve strictly to dedicated vector mushaf reader
+      const quranCard = FEATURED_ISLAMIC_CLASSICS.find((c) => c.id === 'quran-hafs');
+      expect(quranCard).toBeDefined();
+      const quranItem = {
+        id: quranCard!.id,
+        title: quranCard!.title,
+        sheikhName: quranCard!.author,
+        section: 'books' as const,
+        islamicArt: quranCard!.artTag,
+        tags: ['مصحف', 'قرآن كريم', 'quran'],
+      };
+      expect(isQuranBook(quranItem)).toBe(true);
+      expect(pickPlayer(quranItem)).toBe('mushaf');
     });
   });
 });

@@ -95,11 +95,17 @@ export function isMainCollectionFile(filePath: string): boolean {
  */
 export function isQuranBook(book: MediaItem): boolean {
   if (
+    book.section === 'fatwa' ||
     book.section === 'radio' ||
     book.section === 'videos' ||
     book.section === 'shorts' ||
     book.section === 'live' ||
-    Boolean(book.liveUrl)
+    Boolean(book.liveUrl) ||
+    book.id.startsWith('shamela-') ||
+    book.id.startsWith('openiti-') ||
+    book.id.startsWith('ebook-') ||
+    book.mediaType === 'shamela_archive' ||
+    book.mediaType === 'text_archive'
   ) {
     return false;
   }
