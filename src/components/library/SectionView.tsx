@@ -3,7 +3,7 @@
 import { MediaGrid } from '@/components/media/MediaGrid';
 import { MediaCardSkeleton } from '@/components/media/MediaCardSkeleton';
 import { useLibraryStore } from '@/stores/library-store';
-import { FatwaLibraryView } from '@/components/fatwa/FatwaLibraryView';
+import { FatwaLibraryView } from '@/features/fatwa';
 import { useYouTubeDates } from '@/hooks/use-youtube-dates';
 import type { MediaItem, SectionKind } from '@/lib/types';
 import { PlayCircle, Zap, Radio, FileQuestion, BookOpen, FileText, History } from 'lucide-react';

@@ -530,7 +530,7 @@ function ensureRoutePages() {
       name: 'Fatwa',
       title: 'موسوعة الفتاوى الشرعية — فتاوى كبار العلماء | منصة نور',
       desc: 'موسوعة الفتاوى الإسلامية الموثقة لكبار أئمة الإسلام والعلماء المعاصرين مصنفة ومفهرسة بدقة عالية.',
-      componentImport: "import { FatwaLibraryView } from '@/components/fatwa/FatwaLibraryView';",
+      componentImport: "import { FatwaLibraryView } from '@/features/fatwa';",
       component: '<FatwaLibraryView />',
     },
     {

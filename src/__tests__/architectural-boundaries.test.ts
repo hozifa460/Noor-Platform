@@ -132,7 +132,7 @@ describe('Architectural Boundaries Enforcement (ESLint Rules)', () => {
       });
       expect(result.errorCount).toBeGreaterThan(0);
       const violation = result.messages.find((m) =>
-        m.message.includes('Legacy compatibility paths for books and hadith have been retired')
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
       );
       expect(violation).toBeDefined();
     }, 15000);
@@ -147,7 +147,22 @@ describe('Architectural Boundaries Enforcement (ESLint Rules)', () => {
       });
       expect(result.errorCount).toBeGreaterThan(0);
       const violation = result.messages.find((m) =>
-        m.message.includes('Legacy compatibility paths for books and hadith have been retired')
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects an App route importing from retired legacy fatwa stores path', async () => {
+      const invalidAppCode = `
+        import { useFatwaStore } from '@/stores/fatwa-store';
+        export const testStore = useFatwaStore;
+      `;
+      const [result] = await eslint.lintText(invalidAppCode, {
+        filePath: 'src/app/fatwa/test-page.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
       );
       expect(violation).toBeDefined();
     }, 15000);
@@ -162,7 +177,22 @@ describe('Architectural Boundaries Enforcement (ESLint Rules)', () => {
       });
       expect(result.errorCount).toBeGreaterThan(0);
       const violation = result.messages.find((m) =>
-        m.message.includes('Legacy compatibility paths for books and hadith have been retired')
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects a Component importing from retired legacy fatwa components path', async () => {
+      const invalidComponentCode = `
+        import { FatwaCard } from '@/components/fatwa/FatwaCard';
+        export const TestCard = FatwaCard;
+      `;
+      const [result] = await eslint.lintText(invalidComponentCode, {
+        filePath: 'src/components/shared/TestCard.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
       );
       expect(violation).toBeDefined();
     }, 15000);
@@ -177,7 +207,22 @@ describe('Architectural Boundaries Enforcement (ESLint Rules)', () => {
       });
       expect(result.errorCount).toBeGreaterThan(0);
       const violation = result.messages.find((m) =>
-        m.message.includes('Legacy compatibility paths for books and hadith have been retired')
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects a Component importing from retired legacy fatwa hook path', async () => {
+      const invalidComponentCode = `
+        import { useFatwaAnswers } from '@/hooks/use-fatwa-answers';
+        export const testHook = useFatwaAnswers;
+      `;
+      const [result] = await eslint.lintText(invalidComponentCode, {
+        filePath: 'src/components/shared/TestHook.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
       );
       expect(violation).toBeDefined();
     }, 15000);
@@ -192,7 +237,7 @@ describe('Architectural Boundaries Enforcement (ESLint Rules)', () => {
       });
       expect(result.errorCount).toBeGreaterThan(0);
       const violation = result.messages.find((m) =>
-        m.message.includes('Legacy compatibility paths for books and hadith have been retired')
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
       );
       expect(violation).toBeDefined();
     }, 15000);
@@ -207,7 +252,37 @@ describe('Architectural Boundaries Enforcement (ESLint Rules)', () => {
       });
       expect(result.errorCount).toBeGreaterThan(0);
       const violation = result.messages.find((m) =>
-        m.message.includes('Legacy compatibility paths for books and hadith have been retired')
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects a Feature importing from retired legacy fatwa lib path', async () => {
+      const invalidFeatureCode = `
+        import { getFatwaContent } from '@/lib/fatwa/answers';
+        export const testFn = getFatwaContent;
+      `;
+      const [result] = await eslint.lintText(invalidFeatureCode, {
+        filePath: 'src/features/fatwa/ui/TestView.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects importing from retired internal fatwa engines facade path', async () => {
+      const invalidCode = `
+        import { getFatwaContent } from '@/features/fatwa/engines/answers';
+        export const testFn = getFatwaContent;
+      `;
+      const [result] = await eslint.lintText(invalidCode, {
+        filePath: 'src/components/shared/TestProbe.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
       );
       expect(violation).toBeDefined();
     }, 15000);
@@ -263,7 +338,8 @@ describe('Architectural Boundaries Enforcement (ESLint Rules)', () => {
       const validAppCode = `
         import { BooksLibraryView } from '@/features/books';
         import { HadithHubView } from '@/features/hadith';
-        export const testApp = { BooksLibraryView, HadithHubView };
+        import { FatwaLibraryView, useFatwaStore } from '@/features/fatwa';
+        export const testApp = { BooksLibraryView, HadithHubView, FatwaLibraryView, useFatwaStore };
       `;
       const [result] = await eslint.lintText(validAppCode, {
         filePath: 'src/app/unified/page.tsx',
