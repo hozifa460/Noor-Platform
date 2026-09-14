@@ -538,7 +538,7 @@ function ensureRoutePages() {
       name: 'Radio',
       title: 'الإذاعات الإسلامية المباشرة — تلاوات وقراءات 24/7 | منصة نور',
       desc: 'استمع إلى أكثر من 150 إذاعة إسلامية وقرآنية تبث على مدار الساعة بأصوات مشاهير القراء وترجمات المعاني.',
-      componentImport: "import { RadioHubView } from '@/components/radio/RadioHubView';",
+      componentImport: "import { RadioHubView } from '@/features/radio';",
       component: '<RadioHubView />',
     },
     {

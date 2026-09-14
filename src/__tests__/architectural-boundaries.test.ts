@@ -452,6 +452,67 @@ describe('Architectural Boundaries Enforcement (ESLint Rules)', () => {
       );
       expect(violation).toBeDefined();
     }, 15000);
+
+    it('rejects a Component importing from retired legacy radio components path', async () => {
+      const invalidCode = `
+        import { RadioHubView } from '@/components/radio/RadioHubView';
+        export const testComp = RadioHubView;
+      `;
+      const [result] = await eslint.lintText(invalidCode, {
+        filePath: 'src/components/shared/TestRadioComp.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects a Feature importing from retired legacy radio lib path', async () => {
+      const invalidCode = `
+        import { getRadioArtwork } from '@/lib/radio/visual-engine';
+        export const testArtwork = getRadioArtwork;
+      `;
+      const [result] = await eslint.lintText(invalidCode, {
+        filePath: 'src/features/books/ui/TestRadioImport.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects importing from retired legacy types/radio facade path', async () => {
+      const invalidCode = `
+        import type { RadioStation } from '@/types/radio';
+        export type TestStation = RadioStation;
+      `;
+      const [result] = await eslint.lintText(invalidCode, {
+        filePath: 'src/components/shared/TestRadioType.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects library modules in src/lib importing higher-level feature slices like @/features/radio', async () => {
+      const invalidLibCode = `
+        import { resolveRadioStream } from '@/features/radio';
+        export const testFn = resolveRadioStream;
+      `;
+      const [result] = await eslint.lintText(invalidLibCode, {
+        filePath: 'src/lib/shared/test-radio-violation.ts',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Lower-level library domain modules must not import from higher-level feature slices') ||
+        m.message.includes('src/lib/shared must not import from feature domains')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
   });
 
   describe('Feature and Domain Boundaries Enforcement', () => {
@@ -506,7 +567,8 @@ describe('Architectural Boundaries Enforcement (ESLint Rules)', () => {
         import { HadithHubView } from '@/features/hadith';
         import { FatwaLibraryView, useFatwaStore } from '@/features/fatwa';
         import { AdhkarHubView } from '@/features/adhkar';
-        export const testApp = { BooksLibraryView, HadithHubView, FatwaLibraryView, useFatwaStore, AdhkarHubView };
+        import { RadioHubView } from '@/features/radio';
+        export const testApp = { BooksLibraryView, HadithHubView, FatwaLibraryView, useFatwaStore, AdhkarHubView, RadioHubView };
       `;
       const [result] = await eslint.lintText(validAppCode, {
         filePath: 'src/app/unified/page.tsx',
