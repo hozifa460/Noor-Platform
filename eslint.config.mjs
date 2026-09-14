@@ -83,6 +83,28 @@ const DOMAIN_PURITY_RESTRICTIONS = [
   "@/features/**/components/**",
 ];
 
+const RETIRED_LEGACY_RESTRICTIONS = [
+  "@/lib/books",
+  "@/lib/books/**",
+  "@/lib/book-text",
+  "@/lib/book-text/**",
+  "@/lib/hadith",
+  "@/lib/hadith/**",
+  "@/components/books",
+  "@/components/books/**",
+  "@/components/hadith",
+  "@/components/hadith/**",
+  "@/stores/books-store",
+  "@/stores/hadith-store",
+  "@/hooks/use-ebook-reader",
+];
+
+const RETIRED_LEGACY_PATTERN = {
+  group: RETIRED_LEGACY_RESTRICTIONS,
+  message:
+    "Architecture violation: Legacy compatibility paths for books and hadith have been retired. Use canonical feature imports: '@/features/books' or '@/features/hadith'.",
+};
+
 const eslintConfig = [
   {
     ignores: [
@@ -128,6 +150,18 @@ const eslintConfig = [
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
+  // Architectural Boundaries: Prevent re-importing from retired legacy paths across entire codebase
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [RETIRED_LEGACY_PATTERN],
+        },
+      ],
+    },
+  },
   // Architectural Boundaries: Domains only import through approved public APIs and cannot import higher-level feature slices
   {
     files: ["src/lib/**/*.{ts,tsx}"],
@@ -142,6 +176,7 @@ const eslintConfig = [
         "error",
         {
           patterns: [
+            RETIRED_LEGACY_PATTERN,
             {
               group: [
                 "@/lib/adhkar/**",
@@ -166,40 +201,6 @@ const eslintConfig = [
       ],
     },
   },
-
-  // Architectural Boundaries: Prevent re-importing from retired legacy paths across entire codebase
-  {
-    files: ["src/**/*.{ts,tsx}"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              group: [
-                "@/lib/books",
-                "@/lib/books/**",
-                "@/lib/book-text",
-                "@/lib/book-text/**",
-                "@/lib/hadith",
-                "@/lib/hadith/**",
-                "@/components/books",
-                "@/components/books/**",
-                "@/components/hadith",
-                "@/components/hadith/**",
-                "@/stores/books-store",
-                "@/stores/hadith-store",
-                "@/hooks/use-ebook-reader",
-              ],
-              message:
-                "Architecture violation: Legacy compatibility paths for books and hadith have been retired. Use canonical feature imports: '@/features/books' or '@/features/hadith'.",
-            },
-          ],
-        },
-      ],
-    },
-  },
-
   // Architectural Boundaries: Components, hooks, stores must access domain & feature functionality through approved facades
   {
     files: [
@@ -212,6 +213,7 @@ const eslintConfig = [
         "error",
         {
           patterns: [
+            RETIRED_LEGACY_PATTERN,
             {
               group: [
                 "@/lib/adhkar/**",
@@ -243,6 +245,7 @@ const eslintConfig = [
         "error",
         {
           patterns: [
+            RETIRED_LEGACY_PATTERN,
             {
               group: [
                 "@/lib/adhkar/**",
@@ -278,6 +281,7 @@ const eslintConfig = [
         "error",
         {
           patterns: [
+            RETIRED_LEGACY_PATTERN,
             {
               group: CROSS_FEATURE_RESTRICTIONS,
               message:
@@ -296,6 +300,7 @@ const eslintConfig = [
         "error",
         {
           patterns: [
+            RETIRED_LEGACY_PATTERN,
             {
               group: CROSS_FEATURE_RESTRICTIONS,
               message:
@@ -319,6 +324,7 @@ const eslintConfig = [
         "error",
         {
           patterns: [
+            RETIRED_LEGACY_PATTERN,
             {
               group: [
                 "@/lib/adhkar", "@/lib/adhkar/**",

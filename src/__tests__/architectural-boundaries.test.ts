@@ -120,5 +120,157 @@ describe('Architectural Boundaries Enforcement (ESLint Rules)', () => {
 
     expect(result.errorCount).toBe(0);
   }, 15000);
+
+  describe('Prohibition of Retired Legacy Compatibility Facades', () => {
+    it('rejects an App route importing from retired legacy stores path', async () => {
+      const invalidAppCode = `
+        import { useBooksStore } from '@/stores/books-store';
+        export const testStore = useBooksStore;
+      `;
+      const [result] = await eslint.lintText(invalidAppCode, {
+        filePath: 'src/app/books/test-page.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths for books and hadith have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects an App route importing from retired legacy lib path', async () => {
+      const invalidAppCode = `
+        import { loadHadithBook } from '@/lib/hadith';
+        export const testFn = loadHadithBook;
+      `;
+      const [result] = await eslint.lintText(invalidAppCode, {
+        filePath: 'src/app/hadith/test-page.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths for books and hadith have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects a Component importing from retired legacy components path', async () => {
+      const invalidComponentCode = `
+        import { BookCard } from '@/components/books/BookCard';
+        export const TestCard = BookCard;
+      `;
+      const [result] = await eslint.lintText(invalidComponentCode, {
+        filePath: 'src/components/shared/TestCard.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths for books and hadith have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects a Component importing from retired legacy hooks path', async () => {
+      const invalidComponentCode = `
+        import { useEBookReader } from '@/hooks/use-ebook-reader';
+        export const testHook = useEBookReader;
+      `;
+      const [result] = await eslint.lintText(invalidComponentCode, {
+        filePath: 'src/components/shared/TestReader.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths for books and hadith have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects a Feature importing from retired legacy lib path', async () => {
+      const invalidFeatureCode = `
+        import { loadChapterChunk } from '@/lib/book-text/chapters';
+        export const testChunk = loadChapterChunk;
+      `;
+      const [result] = await eslint.lintText(invalidFeatureCode, {
+        filePath: 'src/features/books/ui/TestReaderView.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths for books and hadith have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects a Feature importing from retired legacy stores path', async () => {
+      const invalidFeatureCode = `
+        import { useHadithStore } from '@/stores/hadith-store';
+        export const testStoreUsage = useHadithStore;
+      `;
+      const [result] = await eslint.lintText(invalidFeatureCode, {
+        filePath: 'src/features/hadith/ui/TestHadithView.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths for books and hadith have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+  });
+
+  describe('Feature and Domain Boundaries Enforcement', () => {
+    it('rejects App route importing internal private subpaths of features', async () => {
+      const invalidAppCode = `
+        import { BookGridCard } from '@/features/books/ui/cards/BookGridCard';
+        export const testVal = BookGridCard;
+      `;
+      const [result] = await eslint.lintText(invalidAppCode, {
+        filePath: 'src/app/books/test-page.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('App layer must access domain/feature functionality through approved root facades')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects Component importing internal private subpaths of features', async () => {
+      const invalidCompCode = `
+        import { HadithMatnTab } from '@/features/hadith/ui/detail-tabs/HadithMatnTab';
+        export const testVal = HadithMatnTab;
+      `;
+      const [result] = await eslint.lintText(invalidCompCode, {
+        filePath: 'src/components/shared/TestComponent.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Components and UI state layers must access domain/feature functionality through approved root facades')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects Feature importing internal private subpaths of another feature', async () => {
+      const invalidCrossCode = `
+        import { searchInsideEBook } from '@/features/books/infrastructure/text/search';
+        export const testVal = searchInsideEBook;
+      `;
+      const [result] = await eslint.lintText(invalidCrossCode, {
+        filePath: 'src/features/hadith/ui/TestHadithView.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Features must only access other features or domains through their approved root public facade')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('permits canonical public feature imports across App, Components, and Features', async () => {
+      const validAppCode = `
+        import { BooksLibraryView } from '@/features/books';
+        import { HadithHubView } from '@/features/hadith';
+        export const testApp = { BooksLibraryView, HadithHubView };
+      `;
+      const [result] = await eslint.lintText(validAppCode, {
+        filePath: 'src/app/unified/page.tsx',
+      });
+      expect(result.errorCount).toBe(0);
+    }, 15000);
+  });
 });
+
 
