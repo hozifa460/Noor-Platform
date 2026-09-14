@@ -145,7 +145,7 @@ const RETIRED_LEGACY_PATTERN = {
 const RETIRED_TYPES_BARREL_PATTERN = {
   regex: "^@/types(/index)?$",
   message:
-    "Architecture violation: Legacy compatibility paths and generic '@/types' barrel have been retired. Use domain types directly from '@/features/<domain>/types' or canonical shared types from '@/types/reader' or '@/lib/types'.",
+    "Architecture violation: Legacy compatibility paths and generic '@/types' barrel have been retired. Use domain types directly from '@/features/<domain>' or canonical shared types from '@/types/reader' or '@/lib/types'.",
 };
 
 const RETIRED_LEGACY_PATTERNS = [
