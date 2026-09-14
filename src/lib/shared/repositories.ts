@@ -1,4 +1,5 @@
 import type { RepositorySource } from '../types';
+import { classifyFile } from './classifier';
 
 /**
  * Default repository sources on Hugging Face (and optional GitHub/GitLab).
@@ -10,6 +11,10 @@ import type { RepositorySource } from '../types';
  * Source 2 (Hugging Face): hozifa1/fatawaset
  *                         Path: fatawa
  *                         (Fatwa collections & fatawa_JSON)
+ *
+ * Source 3 (Hugging Face): hozifa1/islamic_books
+ *                         Path: books
+ *                         (Books, classical texts & articles)
  */
 export const DEFAULT_REPOSITORIES: RepositorySource[] = [
   {
@@ -22,6 +27,7 @@ export const DEFAULT_REPOSITORIES: RepositorySource[] = [
     indexFile: 'index.json',
     primary: true,
     enabled: true,
+    supportedTypes: ['videos', 'shorts', 'live', 'radio', 'main'],
   },
   {
     id: 'hf-fatawa',
@@ -32,6 +38,7 @@ export const DEFAULT_REPOSITORIES: RepositorySource[] = [
     path: 'fatawa',
     primary: false,
     enabled: true,
+    supportedTypes: ['fatwa'],
   },
   {
     id: 'hf-islamic-books',
@@ -42,6 +49,7 @@ export const DEFAULT_REPOSITORIES: RepositorySource[] = [
     path: 'books',
     primary: false,
     enabled: true,
+    supportedTypes: ['books', 'articles'],
   },
 ];
 
@@ -71,6 +79,11 @@ function isValidRepository(r: unknown): r is RepositorySource {
   if (!/^[a-zA-Z0-9_\-\.]+$/.test(repoName)) return false;
   if (repo.branch && !/^[a-zA-Z0-9_\-\./]+$/.test(String(repo.branch))) return false;
   if (repo.path && !/^[a-zA-Z0-9_\-\./]+$/.test(String(repo.path))) return false;
+  if (repo.supportedTypes !== undefined) {
+    if (!Array.isArray(repo.supportedTypes) || !repo.supportedTypes.every((t) => typeof t === 'string')) {
+      return false;
+    }
+  }
   return true;
 }
 
@@ -216,3 +229,45 @@ export function fileUrl(repo: RepositorySource, filePath: string): string {
   }
   return repo.provider === 'github' ? githubRawUrl(repo, fullPath) : gitlabRawUrl(repo, fullPath);
 }
+
+/**
+ * Determines whether a repository source is suitable for fetching a given filePath.
+ *
+ * Routing Rules:
+ * 1. Disabled repositories are never suitable.
+ * 2. Unconstrained repositories (supportedTypes is undefined or empty, e.g. user-added custom sources)
+ *    accept all file paths, preserving user-customized repositories and routes.
+ * 3. Repositories with explicit supportedTypes:
+ *    - The file path is classified via classifyFile(filePath).
+ *    - If repo.supportedTypes includes the classified section kind, it is suitable.
+ *    - If repo.path is explicitly configured and aligns with the path prefix, it is also suitable.
+ *    - Otherwise, returns false to avoid wasteful, failing requests.
+ */
+export function isRepoSuitableForPath(repo: RepositorySource, filePath: string): boolean {
+  if (repo.enabled === false) return false;
+
+  // Repositories without explicit supportedTypes (e.g. user-added custom repositories)
+  // are unconstrained and allow any path.
+  if (!repo.supportedTypes || repo.supportedTypes.length === 0) {
+    return true;
+  }
+
+  const cleanFile = filePath.replace(/^\/+/, '');
+  const repoPath = (repo.path || '').replace(/^\/+|\/+$/g, '');
+
+  // If repo has an explicit path prefix matching filePath, treat as suitable
+  if (repoPath && (cleanFile === repoPath || cleanFile.startsWith(`${repoPath}/`))) {
+    return true;
+  }
+
+  const section = classifyFile(filePath);
+  return repo.supportedTypes.includes(section);
+}
+
+/**
+ * Filters an array of repository sources to only those that are suitable for the requested filePath.
+ */
+export function filterReposForPath(repos: RepositorySource[], filePath: string): RepositorySource[] {
+  return repos.filter((r) => isRepoSuitableForPath(r, filePath));
+}
+

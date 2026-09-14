@@ -1,5 +1,5 @@
 import type { IndexFile, RepositorySource } from '../types';
-import { fileUrl, candidateIndexUrls } from './repositories';
+import { fileUrl, candidateIndexUrls, filterReposForPath } from './repositories';
 
 /**
  * Smart fetcher with retry, timeout, and automatic GitHub → GitLab mirror
@@ -15,6 +15,20 @@ import { fileUrl, candidateIndexUrls } from './repositories';
 
 const DEFAULT_TIMEOUT_MS = 8000;
 const MAX_RETRIES = 2;
+
+/**
+ * Custom error representing an HTTP response status.
+ */
+export class HttpError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly url: string,
+    message?: string,
+  ) {
+    super(message || `HTTP ${status} for ${url}`);
+    this.name = 'HttpError';
+  }
+}
 
 export interface FetchResult<T> {
   data: T | null;
@@ -45,7 +59,7 @@ async function fetchWithTimeout(
   }
 }
 
-async function tryFetchJson<T>(
+export async function tryFetchJson<T>(
   url: string,
   timeoutMs?: number,
 ): Promise<{ data: T; status: number; lastModified?: string }> {
@@ -53,7 +67,15 @@ async function tryFetchJson<T>(
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       const res = await fetchWithTimeout(url, { method: 'GET' }, timeoutMs);
-      if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+      if (!res.ok) {
+        const error = new HttpError(res.status, url);
+        // Do NOT retry non-transient 404 Not Found errors on the same URL.
+        // Throw immediately so the caller can proceed to the fallback alternative without delay.
+        if (res.status === 404) {
+          throw error;
+        }
+        throw error;
+      }
 
       const text = await res.text();
       let data: T;
@@ -80,7 +102,11 @@ async function tryFetchJson<T>(
       return { data, status: res.status, lastModified: res.headers.get('last-modified') || undefined };
     } catch (err) {
       lastErr = err;
-      // brief backoff before retry
+      // Terminate retries immediately on 404 (Not Found)
+      if (err instanceof HttpError && err.status === 404) {
+        throw err;
+      }
+      // For transient errors (network errors, timeouts, 5xx, 429), retry with backoff
       if (attempt < MAX_RETRIES) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
     }
   }
@@ -98,7 +124,8 @@ export async function fetchJsonWithFallback<T>(
   filePath: string,
   timeoutMs?: number,
 ): Promise<FetchResult<T>> {
-  const enabled = repos.filter((r) => r.enabled !== false);
+  const suitableRepos = filterReposForPath(repos, filePath);
+  const enabled = suitableRepos.filter((r) => r.enabled !== false);
   let lastModified: string | undefined;
   let bestData: T | null = null;
   let bestSourceId: string | null = null;
@@ -224,7 +251,8 @@ export async function fetchBlobWithFallback(
   filePath: string,
   timeoutMs?: number,
 ): Promise<Blob | null> {
-  const enabled = repos.filter((r) => r.enabled !== false);
+  const suitableRepos = filterReposForPath(repos, filePath);
+  const enabled = suitableRepos.filter((r) => r.enabled !== false);
   for (const repo of enabled) {
     try {
       const url = fileUrl(repo, filePath);

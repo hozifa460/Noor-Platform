@@ -39,6 +39,27 @@ export function classifyFile(filePath: string): SectionKind {
     return 'fatwa';
   }
 
+  // Articles folder & pattern detection
+  if (
+    decodedPath.includes('islamhouse_articles') ||
+    decodedPath.startsWith('articles/') ||
+    decodedPath.includes('/articles/') ||
+    /\.articles\.json$/i.test(name)
+  ) {
+    return 'articles';
+  }
+
+  // Books folder & pattern detection
+  if (
+    decodedPath.includes('islamhouse_books') ||
+    decodedPath.includes('openiti') ||
+    decodedPath.startsWith('books/') ||
+    decodedPath.includes('/books/') ||
+    /\.books\.json$/i.test(name)
+  ) {
+    return 'books';
+  }
+
   if (/\.videos\.json$/i.test(name)) return 'videos';
   if (/\.shorts\.json$/i.test(name)) return 'shorts';
   if (/\.live\.json$/i.test(name)) return 'live';
