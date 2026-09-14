@@ -223,7 +223,7 @@ Single-purpose utility domains avoid artificial folder overhead and organize dir
 2. **Audio Sync Verification**: Run `node scripts/test_quran_hub_integration.mjs`.
 
 ### 6.3 Adding a New Fatwa Category or Dataset
-1. **Category Definition**: Update `src/lib/fatwa/index-data.ts` in `FATWA_CATEGORIES`.
+1. **Category Definition**: Update `src/features/fatwa/domain/categories.ts` in `FATWA_CATEGORIES`.
 2. **Shard Processing**: Add the tokenized keyword inverted index shard to `public/data/fatwa/shards/`.
 3. **Verification**: Run `node scripts/test_fatwa_inverted_index.mjs`.
 

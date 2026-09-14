@@ -1,7 +1,10 @@
-import { fatwaIndexManager, SCHOLARS_LIST } from '../src/lib/fatwa/index-data.ts';
+import {
+  fatwaIndexManager,
+  SCHOLARS_LIST,
+  BUILTIN_SEED_FATWAS,
+  microShardEngine,
+} from '../src/features/fatwa/index.ts';
 import { extractAndExpandTokens } from '../src/lib/arabic/search-engine.ts';
-import { microShardEngine } from '../src/features/fatwa/infrastructure/micro-shard-engine.ts';
-import { BUILTIN_SEED_FATWAS } from '../src/lib/fatwa/seed-fatwas.ts';
 
 async function runFatwaIndexTests() {
   console.log('⚖️ Starting High-Precision Fatwa Engine & Scholar Filter Tests...\n');

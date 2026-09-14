@@ -12,8 +12,8 @@ import {
   BROWSE_TOTALS,
   getCategoryCount,
   filterByScholar,
+  type BrowseItem,
 } from '../index';
-import type { BrowseItem } from '../types';
 
 describe('Fatwa Feature Domain — Contract & Business Logic', () => {
   describe('Seed Fatwas Integrity & Schema Validation', () => {
