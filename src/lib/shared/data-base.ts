@@ -35,10 +35,24 @@ export const HADITH_BASE: string = sanitizeHadithBase(
   typeof process !== 'undefined' ? process.env?.NEXT_PUBLIC_HADITH_BASE : undefined
 );
 
-export const BOOKS_BASE: string =
+function sanitizeBooksBase(url?: string): string {
+  const fallback = 'https://huggingface.co/datasets/hozifa1/noor-platform-books/raw/main';
+  if (!url) return fallback;
+  let clean = url.trim();
+  if (clean.includes('/tree/main')) {
+    clean = clean.replace('/tree/main', '/raw/main');
+  }
+  if (clean.includes('/resolve/main')) {
+    clean = clean.replace('/resolve/main', '/raw/main');
+  }
+  return clean || fallback;
+}
+
+export const BOOKS_BASE: string = sanitizeBooksBase(
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BOOKS_BASE) ||
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_DATA_BASE) ||
-  'https://huggingface.co/datasets/hozifa1/noor-platform-books/raw/main';
+  undefined
+);
 
 export const ADHKAR_BASE: string =
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_ADHKAR_BASE) ||

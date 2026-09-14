@@ -263,6 +263,7 @@ export function EBookToolbar({
             variant="ghost"
             size="sm"
             onClick={onToggleSidebar}
+            data-testid="ebook-toc-toggle"
             className={cn(
               'rounded-full size-9 p-0 hover:bg-black/10 dark:hover:bg-white/10 shrink-0 transition-colors',
               sidebarOpen && 'bg-amber-500/20 text-amber-600 dark:text-amber-400'
