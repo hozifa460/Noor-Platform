@@ -3,11 +3,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ALL_SURAHS } from '@/lib/quran';
-import { fetchAyahTafsir } from '@/lib/quran';
+import { ALL_SURAHS, fetchAyahTafsir, type AyahItem, type SurahData } from '@/features/quran';
 import { MUSHAF_THEME_STYLES } from '@/lib/shared';
 import type { MediaItem } from '@/lib/types';
-import type { AyahItem, SurahData } from '@/types/quran';
 import type { MushafTheme } from '@/types/reader';
 import { MushafToolbar } from './mushaf/MushafToolbar';
 import { MushafAyahActionModal } from './mushaf/MushafAyahActionModal';

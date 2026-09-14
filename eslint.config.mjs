@@ -92,18 +92,25 @@ const RETIRED_LEGACY_RESTRICTIONS = [
   "@/lib/hadith/**",
   "@/lib/fatwa",
   "@/lib/fatwa/**",
+  "@/lib/quran",
+  "@/lib/quran/**",
   "@/components/books",
   "@/components/books/**",
   "@/components/hadith",
   "@/components/hadith/**",
   "@/components/fatwa",
   "@/components/fatwa/**",
+  "@/components/quran",
+  "@/components/quran/**",
   "@/stores/books-store",
   "@/stores/hadith-store",
   "@/stores/fatwa-store",
+  "@/stores/quran-store",
   "@/hooks/use-ebook-reader",
   "@/hooks/use-fatwa-answers",
+  "@/hooks/use-quran-audio",
   "@/types/fatwa",
+  "@/types/quran",
   "@/features/fatwa/components",
   "@/features/fatwa/components/**",
   "@/features/fatwa/engines",
@@ -112,12 +119,13 @@ const RETIRED_LEGACY_RESTRICTIONS = [
   "@/features/fatwa/hooks/**",
   "@/features/fatwa/store",
   "@/features/fatwa/types",
+  "@/features/quran/types",
 ];
 
 const RETIRED_LEGACY_PATTERN = {
   group: RETIRED_LEGACY_RESTRICTIONS,
   message:
-    "Architecture violation: Legacy compatibility paths for books, hadith, and fatwa have been retired. Use canonical feature imports: '@/features/books', '@/features/hadith', or '@/features/fatwa'.",
+    "Architecture violation: Legacy compatibility paths for books, hadith, fatwa, and quran have been retired. Use canonical feature imports: '@/features/books', '@/features/hadith', '@/features/fatwa', or '@/features/quran'.",
 };
 
 const eslintConfig = [

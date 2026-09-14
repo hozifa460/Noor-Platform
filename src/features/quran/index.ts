@@ -11,6 +11,7 @@ export type {
   QuranTranslationMeta,
   AyahItem,
   SurahDetail,
+  SurahData,
   ReciterMeta,
 } from './domain';
 
@@ -27,6 +28,15 @@ export {
 } from './domain';
 
 // Infrastructure Layer
+export type {
+  TafsirOption,
+  TafsirMeta,
+  EerabBook,
+  RiwayahReciterEntry,
+  Mp3Moshaf,
+  Mp3Reciter,
+} from './infrastructure';
+
 export {
   SUPPORTED_TAFSIRS,
   fetchAyahTafsir,

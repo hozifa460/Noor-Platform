@@ -2,8 +2,7 @@
 
 import { Play, Pause, Copy, X, Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { SUPPORTED_TAFSIRS } from '@/lib/quran';
-import type { AyahItem } from '@/types/quran';
+import { SUPPORTED_TAFSIRS, type AyahItem } from '@/features/quran';
 
 interface MushafAyahActionModalProps {
   ayah: AyahItem | null;

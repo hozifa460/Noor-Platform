@@ -301,6 +301,81 @@ describe('Architectural Boundaries Enforcement (ESLint Rules)', () => {
       );
       expect(violation).toBeDefined();
     }, 15000);
+
+    it('rejects an App route importing from retired legacy quran stores path', async () => {
+      const invalidAppCode = `
+        import { useQuranStore } from '@/stores/quran-store';
+        export const testStore = useQuranStore;
+      `;
+      const [result] = await eslint.lintText(invalidAppCode, {
+        filePath: 'src/app/quran/test-page.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects a Component importing from retired legacy quran lib path', async () => {
+      const invalidCode = `
+        import { ALL_SURAHS } from '@/lib/quran';
+        export const testVal = ALL_SURAHS;
+      `;
+      const [result] = await eslint.lintText(invalidCode, {
+        filePath: 'src/components/shared/TestQuranComp.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects a Feature importing from retired legacy quran components path', async () => {
+      const invalidCode = `
+        import { QuranHubView } from '@/components/quran/QuranHubView';
+        export const testView = QuranHubView;
+      `;
+      const [result] = await eslint.lintText(invalidCode, {
+        filePath: 'src/features/books/ui/TestQuranImport.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects importing from retired legacy types/quran facade path', async () => {
+      const invalidCode = `
+        import type { AyahItem } from '@/types/quran';
+        export type TestAyah = AyahItem;
+      `;
+      const [result] = await eslint.lintText(invalidCode, {
+        filePath: 'src/components/shared/TestAyahType.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
+
+    it('rejects importing from retired legacy hooks/use-quran-audio path', async () => {
+      const invalidCode = `
+        import { useQuranAudio } from '@/hooks/use-quran-audio';
+        export const testAudio = useQuranAudio;
+      `;
+      const [result] = await eslint.lintText(invalidCode, {
+        filePath: 'src/components/shared/TestAudioHook.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
   });
 
   describe('Feature and Domain Boundaries Enforcement', () => {

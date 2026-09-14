@@ -506,7 +506,7 @@ function ensureRoutePages() {
       name: 'Quran',
       title: 'القرآن الكريم — تلاوات وتفاسير ومصاحف القراءات العشر | منصة نور',
       desc: 'تصفح واستمع للقرآن الكريم كاملاً بأصوات كبار القراء وبروايات القراءات العشر المتواترة مع أمهات كتب التفسير.',
-      componentImport: "import { QuranHubView } from '@/components/quran/QuranHubView';",
+      componentImport: "import { QuranHubView } from '@/features/quran';",
       component: '<QuranHubView />',
     },
     {

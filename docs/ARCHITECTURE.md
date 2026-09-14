@@ -209,7 +209,7 @@ Single-purpose utility domains avoid artificial folder overhead and organize dir
 4. **Verification**: Run `node scripts/test_hadith_integration.mjs` and `npx vitest run src/features/hadith/` to ensure indexing and search match correctly.
 
 ### 6.2 Adding a New Quran Reciter or Riwayah
-1. **Reciter Definition**: Open `src/lib/quran-audio-engine.ts` and add entry to `QURAN_RECITERS`:
+1. **Reciter Definition**: Open `src/features/quran/domain/data.ts` and add entry to `QURAN_RECITERS`:
    ```ts
    {
      id: 'reciter-slug',
