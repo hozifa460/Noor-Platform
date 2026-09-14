@@ -4,5 +4,4 @@
 
 export * from '@/lib/types';
 export * from './hadith';
-export * from './radio';
 export * from './reader';

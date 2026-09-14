@@ -126,12 +126,17 @@ const RETIRED_LEGACY_RESTRICTIONS = [
   "@/components/adhkar/**",
   "@/hooks/use-dhikr-counter",
   "@/types/adhkar",
+  "@/lib/radio",
+  "@/lib/radio/**",
+  "@/components/radio",
+  "@/components/radio/**",
+  "@/types/radio",
 ];
 
 const RETIRED_LEGACY_PATTERN = {
   group: RETIRED_LEGACY_RESTRICTIONS,
   message:
-    "Architecture violation: Legacy compatibility paths for books, hadith, fatwa, quran, and adhkar have been retired. Use canonical feature imports: '@/features/books', '@/features/hadith', '@/features/fatwa', '@/features/quran', or '@/features/adhkar'.",
+    "Architecture violation: Legacy compatibility paths for books, hadith, fatwa, quran, adhkar, and radio have been retired. Use canonical feature imports: '@/features/books', '@/features/hadith', '@/features/fatwa', '@/features/quran', '@/features/adhkar', or '@/features/radio'.",
 };
 
 const eslintConfig = [
@@ -194,10 +199,6 @@ const eslintConfig = [
   // Architectural Boundaries: Domains only import through approved public APIs and cannot import higher-level feature slices
   {
     files: ["src/lib/**/*.{ts,tsx}"],
-    ignores: [
-      "src/lib/radio/**",
-      "src/lib/quran/**",
-    ],
     rules: {
       "no-restricted-imports": [
         "error",
