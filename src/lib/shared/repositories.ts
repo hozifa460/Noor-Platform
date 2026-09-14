@@ -87,10 +87,44 @@ function isValidRepository(r: unknown): r is RepositorySource {
   return true;
 }
 
+const LEGACY_DEFAULT_OWNERS = new Set(['hozifa460', 'hazozahz-islamway']);
+
 /**
- * Migrates legacy saved default repository configurations that lack supportedTypes,
+ * Checks if a repository source corresponds to a known default repository.
+ * Matches by current coordinates or legacy coordinates.
+ * Strictly ignores ID if coordinates were modified by the user.
+ */
+export function matchDefaultRepo(
+  repo: RepositorySource,
+): { defaultDef: RepositorySource; isLegacyCoord: boolean } | null {
+  const owner = (repo.owner || '').trim().toLowerCase();
+  const repoName = (repo.repo || '').trim().toLowerCase();
+  const provider = (repo.provider || '').trim().toLowerCase();
+
+  for (const def of DEFAULT_REPOSITORIES) {
+    const defOwner = def.owner.toLowerCase();
+    const defRepo = def.repo.toLowerCase();
+    const defProvider = def.provider.toLowerCase();
+
+    // 1. Current default coordinates match
+    if (provider === defProvider && owner === defOwner && repoName === defRepo) {
+      return { defaultDef: def, isLegacyCoord: false };
+    }
+
+    // 2. Legacy coordinates match (old default owners on github/gitlab/huggingface)
+    if (LEGACY_DEFAULT_OWNERS.has(owner) && repoName === defRepo) {
+      return { defaultDef: def, isLegacyCoord: true };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Migrates legacy saved default repository configurations that lack supportedTypes or use legacy coordinates,
  * while preserving user modifications (e.g. enabled, path, custom branch) and preserving
  * custom user repositories. Does not replace the user's entire repository list.
+ * Strictly distinguishes between missing supportedTypes (undefined) and an intentional empty array ([]).
  */
 export function migrateSavedRepositories(repos: RepositorySource[]): {
   repos: RepositorySource[];
@@ -98,29 +132,41 @@ export function migrateSavedRepositories(repos: RepositorySource[]): {
 } {
   let migrated = false;
 
-  const defaultById = new Map<string, RepositorySource>();
-  const defaultByCoord = new Map<string, RepositorySource>();
-
-  for (const def of DEFAULT_REPOSITORIES) {
-    defaultById.set(def.id, def);
-    defaultByCoord.set(`${def.provider}:${def.owner.toLowerCase()}/${def.repo.toLowerCase()}`, def);
-  }
-
   const updatedRepos = repos.map((repo) => {
-    const matched =
-      defaultById.get(repo.id) ||
-      defaultByCoord.get(`${repo.provider}:${(repo.owner || '').toLowerCase()}/${(repo.repo || '').toLowerCase()}`);
-
-    // If this entry corresponds to a known default repo and lacks supportedTypes, backfill supportedTypes
-    if (matched && matched.supportedTypes && (!repo.supportedTypes || repo.supportedTypes.length === 0)) {
-      migrated = true;
-      return {
-        ...repo,
-        supportedTypes: [...matched.supportedTypes],
-      };
+    const match = matchDefaultRepo(repo);
+    if (!match) {
+      // Custom repository or repository with changed coordinates: preserve untouched!
+      return repo;
     }
 
-    return repo;
+    const { defaultDef, isLegacyCoord } = match;
+    const updated = { ...repo };
+    let entryChanged = false;
+
+    // 1. If coordinates are legacy, upgrade coordinates to modern default
+    if (isLegacyCoord) {
+      updated.provider = defaultDef.provider;
+      updated.owner = defaultDef.owner;
+      updated.repo = defaultDef.repo;
+      // If repository had old default id prefix or missing id, align to canonical id
+      if (!updated.id || updated.id.startsWith('gh-') || updated.id.startsWith('gl-')) {
+        updated.id = defaultDef.id;
+      }
+      entryChanged = true;
+    }
+
+    // 2. Distinguish between missing supportedTypes (undefined) and an intentional empty array ([]).
+    // Only backfill default supportedTypes when supportedTypes is strictly undefined.
+    if (updated.supportedTypes === undefined && defaultDef.supportedTypes) {
+      updated.supportedTypes = [...defaultDef.supportedTypes];
+      entryChanged = true;
+    }
+
+    if (entryChanged) {
+      migrated = true;
+    }
+
+    return updated;
   });
 
   return { repos: updatedRepos, migrated };
@@ -139,17 +185,11 @@ export function loadRepositories(): RepositorySource[] {
     const validRepos = parsed.filter(isValidRepository);
     if (validRepos.length === 0) return DEFAULT_REPOSITORIES;
 
-    // Migrate legacy default repositories that lack supportedTypes while preserving user customizations
+    // Migrate legacy default repositories that lack supportedTypes or use legacy coordinates,
+    // while preserving user customizations and custom repositories.
     const { repos: migratedRepos, migrated } = migrateSavedRepositories(validRepos);
     if (migrated) {
       saveRepositories(migratedRepos);
-    }
-
-    // Migrate old github/gitlab defaults to Hugging Face if user had old stored defaults
-    const hasOldDefault = migratedRepos.some((r) => r.owner === 'hozifa460' || r.owner === 'hazozahz-islamway');
-    if (hasOldDefault) {
-      saveRepositories(DEFAULT_REPOSITORIES);
-      return DEFAULT_REPOSITORIES;
     }
 
     return migratedRepos;

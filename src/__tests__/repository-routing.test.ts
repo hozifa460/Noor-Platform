@@ -4,9 +4,12 @@ import {
   isRepoSuitableForPath,
   filterReposForPath,
   fetchJsonWithFallback,
+  fetchMergedIndex,
   tryFetchJson,
   HttpError,
   loadRepositories,
+  migrateSavedRepositories,
+  matchDefaultRepo,
   REPOS_STORAGE_KEY,
 } from '@/lib/shared';
 import type { RepositorySource } from '@/lib/types';
@@ -205,6 +208,100 @@ describe('Repository Routing & Retry Optimization Suite', () => {
       const persisted = JSON.parse(window.localStorage.getItem(REPOS_STORAGE_KEY) || '[]');
       expect(persisted.find((r: Record<string, unknown>) => r.id === 'hf-fatawa')?.supportedTypes).toEqual(['fatwa']);
       expect(persisted.find((r: Record<string, unknown>) => r.id === 'hf-telewat-dawah')?.enabled).toBe(false);
+    });
+
+    it('migrates a combined list of legacy settings (owner hozifa460) and custom user repo without replacing list with defaults', () => {
+      const combinedSavedRepos: RepositorySource[] = [
+        {
+          id: 'gh-fatawa',
+          provider: 'github',
+          owner: 'hozifa460',
+          repo: 'fatawaset',
+          branch: 'custom-legacy-branch',
+          path: 'fatawa',
+          enabled: true,
+          // supportedTypes is intentionally undefined (legacy state)
+        },
+        {
+          id: 'custom-community-hadith',
+          provider: 'github',
+          owner: 'OpenITI',
+          repo: '0750Tarikh',
+          branch: 'main',
+          path: 'hadith_data',
+          enabled: true,
+          supportedTypes: ['books'],
+        },
+      ];
+
+      window.localStorage.setItem(REPOS_STORAGE_KEY, JSON.stringify(combinedSavedRepos));
+
+      const loaded = loadRepositories();
+
+      // Ensure user repository list was NOT wiped or replaced by DEFAULT_REPOSITORIES
+      expect(loaded.length).toBe(2);
+      expect(loaded.map((r) => r.id)).toEqual(['hf-fatawa', 'custom-community-hadith']);
+
+      // Known legacy default repo is upgraded:
+      const fatawaRepo = loaded.find((r) => r.id === 'hf-fatawa');
+      expect(fatawaRepo).toBeDefined();
+      expect(fatawaRepo?.provider).toBe('huggingface');
+      expect(fatawaRepo?.owner).toBe('hozifa1');
+      expect(fatawaRepo?.repo).toBe('fatawaset');
+      expect(fatawaRepo?.branch).toBe('custom-legacy-branch'); // user customization preserved
+      expect(fatawaRepo?.supportedTypes).toEqual(['fatwa']); // backfilled
+
+      // Custom repository is 100% preserved:
+      const customRepo = loaded.find((r) => r.id === 'custom-community-hadith');
+      expect(customRepo).toBeDefined();
+      expect(customRepo?.provider).toBe('github');
+      expect(customRepo?.owner).toBe('OpenITI');
+      expect(customRepo?.repo).toBe('0750Tarikh');
+      expect(customRepo?.branch).toBe('main');
+      expect(customRepo?.supportedTypes).toEqual(['books']);
+    });
+
+    it('distinguishes missing supportedTypes (undefined) from intentional empty array ([]) and rejects matching by ID when coordinates changed', () => {
+      // 1. Intentional empty array supportedTypes: []
+      const repoWithEmptyTypes: RepositorySource = {
+        id: 'hf-fatawa',
+        provider: 'huggingface',
+        owner: 'hozifa1',
+        repo: 'fatawaset',
+        path: 'fatawa',
+        enabled: true,
+        supportedTypes: [], // User intentionally cleared or emptied supportedTypes
+      };
+
+      const { repos: migrated1, migrated: didMigrate1 } = migrateSavedRepositories([repoWithEmptyTypes]);
+      expect(didMigrate1).toBe(false);
+      expect(migrated1[0].supportedTypes).toEqual([]); // NOT overwritten by ['fatwa']
+
+      // Verify unconstrained behavior in isRepoSuitableForPath for supportedTypes: []
+      expect(isRepoSuitableForPath(repoWithEmptyTypes, 'books/some_book.json')).toBe(true);
+      expect(isRepoSuitableForPath(repoWithEmptyTypes, 'fatawa/some_fatwa.json')).toBe(true);
+      expect(isRepoSuitableForPath(repoWithEmptyTypes, 'media/some_video.json')).toBe(true);
+
+      // 2. Repository with default ID but coordinates changed by user
+      const repoWithModifiedCoords: RepositorySource = {
+        id: 'hf-telewat-dawah', // matches default ID
+        provider: 'github',
+        owner: 'OpenITI',       // changed coordinates
+        repo: 'custom_archive', // changed coordinates
+        path: 'archive',
+        enabled: true,
+        // supportedTypes undefined
+      };
+
+      // Ensure matchDefaultRepo does NOT match this as a default repo
+      expect(matchDefaultRepo(repoWithModifiedCoords)).toBeNull();
+
+      const { repos: migrated2, migrated: didMigrate2 } = migrateSavedRepositories([repoWithModifiedCoords]);
+      expect(didMigrate2).toBe(false);
+      // Coordinates and properties are not modified to hozifa1/Telewat_Daawa_And_Channels
+      expect(migrated2[0].owner).toBe('OpenITI');
+      expect(migrated2[0].repo).toBe('custom_archive');
+      expect(migrated2[0].supportedTypes).toBeUndefined();
     });
   });
 
@@ -583,6 +680,104 @@ describe('Repository Routing & Retry Optimization Suite', () => {
       expect(resultWithoutOrigin.status).toBe(200);
       expect(resultWithoutOrigin.sourceId).toBe('hf-islamic-books');
       expect(resultWithoutOrigin.data).toEqual(expectedData);
+    });
+
+    it('deterministically associates colliding file paths to the higher-priority repo regardless of network response order while preserving fallbacks', async () => {
+      const primaryRepo: RepositorySource = {
+        id: 'repo-priority-1',
+        provider: 'huggingface',
+        owner: 'hozifa1',
+        repo: 'primary_repo',
+        path: 'catalog',
+        enabled: true,
+      };
+
+      const backupRepo: RepositorySource = {
+        id: 'repo-priority-2',
+        provider: 'huggingface',
+        owner: 'hozifa1',
+        repo: 'backup_repo',
+        path: 'catalog',
+        enabled: true,
+      };
+
+      const collidingFile = 'shared_resource.json';
+
+      // Simulate network race condition:
+      // backupRepo responds IMMEDIATELY (0ms)
+      // primaryRepo responds SLOWLY (50ms delay)
+      const fetchMock = vi.fn().mockImplementation((url: string) => {
+        // Candidate index for backupRepo (arrives first!)
+        if (url.includes('backup_repo') && url.includes('index.json')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers(),
+            text: () => Promise.resolve(JSON.stringify([`catalog/${collidingFile}`])),
+          });
+        }
+        // Candidate index for primaryRepo (arrives second after 50ms delay!)
+        if (url.includes('primary_repo') && url.includes('index.json')) {
+          return new Promise((resolve) => {
+            setTimeout(() => {
+              resolve({
+                ok: true,
+                status: 200,
+                headers: new Headers(),
+                text: () => Promise.resolve(JSON.stringify([`catalog/${collidingFile}`])),
+              });
+            }, 50);
+          });
+        }
+        // Content fetch for primaryRepo -> 404 (simulating failover scenario)
+        if (url.includes('primary_repo') && url.includes(collidingFile)) {
+          return Promise.resolve({
+            ok: false,
+            status: 404,
+            headers: new Headers(),
+            text: () => Promise.resolve('Not Found'),
+          });
+        }
+        // Content fetch for backupRepo -> 200 with recovered content
+        if (url.includes('backup_repo') && url.includes(collidingFile)) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers(),
+            text: () => Promise.resolve(JSON.stringify({ recoveredData: 'from-backup' })),
+          });
+        }
+        return Promise.reject(new Error(`Unhandled URL: ${url}`));
+      });
+      global.fetch = fetchMock;
+
+      // 1. fetchMergedIndex with approved order [primaryRepo, backupRepo]
+      const merged = await fetchMergedIndex([primaryRepo, backupRepo]);
+
+      expect(merged.files).toContain(collidingFile);
+
+      // Deterministic origin check:
+      // Must belong to primaryRepo (repo-priority-1), NOT backupRepo (repo-priority-2),
+      // even though backupRepo's network response arrived first!
+      expect(merged.fileSources[collidingFile]).toBe('repo-priority-1');
+
+      // Fallbacks must contain BOTH repositories
+      expect(merged.fileFallbacks[collidingFile]).toEqual(['repo-priority-1', 'repo-priority-2']);
+
+      // 2. Fetch content using the deterministic origin:
+      // Primary is tried first, fails with 404 (single request, zero 404 retries),
+      // then falls back to backupRepo and succeeds!
+      const contentResult = await fetchJsonWithFallback<{ recoveredData: string }>(
+        [primaryRepo, backupRepo],
+        collidingFile,
+        2000,
+        merged.fileSources[collidingFile],
+      );
+
+      expect(contentResult.ok).toBe(true);
+      expect(contentResult.status).toBe(200);
+      expect(contentResult.sourceId).toBe('repo-priority-2');
+      expect(contentResult.data).toEqual({ recoveredData: 'from-backup' });
     });
   });
 

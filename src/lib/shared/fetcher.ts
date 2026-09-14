@@ -167,7 +167,8 @@ export async function fetchJsonWithFallback<T>(
 
 /**
  * Fetches and merges all index.json files from every enabled repository.
- * Deduplicates the merged file list and retains originating repository associations.
+ * Deduplicates the merged file list, deterministically retains primary originating
+ * repository associations according to approved repository order, and tracks fallback mirrors.
  */
 export async function fetchMergedIndex(
   repos: RepositorySource[],
@@ -176,19 +177,20 @@ export async function fetchMergedIndex(
   files: string[];
   perRepo: { repoId: string; ok: boolean; fileCount: number; error?: string }[];
   fileSources: Record<string, string>;
+  fileFallbacks: Record<string, string[]>;
 }> {
   const enabled = repos.filter((r) => r.enabled !== false);
   const seen = new Set<string>();
   const files: string[] = [];
   const fileSources: Record<string, string> = {};
+  const fileFallbacks: Record<string, string[]> = {};
   const perRepo: { repoId: string; ok: boolean; fileCount: number; error?: string }[] = [];
 
-  await Promise.all(
+  // 1. Fetch remote indexes concurrently while maintaining approved repository ordering
+  const repoResults = await Promise.all(
     enabled.map(async (repo) => {
       try {
         // Try each candidate index URL in order until one returns valid JSON.
-        // Most repos use <path>/index.json, but some use custom names like
-        // fatawa_bibaz/fatawa_index.json.
         const urls = candidateIndexUrls(repo);
         let data: IndexFile | null = null;
         let lastErr: unknown;
@@ -199,7 +201,6 @@ export async function fetchMergedIndex(
             break;
           } catch (err) {
             lastErr = err;
-            // Try next candidate URL.
           }
         }
         if (data === null) throw lastErr instanceof Error ? lastErr : new Error('All index URLs failed');
@@ -222,43 +223,76 @@ export async function fetchMergedIndex(
             rawList = (data as IndexFile).files;
           }
         }
-
-        const subPath = (repo.path || '').replace(/^\/+|\/+$/g, '');
-        for (const f of rawList) {
-          const rawTrimmed = String(f).trim().replace(/^\/+/, '');
-          if (!rawTrimmed) continue;
-
-          let cleaned = rawTrimmed;
-          // Normalize relative path if returned with repo subPath prefix
-          if (subPath && (cleaned === subPath || cleaned.startsWith(`${subPath}/`))) {
-            cleaned = cleaned.slice(subPath.length).replace(/^\/+/, '');
-          }
-          if (!cleaned) continue;
-
-          // Retain association of discovered files with originating repository
-          fileSources[cleaned] = repo.id;
-          if (rawTrimmed !== cleaned) {
-            fileSources[rawTrimmed] = repo.id;
-          }
-
-          if (!seen.has(cleaned)) {
-            seen.add(cleaned);
-            files.push(cleaned);
-          }
-        }
-        perRepo.push({ repoId: repo.id, ok: true, fileCount: rawList.length });
+        return { repo, ok: true, rawList, error: undefined };
       } catch (err) {
-        perRepo.push({
-          repoId: repo.id,
+        return {
+          repo,
           ok: false,
-          fileCount: 0,
+          rawList: [] as string[],
           error: err instanceof Error ? err.message : String(err),
-        });
+        };
       }
     }),
   );
 
-  return { files, perRepo, fileSources };
+  // 2. Deterministically process results in the approved repository order (sequential)
+  for (const res of repoResults) {
+    perRepo.push({
+      repoId: res.repo.id,
+      ok: res.ok,
+      fileCount: res.rawList.length,
+      error: res.error,
+    });
+
+    if (!res.ok) continue;
+
+    const subPath = (res.repo.path || '').replace(/^\/+|\/+$/g, '');
+    for (const f of res.rawList) {
+      const rawTrimmed = String(f).trim().replace(/^\/+/, '');
+      if (!rawTrimmed) continue;
+
+      let cleaned = rawTrimmed;
+      // Normalize relative path if returned with repo subPath prefix
+      if (subPath && (cleaned === subPath || cleaned.startsWith(`${subPath}/`))) {
+        cleaned = cleaned.slice(subPath.length).replace(/^\/+/, '');
+      }
+      if (!cleaned) continue;
+
+      // Track all candidate repos that provide this file as fallback mirrors
+      if (!fileFallbacks[cleaned]) {
+        fileFallbacks[cleaned] = [];
+      }
+      if (!fileFallbacks[cleaned].includes(res.repo.id)) {
+        fileFallbacks[cleaned].push(res.repo.id);
+      }
+
+      // Deterministic primary origin according to approved repository priority:
+      // The higher-priority repository claims the primary source.
+      // Do NOT overwrite if already assigned by a preceding repository!
+      if (!fileSources[cleaned]) {
+        fileSources[cleaned] = res.repo.id;
+      }
+
+      if (rawTrimmed !== cleaned) {
+        if (!fileFallbacks[rawTrimmed]) {
+          fileFallbacks[rawTrimmed] = [];
+        }
+        if (!fileFallbacks[rawTrimmed].includes(res.repo.id)) {
+          fileFallbacks[rawTrimmed].push(res.repo.id);
+        }
+        if (!fileSources[rawTrimmed]) {
+          fileSources[rawTrimmed] = res.repo.id;
+        }
+      }
+
+      if (!seen.has(cleaned)) {
+        seen.add(cleaned);
+        files.push(cleaned);
+      }
+    }
+  }
+
+  return { files, perRepo, fileSources, fileFallbacks };
 }
 
 /**
