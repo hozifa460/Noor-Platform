@@ -131,13 +131,27 @@ const RETIRED_LEGACY_RESTRICTIONS = [
   "@/components/radio",
   "@/components/radio/**",
   "@/types/radio",
+  "@/hooks/use-ayah-audio-loop",
+  "@/components/media/FatwaCard",
+  "@/types/hadith",
 ];
 
 const RETIRED_LEGACY_PATTERN = {
   group: RETIRED_LEGACY_RESTRICTIONS,
   message:
-    "Architecture violation: Legacy compatibility paths for books, hadith, fatwa, quran, adhkar, and radio have been retired. Use canonical feature imports: '@/features/books', '@/features/hadith', '@/features/fatwa', '@/features/quran', '@/features/adhkar', or '@/features/radio'.",
+    "Architecture violation: Legacy compatibility paths for books, hadith, fatwa, quran, adhkar, radio, and retired facades have been retired. Use canonical feature imports or active shared components/types.",
 };
+
+const RETIRED_TYPES_BARREL_PATTERN = {
+  regex: "^@/types(/index)?$",
+  message:
+    "Architecture violation: Legacy compatibility paths and generic '@/types' barrel have been retired. Use domain types directly from '@/features/<domain>' or canonical shared types from '@/types/reader' or '@/lib/types'.",
+};
+
+const RETIRED_LEGACY_PATTERNS = [
+  RETIRED_LEGACY_PATTERN,
+  RETIRED_TYPES_BARREL_PATTERN,
+];
 
 const eslintConfig = [
   {
@@ -191,7 +205,7 @@ const eslintConfig = [
       "no-restricted-imports": [
         "error",
         {
-          patterns: [RETIRED_LEGACY_PATTERN],
+          patterns: [...RETIRED_LEGACY_PATTERNS],
         },
       ],
     },
@@ -204,7 +218,7 @@ const eslintConfig = [
         "error",
         {
           patterns: [
-            RETIRED_LEGACY_PATTERN,
+            ...RETIRED_LEGACY_PATTERNS,
             {
               group: [
                 "@/lib/adhkar/**",
@@ -241,7 +255,7 @@ const eslintConfig = [
         "error",
         {
           patterns: [
-            RETIRED_LEGACY_PATTERN,
+            ...RETIRED_LEGACY_PATTERNS,
             {
               group: [
                 "@/lib/adhkar/**",
@@ -273,7 +287,7 @@ const eslintConfig = [
         "error",
         {
           patterns: [
-            RETIRED_LEGACY_PATTERN,
+            ...RETIRED_LEGACY_PATTERNS,
             {
               group: [
                 "@/lib/adhkar/**",
@@ -309,7 +323,7 @@ const eslintConfig = [
         "error",
         {
           patterns: [
-            RETIRED_LEGACY_PATTERN,
+            ...RETIRED_LEGACY_PATTERNS,
             {
               group: CROSS_FEATURE_RESTRICTIONS,
               message:
@@ -328,7 +342,7 @@ const eslintConfig = [
         "error",
         {
           patterns: [
-            RETIRED_LEGACY_PATTERN,
+            ...RETIRED_LEGACY_PATTERNS,
             {
               group: CROSS_FEATURE_RESTRICTIONS,
               message:
@@ -352,7 +366,7 @@ const eslintConfig = [
         "error",
         {
           patterns: [
-            RETIRED_LEGACY_PATTERN,
+            ...RETIRED_LEGACY_PATTERNS,
             {
               group: [
                 "@/lib/adhkar", "@/lib/adhkar/**",
