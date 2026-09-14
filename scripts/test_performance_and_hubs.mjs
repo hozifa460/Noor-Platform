@@ -33,8 +33,10 @@ async function testAll() {
   assert(quranCode.includes('api.alquran.cloud/v1/surah'), 'quran-store has AlQuran Cloud CDN fallback');
   assert(quranCode.includes('ALL_SURAHS'), 'All 114 Surahs metadata registered');
 
-  // 3. Check seed-fatwas.ts and micro-shard-engine.ts
-  const seedFatwasPath = path.join(process.cwd(), 'src', 'lib', 'fatwa', 'seed-fatwas.ts');
+  // 3. Check seed-fatwas / seed-data and micro-shard-engine.ts
+  const seedFatwasPath = fs.existsSync(path.join(process.cwd(), 'src', 'features', 'fatwa', 'domain', 'seed-data.ts'))
+    ? path.join(process.cwd(), 'src', 'features', 'fatwa', 'domain', 'seed-data.ts')
+    : path.join(process.cwd(), 'src', 'lib', 'fatwa', 'seed-fatwas.ts');
   assert(fs.existsSync(seedFatwasPath), 'seed-fatwas.ts created with instant categorized fatwas');
   const microShardPath = path.join(process.cwd(), 'src', 'features', 'fatwa', 'infrastructure', 'micro-shard-engine.ts');
   const microCode = fs.readFileSync(microShardPath, 'utf-8');
