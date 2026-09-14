@@ -75,6 +75,7 @@ public/data/hadith/*
 !public/data/hadith/grades/*
 public/data/ebooks/*
 !public/data/ebooks/catalog.json
+!public/data/ebooks/books_search_index.json
 
 # Prisma removed (Aug 2026): app state is localStorage-only; never re-add binary DBs
 db/
