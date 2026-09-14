@@ -1,4 +1,5 @@
 import type { RepositorySource } from '../types';
+import { detectExplicitSection } from './classifier';
 
 /**
  * Default repository sources on Hugging Face (and optional GitHub/GitLab).
@@ -10,6 +11,10 @@ import type { RepositorySource } from '../types';
  * Source 2 (Hugging Face): hozifa1/fatawaset
  *                         Path: fatawa
  *                         (Fatwa collections & fatawa_JSON)
+ *
+ * Source 3 (Hugging Face): hozifa1/islamic_books
+ *                         Path: books
+ *                         (Books, classical texts & articles)
  */
 export const DEFAULT_REPOSITORIES: RepositorySource[] = [
   {
@@ -22,6 +27,7 @@ export const DEFAULT_REPOSITORIES: RepositorySource[] = [
     indexFile: 'index.json',
     primary: true,
     enabled: true,
+    supportedTypes: ['videos', 'shorts', 'live', 'radio', 'main'],
   },
   {
     id: 'hf-fatawa',
@@ -32,6 +38,7 @@ export const DEFAULT_REPOSITORIES: RepositorySource[] = [
     path: 'fatawa',
     primary: false,
     enabled: true,
+    supportedTypes: ['fatwa'],
   },
   {
     id: 'hf-islamic-books',
@@ -42,6 +49,7 @@ export const DEFAULT_REPOSITORIES: RepositorySource[] = [
     path: 'books',
     primary: false,
     enabled: true,
+    supportedTypes: ['books', 'articles'],
   },
 ];
 
@@ -71,7 +79,97 @@ function isValidRepository(r: unknown): r is RepositorySource {
   if (!/^[a-zA-Z0-9_\-\.]+$/.test(repoName)) return false;
   if (repo.branch && !/^[a-zA-Z0-9_\-\./]+$/.test(String(repo.branch))) return false;
   if (repo.path && !/^[a-zA-Z0-9_\-\./]+$/.test(String(repo.path))) return false;
+  if (repo.supportedTypes !== undefined) {
+    if (!Array.isArray(repo.supportedTypes) || !repo.supportedTypes.every((t) => typeof t === 'string')) {
+      return false;
+    }
+  }
   return true;
+}
+
+const LEGACY_DEFAULT_OWNERS = new Set(['hozifa460', 'hazozahz-islamway']);
+
+/**
+ * Checks if a repository source corresponds to a known default repository.
+ * Matches by current coordinates or legacy coordinates.
+ * Strictly ignores ID if coordinates were modified by the user.
+ */
+export function matchDefaultRepo(
+  repo: RepositorySource,
+): { defaultDef: RepositorySource; isLegacyCoord: boolean } | null {
+  const owner = (repo.owner || '').trim().toLowerCase();
+  const repoName = (repo.repo || '').trim().toLowerCase();
+  const provider = (repo.provider || '').trim().toLowerCase();
+
+  for (const def of DEFAULT_REPOSITORIES) {
+    const defOwner = def.owner.toLowerCase();
+    const defRepo = def.repo.toLowerCase();
+    const defProvider = def.provider.toLowerCase();
+
+    // 1. Current default coordinates match
+    if (provider === defProvider && owner === defOwner && repoName === defRepo) {
+      return { defaultDef: def, isLegacyCoord: false };
+    }
+
+    // 2. Legacy coordinates match (old default owners on github/gitlab/huggingface)
+    if (LEGACY_DEFAULT_OWNERS.has(owner) && repoName === defRepo) {
+      return { defaultDef: def, isLegacyCoord: true };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Migrates legacy saved default repository configurations that lack supportedTypes or use legacy coordinates,
+ * while preserving user modifications (e.g. enabled, path, custom branch) and preserving
+ * custom user repositories. Does not replace the user's entire repository list.
+ * Strictly distinguishes between missing supportedTypes (undefined) and an intentional empty array ([]).
+ */
+export function migrateSavedRepositories(repos: RepositorySource[]): {
+  repos: RepositorySource[];
+  migrated: boolean;
+} {
+  let migrated = false;
+
+  const updatedRepos = repos.map((repo) => {
+    const match = matchDefaultRepo(repo);
+    if (!match) {
+      // Custom repository or repository with changed coordinates: preserve untouched!
+      return repo;
+    }
+
+    const { defaultDef, isLegacyCoord } = match;
+    const updated = { ...repo };
+    let entryChanged = false;
+
+    // 1. If coordinates are legacy, upgrade coordinates to modern default
+    if (isLegacyCoord) {
+      updated.provider = defaultDef.provider;
+      updated.owner = defaultDef.owner;
+      updated.repo = defaultDef.repo;
+      // If repository had old default id prefix or missing id, align to canonical id
+      if (!updated.id || updated.id.startsWith('gh-') || updated.id.startsWith('gl-')) {
+        updated.id = defaultDef.id;
+      }
+      entryChanged = true;
+    }
+
+    // 2. Distinguish between missing supportedTypes (undefined) and an intentional empty array ([]).
+    // Only backfill default supportedTypes when supportedTypes is strictly undefined.
+    if (updated.supportedTypes === undefined && defaultDef.supportedTypes) {
+      updated.supportedTypes = [...defaultDef.supportedTypes];
+      entryChanged = true;
+    }
+
+    if (entryChanged) {
+      migrated = true;
+    }
+
+    return updated;
+  });
+
+  return { repos: updatedRepos, migrated };
 }
 
 /** Load repositories from localStorage (user may edit) or fallback to defaults. */
@@ -87,14 +185,14 @@ export function loadRepositories(): RepositorySource[] {
     const validRepos = parsed.filter(isValidRepository);
     if (validRepos.length === 0) return DEFAULT_REPOSITORIES;
 
-    // Migrate old github/gitlab defaults to Hugging Face if user had old stored defaults
-    const hasOldDefault = validRepos.some((r) => r.owner === 'hozifa460' || r.owner === 'hazozahz-islamway');
-    if (hasOldDefault) {
-      saveRepositories(DEFAULT_REPOSITORIES);
-      return DEFAULT_REPOSITORIES;
+    // Migrate legacy default repositories that lack supportedTypes or use legacy coordinates,
+    // while preserving user customizations and custom repositories.
+    const { repos: migratedRepos, migrated } = migrateSavedRepositories(validRepos);
+    if (migrated) {
+      saveRepositories(migratedRepos);
     }
 
-    return validRepos;
+    return migratedRepos;
   } catch {
     return DEFAULT_REPOSITORIES;
   }
@@ -216,3 +314,53 @@ export function fileUrl(repo: RepositorySource, filePath: string): string {
   }
   return repo.provider === 'github' ? githubRawUrl(repo, fullPath) : gitlabRawUrl(repo, fullPath);
 }
+
+/**
+ * Determines whether a repository source is suitable for fetching a given filePath.
+ *
+ * Routing Rules:
+ * 1. Disabled repositories are never suitable.
+ * 2. Unconstrained repositories (supportedTypes is undefined or empty, e.g. user-added custom sources)
+ *    accept all file paths, preserving user-customized repositories and routes.
+ * 3. Repositories with explicit supportedTypes:
+ *    - The file path is classified via classifyFile(filePath).
+ *    - If repo.supportedTypes includes the classified section kind, it is suitable.
+ *    - If repo.path is explicitly configured and aligns with the path prefix, it is also suitable.
+ *    - Otherwise, returns false to avoid wasteful, failing requests.
+ */
+export function isRepoSuitableForPath(repo: RepositorySource, filePath: string): boolean {
+  if (repo.enabled === false) return false;
+
+  // Repositories without explicit supportedTypes (e.g. user-added custom repositories)
+  // are unconstrained and allow any path.
+  if (!repo.supportedTypes || repo.supportedTypes.length === 0) {
+    return true;
+  }
+
+  const cleanFile = filePath.replace(/^\/+/, '');
+  const repoPath = (repo.path || '').replace(/^\/+|\/+$/g, '');
+
+  // If repo has an explicit path prefix matching filePath, treat as suitable
+  if (repoPath && (cleanFile === repoPath || cleanFile.startsWith(`${repoPath}/`))) {
+    return true;
+  }
+
+  // Detect explicit section domain classification
+  const explicit = detectExplicitSection(filePath);
+
+  // If the path is unclassified (no explicit domain markers), provide safe routing:
+  // do NOT use the UI presentation fallback 'videos' as conclusive evidence to exclude sources.
+  if (!explicit) {
+    return true;
+  }
+
+  return repo.supportedTypes.includes(explicit);
+}
+
+/**
+ * Filters an array of repository sources to only those that are suitable for the requested filePath.
+ */
+export function filterReposForPath(repos: RepositorySource[], filePath: string): RepositorySource[] {
+  return repos.filter((r) => isRepoSuitableForPath(r, filePath));
+}
+

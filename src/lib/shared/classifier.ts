@@ -12,7 +12,11 @@ import type { SectionKind, MediaItem } from '../types';
  *   1_*.json      -> main (Sheikh collection)
  *   fallback      -> videos
  */
-export function classifyFile(filePath: string): SectionKind {
+/**
+ * Detects an explicit domain section kind for a file path based on recognized patterns.
+ * Returns null if the path does not match any explicit domain patterns (unclassified path).
+ */
+export function detectExplicitSection(filePath: string): SectionKind | null {
   const name = filePath.split('/').pop() || filePath;
   const lowerPath = filePath.toLowerCase();
   let decodedPath = lowerPath;
@@ -39,15 +43,50 @@ export function classifyFile(filePath: string): SectionKind {
     return 'fatwa';
   }
 
-  if (/\.videos\.json$/i.test(name)) return 'videos';
-  if (/\.shorts\.json$/i.test(name)) return 'shorts';
-  if (/\.live\.json$/i.test(name)) return 'live';
-  if (/\.radio\.json$/i.test(name)) return 'radio';
-  if (/\.books\.json$/i.test(name)) return 'books';
-  if (/\.articles\.json$/i.test(name)) return 'articles';
+  // Articles folder & pattern detection
+  if (
+    decodedPath.includes('islamhouse_articles') ||
+    decodedPath.startsWith('articles/') ||
+    decodedPath.includes('/articles/') ||
+    /\.articles\.json$/i.test(name)
+  ) {
+    return 'articles';
+  }
+
+  // Books folder & pattern detection
+  if (
+    decodedPath.includes('islamhouse_books') ||
+    decodedPath.includes('openiti') ||
+    decodedPath.startsWith('books/') ||
+    decodedPath.includes('/books/') ||
+    /\.books\.json$/i.test(name)
+  ) {
+    return 'books';
+  }
+
+  if (/(^|\.)videos\.json$/i.test(name)) return 'videos';
+  if (/(^|\.)shorts\.json$/i.test(name)) return 'shorts';
+  if (/(^|\.)live\.json$/i.test(name)) return 'live';
+  if (/(^|\.)radio\.json$/i.test(name)) return 'radio';
   if (/^1_.+\.json$/i.test(name)) return 'main';
 
-  // Fallback: treat unknown JSON as videos collection.
+  // Explicit media keywords
+  if (
+    decodedPath.includes('dawah_and_channels') ||
+    decodedPath.includes('telewat') ||
+    decodedPath.includes('recitations')
+  ) {
+    return 'videos';
+  }
+
+  return null;
+}
+
+export function classifyFile(filePath: string): SectionKind {
+  const explicit = detectExplicitSection(filePath);
+  if (explicit) return explicit;
+
+  // Fallback for UI presentation: treat unclassified JSON as videos collection.
   return 'videos';
 }
 

@@ -55,6 +55,12 @@ export interface RepositorySource {
   primary?: boolean;
   /** True if this source is currently enabled. */
   enabled?: boolean;
+  /**
+   * Optional section kinds supported by this repository.
+   * When undefined or empty (e.g. for custom user repositories),
+   * all data types and paths are permitted.
+   */
+  supportedTypes?: SectionKind[];
 }
 
 /** Media item shared by every section. */

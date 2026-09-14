@@ -1,5 +1,5 @@
 import type { IndexFile, RepositorySource } from '../types';
-import { fileUrl, candidateIndexUrls } from './repositories';
+import { fileUrl, candidateIndexUrls, filterReposForPath } from './repositories';
 
 /**
  * Smart fetcher with retry, timeout, and automatic GitHub → GitLab mirror
@@ -15,6 +15,20 @@ import { fileUrl, candidateIndexUrls } from './repositories';
 
 const DEFAULT_TIMEOUT_MS = 8000;
 const MAX_RETRIES = 2;
+
+/**
+ * Custom error representing an HTTP response status.
+ */
+export class HttpError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly url: string,
+    message?: string,
+  ) {
+    super(message || `HTTP ${status} for ${url}`);
+    this.name = 'HttpError';
+  }
+}
 
 export interface FetchResult<T> {
   data: T | null;
@@ -45,7 +59,7 @@ async function fetchWithTimeout(
   }
 }
 
-async function tryFetchJson<T>(
+export async function tryFetchJson<T>(
   url: string,
   timeoutMs?: number,
 ): Promise<{ data: T; status: number; lastModified?: string }> {
@@ -53,7 +67,15 @@ async function tryFetchJson<T>(
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       const res = await fetchWithTimeout(url, { method: 'GET' }, timeoutMs);
-      if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+      if (!res.ok) {
+        const error = new HttpError(res.status, url);
+        // Do NOT retry non-transient 404 Not Found errors on the same URL.
+        // Throw immediately so the caller can proceed to the fallback alternative without delay.
+        if (res.status === 404) {
+          throw error;
+        }
+        throw error;
+      }
 
       const text = await res.text();
       let data: T;
@@ -80,7 +102,11 @@ async function tryFetchJson<T>(
       return { data, status: res.status, lastModified: res.headers.get('last-modified') || undefined };
     } catch (err) {
       lastErr = err;
-      // brief backoff before retry
+      // Terminate retries immediately on 404 (Not Found)
+      if (err instanceof HttpError && err.status === 404) {
+        throw err;
+      }
+      // For transient errors (network errors, timeouts, 5xx, 429), retry with backoff
       if (attempt < MAX_RETRIES) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
     }
   }
@@ -90,21 +116,55 @@ async function tryFetchJson<T>(
 /**
  * Fetches a single JSON file from the best available repository.
  *
- * @param repos Ordered list of repositories to try (GitHub first, then GitLab).
+ * Discovered candidates from fetchMergedIndex (sourceRepoIds) are tried first in deterministic
+ * order without being disqualified by path heuristics, followed by any other suitable repositories.
+ * Repositories with enabled: false are strictly respected and never queried.
+ *
+ * @param repos Ordered list of repositories to try.
  * @param filePath Relative path inside the repo.
+ * @param timeoutMs Request timeout in milliseconds.
+ * @param sourceRepoIds Discovered originating repository ID or ordered list of fallback repository IDs.
  */
 export async function fetchJsonWithFallback<T>(
   repos: RepositorySource[],
   filePath: string,
   timeoutMs?: number,
+  sourceRepoIds?: string | string[],
 ): Promise<FetchResult<T>> {
-  const enabled = repos.filter((r) => r.enabled !== false);
+  const discoveredIds: string[] = Array.isArray(sourceRepoIds)
+    ? sourceRepoIds
+    : sourceRepoIds
+      ? [sourceRepoIds]
+      : [];
+
+  const candidateRepos: RepositorySource[] = [];
+  const seenRepoIds = new Set<string>();
+
+  // 1. Try discovered & enabled sources in their deterministic priority order.
+  // Do NOT exclude a source proven to contain the file because of heuristics/guessing from its name alone.
+  for (const id of discoveredIds) {
+    const repo = repos.find((r) => r.id === id);
+    if (repo && repo.enabled !== false && !seenRepoIds.has(repo.id)) {
+      seenRepoIds.add(repo.id);
+      candidateRepos.push(repo);
+    }
+  }
+
+  // 2. Then try other suitable repositories as further fallbacks, without duplicates.
+  const suitableRepos = filterReposForPath(repos, filePath);
+  for (const repo of suitableRepos) {
+    if (repo.enabled !== false && !seenRepoIds.has(repo.id)) {
+      seenRepoIds.add(repo.id);
+      candidateRepos.push(repo);
+    }
+  }
+
   let lastModified: string | undefined;
   let bestData: T | null = null;
   let bestSourceId: string | null = null;
   let lastErr: string | undefined;
 
-  for (const repo of enabled) {
+  for (const repo of candidateRepos) {
     const url = fileUrl(repo, filePath);
     try {
       const { data, lastModified: lm } = await tryFetchJson<T>(url, timeoutMs);
@@ -130,7 +190,8 @@ export async function fetchJsonWithFallback<T>(
 
 /**
  * Fetches and merges all index.json files from every enabled repository.
- * Deduplicates the merged file list.
+ * Deduplicates the merged file list, deterministically retains primary originating
+ * repository associations according to approved repository order, and tracks fallback mirrors.
  */
 export async function fetchMergedIndex(
   repos: RepositorySource[],
@@ -138,18 +199,21 @@ export async function fetchMergedIndex(
 ): Promise<{
   files: string[];
   perRepo: { repoId: string; ok: boolean; fileCount: number; error?: string }[];
+  fileSources: Record<string, string>;
+  fileFallbacks: Record<string, string[]>;
 }> {
   const enabled = repos.filter((r) => r.enabled !== false);
   const seen = new Set<string>();
   const files: string[] = [];
+  const fileSources: Record<string, string> = {};
+  const fileFallbacks: Record<string, string[]> = {};
   const perRepo: { repoId: string; ok: boolean; fileCount: number; error?: string }[] = [];
 
-  await Promise.all(
+  // 1. Fetch remote indexes concurrently while maintaining approved repository ordering
+  const repoResults = await Promise.all(
     enabled.map(async (repo) => {
       try {
         // Try each candidate index URL in order until one returns valid JSON.
-        // Most repos use <path>/index.json, but some use custom names like
-        // fatawa_bibaz/fatawa_index.json.
         const urls = candidateIndexUrls(repo);
         let data: IndexFile | null = null;
         let lastErr: unknown;
@@ -160,7 +224,6 @@ export async function fetchMergedIndex(
             break;
           } catch (err) {
             lastErr = err;
-            // Try next candidate URL.
           }
         }
         if (data === null) throw lastErr instanceof Error ? lastErr : new Error('All index URLs failed');
@@ -183,36 +246,76 @@ export async function fetchMergedIndex(
             rawList = (data as IndexFile).files;
           }
         }
-
-        const subPath = (repo.path || '').replace(/^\/+|\/+$/g, '');
-        for (const f of rawList) {
-          let cleaned = String(f).trim().replace(/^\/+/, '');
-          if (!cleaned) continue;
-
-          // Normalize relative path if returned with repo subPath prefix
-          if (subPath && (cleaned === subPath || cleaned.startsWith(`${subPath}/`))) {
-            cleaned = cleaned.slice(subPath.length).replace(/^\/+/, '');
-          }
-          if (!cleaned) continue;
-
-          if (!seen.has(cleaned)) {
-            seen.add(cleaned);
-            files.push(cleaned);
-          }
-        }
-        perRepo.push({ repoId: repo.id, ok: true, fileCount: rawList.length });
+        return { repo, ok: true, rawList, error: undefined };
       } catch (err) {
-        perRepo.push({
-          repoId: repo.id,
+        return {
+          repo,
           ok: false,
-          fileCount: 0,
+          rawList: [] as string[],
           error: err instanceof Error ? err.message : String(err),
-        });
+        };
       }
     }),
   );
 
-  return { files, perRepo };
+  // 2. Deterministically process results in the approved repository order (sequential)
+  for (const res of repoResults) {
+    perRepo.push({
+      repoId: res.repo.id,
+      ok: res.ok,
+      fileCount: res.rawList.length,
+      error: res.error,
+    });
+
+    if (!res.ok) continue;
+
+    const subPath = (res.repo.path || '').replace(/^\/+|\/+$/g, '');
+    for (const f of res.rawList) {
+      const rawTrimmed = String(f).trim().replace(/^\/+/, '');
+      if (!rawTrimmed) continue;
+
+      let cleaned = rawTrimmed;
+      // Normalize relative path if returned with repo subPath prefix
+      if (subPath && (cleaned === subPath || cleaned.startsWith(`${subPath}/`))) {
+        cleaned = cleaned.slice(subPath.length).replace(/^\/+/, '');
+      }
+      if (!cleaned) continue;
+
+      // Track all candidate repos that provide this file as fallback mirrors
+      if (!fileFallbacks[cleaned]) {
+        fileFallbacks[cleaned] = [];
+      }
+      if (!fileFallbacks[cleaned].includes(res.repo.id)) {
+        fileFallbacks[cleaned].push(res.repo.id);
+      }
+
+      // Deterministic primary origin according to approved repository priority:
+      // The higher-priority repository claims the primary source.
+      // Do NOT overwrite if already assigned by a preceding repository!
+      if (!fileSources[cleaned]) {
+        fileSources[cleaned] = res.repo.id;
+      }
+
+      if (rawTrimmed !== cleaned) {
+        if (!fileFallbacks[rawTrimmed]) {
+          fileFallbacks[rawTrimmed] = [];
+        }
+        if (!fileFallbacks[rawTrimmed].includes(res.repo.id)) {
+          fileFallbacks[rawTrimmed].push(res.repo.id);
+        }
+        if (!fileSources[rawTrimmed]) {
+          fileSources[rawTrimmed] = res.repo.id;
+        }
+      }
+
+      if (!seen.has(cleaned)) {
+        seen.add(cleaned);
+        files.push(cleaned);
+      }
+    }
+  }
+
+  return { files, perRepo, fileSources, fileFallbacks };
 }
 
 /**
@@ -223,9 +326,36 @@ export async function fetchBlobWithFallback(
   repos: RepositorySource[],
   filePath: string,
   timeoutMs?: number,
+  sourceRepoIds?: string | string[],
 ): Promise<Blob | null> {
-  const enabled = repos.filter((r) => r.enabled !== false);
-  for (const repo of enabled) {
+  const discoveredIds: string[] = Array.isArray(sourceRepoIds)
+    ? sourceRepoIds
+    : sourceRepoIds
+      ? [sourceRepoIds]
+      : [];
+
+  const candidateRepos: RepositorySource[] = [];
+  const seenRepoIds = new Set<string>();
+
+  // 1. Try discovered & enabled sources in deterministic order
+  for (const id of discoveredIds) {
+    const repo = repos.find((r) => r.id === id);
+    if (repo && repo.enabled !== false && !seenRepoIds.has(repo.id)) {
+      seenRepoIds.add(repo.id);
+      candidateRepos.push(repo);
+    }
+  }
+
+  // 2. Then try other suitable repositories without duplicates
+  const suitableRepos = filterReposForPath(repos, filePath);
+  for (const repo of suitableRepos) {
+    if (repo.enabled !== false && !seenRepoIds.has(repo.id)) {
+      seenRepoIds.add(repo.id);
+      candidateRepos.push(repo);
+    }
+  }
+
+  for (const repo of candidateRepos) {
     try {
       const url = fileUrl(repo, filePath);
       const res = await fetchWithTimeout(url, { method: 'GET' }, timeoutMs);

@@ -70,8 +70,9 @@ export function useLibrarySync() {
       const repos = loadRepositories();
       if (!repos || repos.length === 0) return;
 
-      const { files, perRepo } = await fetchMergedIndex(repos);
+      const { files, perRepo, fileSources, fileFallbacks } = await fetchMergedIndex(repos);
       setRepoStatus(perRepo);
+      useLibraryStore.getState().setDiscoveredSources(fileSources, fileFallbacks);
 
       const primaryFiles: string[] = [];
       const archiveFiles: string[] = [];
@@ -102,7 +103,8 @@ export function useLibrarySync() {
       // Gentle single-threaded sequential ingestion with micro-sleeps (Zero Bandwidth Hogging)
       for (const path of queue) {
         try {
-          const res = await fetchJsonWithFallback<unknown>(repos, path, 2500);
+          const candidateSources = fileFallbacks?.[path] || (fileSources?.[path] ? [fileSources[path]] : undefined);
+          const res = await fetchJsonWithFallback<unknown>(repos, path, 2500, candidateSources);
           if (res.data !== null) {
             const { items, sheikhMeta } = normalizeContentFile(
               res.data,
@@ -184,7 +186,11 @@ export function useLibraryReady(): boolean {
 export async function loadArchiveFile(archivePath: string): Promise<MediaItem[]> {
   const repos = loadRepositories();
   try {
-    const res = await fetchJsonWithFallback<unknown>(repos, archivePath, 6000);
+    const store = useLibraryStore.getState();
+    const candidateSources =
+      store.fileFallbacks?.[archivePath] ||
+      (store.fileSources?.[archivePath] ? [store.fileSources[archivePath]] : undefined);
+    const res = await fetchJsonWithFallback<unknown>(repos, archivePath, 6000, candidateSources);
     if (res.data !== null) {
       const { items, sheikhMeta } = normalizeContentFile(
         res.data,
