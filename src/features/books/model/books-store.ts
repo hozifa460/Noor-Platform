@@ -241,15 +241,19 @@ export const useBooksStore = create<BooksState>((set, get) => ({
 
       await cachedLoadShamelaCatalog(set, get);
 
-      const merged = dedupeBooks(accumulated);
-      set({
-        books: merged,
-        loadedFiles: nextFiles,
+      let finalBooks: MediaItem[] = [];
+      set((s) => {
+        finalBooks = dedupeBooks([...s.books, ...accumulated]);
+        const mergedFiles = new Set([...s.loadedFiles, ...nextFiles]);
+        return {
+          books: finalBooks,
+          loadedFiles: mergedFiles,
+        };
       });
 
-      if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined' && finalBooks.length > 0) {
         try {
-          window.localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(merged));
+          window.localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(finalBooks));
         } catch {
           // ignore
         }

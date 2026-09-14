@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { pickPlayer } from '@/lib/shared';
+import type { MediaItem } from '@/lib/types';
 import {
   BOOK_CATEGORIES,
   BOOK_LANGUAGES,
@@ -10,6 +11,8 @@ import {
   getInitialCachedBooks,
   loadCachedBooksPostHydration,
   LOCAL_CACHE_KEY,
+  useBooksStore,
+  dedupeBooks,
 } from '../index';
 
 describe('Books Feature Domain — Contract & Business Logic', () => {
@@ -220,6 +223,139 @@ describe('Books Feature Domain — Contract & Business Logic', () => {
       const small = [{ id: 'shamela-1', title: 'كتاب', section: 'books' as const }];
       localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(small));
       expect(loadCachedBooksPostHydration()).toBeNull();
+    });
+  });
+
+  describe('Background Loading State Preservation & Order Independence', () => {
+    beforeEach(() => {
+      localStorage.clear();
+      useBooksStore.setState({
+        books: getInitialCachedBooks(),
+        loading: false,
+        loadedFiles: new Set(),
+        searchQuery: '',
+      });
+    });
+
+    afterEach(() => {
+      localStorage.clear();
+    });
+
+    it('preserves cached books when background loading finishes later', async () => {
+      // 1. Simulate cached book present in store post-hydration
+      const cachedItem: MediaItem = {
+        id: 'shamela-9999',
+        title: 'كتاب محفوظ بالكاش',
+        sheikhName: 'مؤلف تجريبي',
+        section: 'books',
+      };
+      useBooksStore.setState((s) => ({
+        books: dedupeBooks([...s.books, cachedItem]),
+      }));
+
+      // 2. Trigger startLoading with mock response
+      const originalFetch = global.fetch;
+      global.fetch = async () =>
+        new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+
+      try {
+        await useBooksStore.getState().startLoading();
+
+        const state = useBooksStore.getState();
+        // Cached book MUST remain in state.books
+        expect(state.books.some((b) => b.id === 'shamela-9999')).toBe(true);
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it('preserves search index items loaded concurrently while background loading is in progress', async () => {
+      // 1. Initial state
+      expect(useBooksStore.getState().books).toEqual(QURANIC_MUS_HAFS);
+
+      // 2. Search index item to load during search
+      const searchItem: MediaItem = {
+        id: 'shamela-1200',
+        title: 'أحاديث منتخبة من مغازي موسى بن عقبة',
+        sheikhName: 'موسى بن عقبة',
+        section: 'books',
+      };
+
+      // Mock fetch with delayed resolution to simulate background loading race condition
+      const originalFetch = global.fetch;
+      let resolveBackgroundFetch!: (value: Response) => void;
+      const delayedPromise = new Promise<Response>((resolve) => {
+        resolveBackgroundFetch = resolve;
+      });
+
+      global.fetch = async () => delayedPromise;
+
+      try {
+        // Start background loading (pending)
+        const loadPromise = useBooksStore.getState().startLoading();
+
+        // While background loading is underway, user searches and on-demand search index loads
+        useBooksStore.setState((s) => {
+          const next = new Set(s.loadedFiles);
+          next.add('shamela_search_index');
+          return {
+            books: dedupeBooks([...s.books, searchItem]),
+            loadedFiles: next,
+          };
+        });
+
+        // Now background fetch resolves
+        resolveBackgroundFetch(
+          new Response(JSON.stringify([]), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        );
+        await loadPromise;
+
+        const state = useBooksStore.getState();
+        // Assert search index item survived background loading
+        expect(state.books.some((b) => b.id === 'shamela-1200')).toBe(true);
+        // Assert loadedFiles marker survived
+        expect(state.loadedFiles.has('shamela_search_index')).toBe(true);
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it('preserves search index items even if background loading completes after search index was already present', async () => {
+      // Case where search index loaded before startLoading completed
+      const searchItem: MediaItem = {
+        id: 'shamela-3500',
+        title: 'نيل المرام من تفسير آيات الأحكام',
+        sheikhName: 'صديق حسن خان',
+        section: 'books',
+      };
+
+      useBooksStore.setState((s) => ({
+        books: dedupeBooks([...s.books, searchItem]),
+        loadedFiles: new Set(['shamela_search_index']),
+      }));
+
+      const originalFetch = global.fetch;
+      global.fetch = async () =>
+        new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+
+      try {
+        await useBooksStore.getState().startLoading();
+        const state = useBooksStore.getState();
+
+        expect(state.books.some((b) => b.id === 'shamela-3500')).toBe(true);
+        expect(state.loadedFiles.has('shamela_search_index')).toBe(true);
+      } finally {
+        global.fetch = originalFetch;
+      }
     });
   });
 });
