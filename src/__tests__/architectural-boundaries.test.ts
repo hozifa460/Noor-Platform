@@ -286,6 +286,21 @@ describe('Architectural Boundaries Enforcement (ESLint Rules)', () => {
       );
       expect(violation).toBeDefined();
     }, 15000);
+
+    it('rejects importing from retired legacy types/fatwa facade path', async () => {
+      const invalidCode = `
+        import type { FatwaIndexItem } from '@/types/fatwa';
+        export type TestType = FatwaIndexItem;
+      `;
+      const [result] = await eslint.lintText(invalidCode, {
+        filePath: 'src/components/shared/TestTypesProbe.tsx',
+      });
+      expect(result.errorCount).toBeGreaterThan(0);
+      const violation = result.messages.find((m) =>
+        m.message.includes('Legacy compatibility paths') && m.message.includes('have been retired')
+      );
+      expect(violation).toBeDefined();
+    }, 15000);
   });
 
   describe('Feature and Domain Boundaries Enforcement', () => {

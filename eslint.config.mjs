@@ -103,6 +103,7 @@ const RETIRED_LEGACY_RESTRICTIONS = [
   "@/stores/fatwa-store",
   "@/hooks/use-ebook-reader",
   "@/hooks/use-fatwa-answers",
+  "@/types/fatwa",
   "@/features/fatwa/components",
   "@/features/fatwa/components/**",
   "@/features/fatwa/engines",
