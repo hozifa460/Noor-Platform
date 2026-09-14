@@ -55,10 +55,13 @@ describe('Book 06485 — Live Network Git LFS & Unmapped Heading Verification', 
   it('2. guards unmapped headings: triggers toast warning and prevents invalid navigation', async () => {
     const toastSpy = vi.spyOn(toast, 'warning');
 
-    let hookResult: ReturnType<typeof useBookOrchestration> | null = null;
+    const hookResultRef: { current: ReturnType<typeof useBookOrchestration> | null } = { current: null };
 
     function TestComponent() {
-      hookResult = useBookOrchestration('shamela-6485');
+      const res = useBookOrchestration('shamela-6485');
+      React.useEffect(() => {
+        hookResultRef.current = res;
+      }, [res]);
       return null;
     }
 
@@ -67,11 +70,11 @@ describe('Book 06485 — Live Network Git LFS & Unmapped Heading Verification', 
     });
 
     // Initial chapter should be 1
-    expect(hookResult!.currentChapter).toBe(1);
+    expect(hookResultRef.current!.currentChapter).toBe(1);
 
     // Attempt to jump to unmapped heading (chapterIndex -1, pageId 0)
     act(() => {
-      hookResult!.handleJumpToChapter(-1, undefined, 0);
+      hookResultRef.current!.handleJumpToChapter(-1, undefined, 0);
     });
 
     // Verify warning toast is shown
@@ -80,6 +83,6 @@ describe('Book 06485 — Live Network Git LFS & Unmapped Heading Verification', 
     );
 
     // Verify currentChapter remains 1 (did not navigate to invalid chapter)
-    expect(hookResult!.currentChapter).toBe(1);
+    expect(hookResultRef.current!.currentChapter).toBe(1);
   });
 });

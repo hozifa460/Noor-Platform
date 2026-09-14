@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
   ListTree,
   Search,
@@ -57,31 +57,45 @@ export function EBookSidebarToc({
   const PAGE_SIZE = 300;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  // Reset visibleCount when book changes
-  useEffect(() => {
+  // Adjust visibleCount during render when book changes (official React pattern)
+  const [prevBookKey, setPrevBookKey] = useState<string | null>(null);
+  const currentBookKey = `${metaRes?.meta?.id || ''}:${metaRes?.toc?.length || 0}`;
+  if (prevBookKey !== currentBookKey) {
+    setPrevBookKey(currentBookKey);
     setVisibleCount(PAGE_SIZE);
-  }, [metaRes?.meta?.id, metaRes?.toc?.length]);
+  }
 
-  // Ensure current chapter is visible even if deep in the TOC
-  useEffect(() => {
-    if (!metaRes?.toc) return;
-    const currentIdx = metaRes.toc.findIndex((item) => item.chapterIndex === currentChapter);
-    if (currentIdx >= 0 && currentIdx >= visibleCount) {
-      setVisibleCount(Math.min(metaRes.toc.length, currentIdx + PAGE_SIZE));
+  // Adjust visibleCount if currentChapter changed and is beyond current visible count
+  const [prevChapter, setPrevChapter] = useState(currentChapter);
+  if (prevChapter !== currentChapter) {
+    setPrevChapter(currentChapter);
+    if (metaRes?.toc) {
+      const currentIdx = metaRes.toc.findIndex((item) => item.chapterIndex === currentChapter);
+      if (currentIdx >= 0 && currentIdx >= visibleCount) {
+        setVisibleCount(Math.min(metaRes.toc.length, currentIdx + PAGE_SIZE));
+      }
     }
-  }, [currentChapter, metaRes?.toc, visibleCount]);
+  }
 
+  const toc = metaRes?.toc;
   const displayedToc = useMemo(() => {
-    if (!metaRes?.toc) return [];
-    return metaRes.toc.slice(0, visibleCount);
-  }, [metaRes?.toc, visibleCount]);
+    if (!toc) return [];
+    const sliced = toc.slice(0, visibleCount);
+    // Include unmapped items so that any unmapped headings remain accessible
+    const unmapped = toc.filter((item) => item.isMapped === false);
+    const unmappedNotInSlice = unmapped.filter((item) => !sliced.includes(item));
+    if (unmappedNotInSlice.length > 0) {
+      return [...sliced, ...unmappedNotInSlice];
+    }
+    return sliced;
+  }, [toc, visibleCount]);
 
-  const hasMore = metaRes?.toc ? visibleCount < metaRes.toc.length : false;
-  const remainingCount = metaRes?.toc ? metaRes.toc.length - visibleCount : 0;
+  const hasMore = toc ? visibleCount < toc.length : false;
+  const remainingCount = toc ? toc.length - visibleCount : 0;
 
   const handleLoadMore = () => {
-    if (!metaRes?.toc) return;
-    setVisibleCount((prev) => Math.min(metaRes.toc.length, prev + PAGE_SIZE));
+    if (!toc) return;
+    setVisibleCount((prev) => Math.min(toc.length, prev + PAGE_SIZE));
   };
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {

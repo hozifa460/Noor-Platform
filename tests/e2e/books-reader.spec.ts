@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Noor Platform — Published Books Reader Flows & CSP Verification', () => {
-  test('Opens books reader, fetches real text over network, navigates authentic TOC, and verifies real DOM scroll jump without CSP errors', async ({
+  test('1. Anchored real DOM jump test: navigates authentic TOC, verifies target pageId 1112223 and exclusive text in viewport without CSP errors', async ({
     page,
   }) => {
     // 1. Capture and strictly assert zero Content Security Policy violations or connection refusals
@@ -40,7 +40,7 @@ test.describe('Noor Platform — Published Books Reader Flows & CSP Verification
     const initialText = (await articleContent.textContent()) || '';
     expect(initialText.trim().length).toBeGreaterThan(50);
 
-    // 6. Test authentic Table of Contents ("دون استثناء الفهارس")
+    // 6. Test authentic Table of Contents
     const tocButton = page.locator('[data-testid="ebook-toc-toggle"]');
     await expect(tocButton).toBeVisible({ timeout: 10000 });
     await tocButton.click();
@@ -55,15 +55,18 @@ test.describe('Noor Platform — Published Books Reader Flows & CSP Verification
     const tocCount = await tocEntries.count();
     expect(tocCount).toBeGreaterThan(0);
 
-    // 7. Click a specific authentic indexed entry to trigger real jumping
-    const targetTocEntry = tocEntries.nth(Math.min(1, tocCount - 1));
+    // 7. Click the specific targeted entry: "الوسطية في التشريع" (pageId: 1112223)
+    const targetTocEntry = tocSidebar.locator('button:has-text("الوسطية في التشريع")').first();
+    await expect(targetTocEntry).toBeVisible({ timeout: 10000 });
     await targetTocEntry.click();
 
-    // 8. Assert real jumping in DOM: target page/paragraph element exists and is scrolled into view
+    // 8. Assert anchored jumping: target page element exists in DOM, contains exclusive text, and is scrolled into view
+    const targetPageElement = readerContainer.locator('[data-page-id="1112223"]').first();
+    await expect(targetPageElement).toBeVisible({ timeout: 15000 });
+    await expect(targetPageElement).toContainText('ونجدها في التشريع');
+
     await expect(async () => {
-      const isScrolledIntoView = await page.evaluate(() => {
-        const el = document.querySelector('[data-page-id], [data-page-num], article h2, article h3');
-        if (!el) return false;
+      const isScrolledIntoView = await targetPageElement.evaluate((el) => {
         const rect = el.getBoundingClientRect();
         return rect.top < window.innerHeight && rect.bottom > 0;
       });
@@ -71,6 +74,65 @@ test.describe('Noor Platform — Published Books Reader Flows & CSP Verification
     }).toPass({ timeout: 15000 });
 
     // 9. Confirm zero CSP violations or blocked connections occurred throughout
+    expect(cspErrors).toHaveLength(0);
+  });
+
+  test('2. Book 06485 real Git LFS 17.5MB TOC resolution and unmapped heading guard test without CSP errors', async ({
+    page,
+  }) => {
+    test.setTimeout(90000);
+
+    // 1. Capture and strictly assert zero Content Security Policy violations or connection refusals
+    const cspErrors: string[] = [];
+    page.on('console', (msg) => {
+      const text = msg.text();
+      if (
+        msg.type() === 'error' &&
+        (text.includes('Content Security Policy') ||
+          text.includes('CSP') ||
+          text.includes('refused to connect') ||
+          text.includes('violates the following Content Security Policy directive'))
+      ) {
+        cspErrors.push(text);
+      }
+    });
+
+    // 2. Navigate to Books route with book parameter for book 06485 (فتاوى الشبكة الإسلامية)
+    await page.goto('/books?book=shamela-6485');
+
+    // 3. Verify EBookTextReader modal opens
+    const readerContainer = page.locator('div.fixed.inset-0.z-50').first();
+    await expect(readerContainer).toBeVisible({ timeout: 15000 });
+
+    // 4. Verify book content loads over the network
+    const articleContent = readerContainer.locator('article').first();
+    await expect(articleContent).toBeVisible({ timeout: 35000 });
+
+    // 5. Open authentic TOC sidebar (which resolves the 17.5MB Git LFS toc.json via resolve/main redirect chain)
+    const tocButton = page.locator('[data-testid="ebook-toc-toggle"]');
+    await expect(tocButton).toBeVisible({ timeout: 10000 });
+    await tocButton.click();
+
+    // Verify TOC sidebar drawer appears
+    const tocSidebar = page.locator('aside:has-text("الأبواب")').first();
+    await expect(tocSidebar).toBeVisible({ timeout: 25000 });
+
+    // Verify authentic TOC item count reflects the full index (92,242 entries)
+    await expect(tocSidebar.locator('button:has-text("الأبواب")')).toContainText('92242', { timeout: 30000 });
+
+    // 6. Locate the authentic unmapped heading in the TOC drawer
+    const unmappedEntry = tocSidebar.locator('button:has-text("حكم نشر المقالات المقتبسة")').first();
+    await expect(unmappedEntry).toBeVisible({ timeout: 15000 });
+    await expect(unmappedEntry.locator('text=غير محقق')).toBeVisible();
+
+    // 7. Click unmapped heading and verify guard behavior
+    await unmappedEntry.click();
+
+    // Assert warning toast appears indicating direct jump is not supported for unmapped heading
+    const warningToast = page.locator('text=القفز المباشر لهذا العنوان غير مدعوم حالياً');
+    await expect(warningToast).toBeVisible({ timeout: 10000 });
+
+    // 8. Confirm zero CSP violations or blocked connections throughout the 17.5MB Git LFS load & interaction
     expect(cspErrors).toHaveLength(0);
   });
 });

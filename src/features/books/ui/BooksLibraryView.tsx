@@ -63,7 +63,18 @@ export function BooksLibraryView() {
     setVisibleCount(30);
   }
 
-
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const bookParam = params.get('book');
+    if (bookParam) {
+      openPlayer({
+        id: bookParam,
+        title: 'كتاب إلكتروني',
+        section: 'books',
+      });
+    }
+  }, [openPlayer]);
 
   const handleOpenFeatured = (fc: FeaturedClassic) => {
     const quranId = (fc as unknown as { quranId?: string }).quranId;
