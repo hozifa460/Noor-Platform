@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { pickPlayer } from '@/lib/shared';
 import {
   BOOK_CATEGORIES,
   BOOK_LANGUAGES,
@@ -115,4 +116,59 @@ describe('Books Feature Domain — Contract & Business Logic', () => {
       expect(quranCard?.artTag).toBe('quran');
     });
   });
+
+  describe('Player Resolution & Media Classification (pickPlayer)', () => {
+    it('correctly resolves shamela-2994 (Tafsir Ibn Kathir) to ebook player despite Quranic keywords', () => {
+      const ibnKathirCard = FEATURED_ISLAMIC_CLASSICS.find((c) => c.id === 'shamela-2994');
+      expect(ibnKathirCard).toBeDefined();
+
+      const item = {
+        id: ibnKathirCard!.id,
+        title: ibnKathirCard!.title,
+        sheikhName: ibnKathirCard!.author,
+        section: 'books' as const,
+        mediaType: 'shamela_archive',
+        tags: ['شاملة', 'تراث', ibnKathirCard!.discipline, 'أمهات الكتب', 'قرآن كريم'],
+      };
+
+      expect(pickPlayer(item)).toBe('ebook');
+    });
+
+    it('strictly routes Quran mushafs (quran-hafs) to mushaf player', () => {
+      const quranCard = FEATURED_ISLAMIC_CLASSICS.find((c) => c.id === 'quran-hafs');
+      expect(quranCard).toBeDefined();
+
+      const item = {
+        id: quranCard!.id,
+        title: quranCard!.title,
+        sheikhName: quranCard!.author,
+        section: 'books' as const,
+        tags: ['مصحف', 'قرآن كريم', 'quran'],
+      };
+
+      expect(pickPlayer(item)).toBe('mushaf');
+
+      const hafsCatalogItem = QURANIC_MUS_HAFS.find((m) => m.id === 'quran-hafs');
+      expect(hafsCatalogItem).toBeDefined();
+      expect(pickPlayer(hafsCatalogItem!)).toBe('mushaf');
+    });
+
+    it('routes all 9 Shamela featured classic cards to ebook player', () => {
+      const shamelaCards = FEATURED_ISLAMIC_CLASSICS.filter((c) => c.id.startsWith('shamela-'));
+      expect(shamelaCards).toHaveLength(9);
+
+      for (const card of shamelaCards) {
+        const item = {
+          id: card.id,
+          title: card.title,
+          sheikhName: card.author,
+          section: 'books' as const,
+          mediaType: 'shamela_archive',
+          tags: ['شاملة', 'تراث', card.discipline],
+        };
+        expect(pickPlayer(item), `Card ${card.id} (${card.title}) must resolve to ebook`).toBe('ebook');
+      }
+    });
+  });
 });
+
