@@ -260,7 +260,8 @@ export async function loadShamelaEBook(
     if (Array.isArray(rawToc)) {
       const manifestList = Array.isArray(rawManifest)
         ? (rawManifest as Array<{
-            chunk: number;
+            chunk?: number;
+            chunkIndex?: number;
             startPageId?: number;
             endPageId?: number;
             startPage?: number;
@@ -287,8 +288,9 @@ export async function loadShamelaEBook(
                   Array.isArray(m.pageNums) && m.pageNums[idx] !== undefined && m.pageNums[idx] !== null
                     ? Number(m.pageNums[idx])
                     : undefined;
+                const cIdx = m.chunk ?? m.chunkIndex ?? 0;
                 pageIdToChunkMap.set(Number(pid), {
-                  chunk: m.chunk,
+                  chunk: cIdx,
                   startPage: m.startPage,
                   pageNum,
                 });
@@ -337,9 +339,10 @@ export async function loadShamelaEBook(
               item.page_id! <= m.endPageId
           );
           if (found) {
-            assignedChunk = found.chunk;
+            const cIdx = found.chunk ?? found.chunkIndex ?? 0;
+            assignedChunk = cIdx;
             isMapped = true;
-            matchedManifest = found;
+            matchedManifest = { ...found, chunk: cIdx };
           }
         }
         // Level 3: Contiguous sequence_num (1..N sequence order)

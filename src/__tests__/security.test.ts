@@ -306,6 +306,11 @@ describe('Security & SSRF Protection (shared/security.ts)', () => {
       expect(mediaDirective).toContain('https://download.quranicaudio.com');
       expect(mediaDirective).toContain('https://raw.githubusercontent.com');
 
+      expect(mediaDirective).toContain('https://cdn-lfs.hf.co');
+      expect(mediaDirective).toContain('https://*.hf.co');
+      expect(mediaDirective).toContain('https://*.aws.cdn.hf.co');
+      expect(mediaDirective).toContain('https://us.aws.cdn.hf.co');
+
       // MUST NOT contain the permissive wildcard https:
       const tokens = mediaDirective!.split(/\s+/);
       expect(tokens).not.toContain('https:');
@@ -316,6 +321,10 @@ describe('Security & SSRF Protection (shared/security.ts)', () => {
         .map((s) => s.trim())
         .find((s) => s.startsWith('connect-src'));
       expect(connectDirective).toBeDefined();
+      expect(connectDirective).toContain('https://cdn-lfs.hf.co');
+      expect(connectDirective).toContain('https://*.hf.co');
+      expect(connectDirective).toContain('https://*.aws.cdn.hf.co');
+      expect(connectDirective).toContain('https://us.aws.cdn.hf.co');
       const connectTokens = connectDirective!.split(/\s+/);
       expect(connectTokens).not.toContain('https:');
       expect(connectTokens).not.toContain('*');

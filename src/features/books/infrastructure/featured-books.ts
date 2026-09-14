@@ -15,8 +15,8 @@ export interface FeaturedClassic {
 
 export const FEATURED_ISLAMIC_CLASSICS: FeaturedClassic[] = [
   {
-    id: 'shamela-1165',
-    shamelaId: 1165,
+    id: 'shamela-1458',
+    shamelaId: 1458,
     title: 'صحيح البخاري',
     author: 'الإمام محمد بن إسماعيل البخاري',
     authorDeath: 'ت ٢٥٦ هـ',
@@ -29,8 +29,8 @@ export const FEATURED_ISLAMIC_CLASSICS: FeaturedClassic[] = [
     icon: '📜',
   },
   {
-    id: 'shamela-1167',
-    shamelaId: 1167,
+    id: 'shamela-1481',
+    shamelaId: 1481,
     title: 'صحيح مسلم',
     author: 'الإمام مسلم بن الحجاج النيسابوري',
     authorDeath: 'ت ٢٦١ هـ',
@@ -43,8 +43,8 @@ export const FEATURED_ISLAMIC_CLASSICS: FeaturedClassic[] = [
     icon: '✨',
   },
   {
-    id: 'shamela-308',
-    shamelaId: 308,
+    id: 'shamela-2994',
+    shamelaId: 2994,
     title: 'تفسير القرآن العظيم (ابن كثير)',
     author: 'الحافظ عماد الدين ابن كثير',
     authorDeath: 'ت ٧٧٤ هـ',
@@ -57,8 +57,8 @@ export const FEATURED_ISLAMIC_CLASSICS: FeaturedClassic[] = [
     icon: '📖',
   },
   {
-    id: 'shamela-287',
-    shamelaId: 287,
+    id: 'shamela-188',
+    shamelaId: 188,
     title: 'زاد المعاد في هدي خير العباد',
     author: 'الإمام شمس الدين ابن قيم الجوزية',
     authorDeath: 'ت ٧٥١ هـ',
@@ -71,8 +71,8 @@ export const FEATURED_ISLAMIC_CLASSICS: FeaturedClassic[] = [
     icon: '🏰',
   },
   {
-    id: 'shamela-1681',
-    shamelaId: 1681,
+    id: 'shamela-1618',
+    shamelaId: 1618,
     title: 'المجموع شرح المهذب',
     author: 'الإمام محيي الدين النووي',
     authorDeath: 'ت ٦٧٦ هـ',
@@ -85,8 +85,8 @@ export const FEATURED_ISLAMIC_CLASSICS: FeaturedClassic[] = [
     icon: '⚖️',
   },
   {
-    id: 'shamela-1755',
-    shamelaId: 1755,
+    id: 'shamela-2437',
+    shamelaId: 2437,
     title: 'المغني في فقه الإمام أحمد',
     author: 'الإمام موفق الدين ابن قدامة المقدسي',
     authorDeath: 'ت ٦٢٠ هـ',
@@ -99,8 +99,8 @@ export const FEATURED_ISLAMIC_CLASSICS: FeaturedClassic[] = [
     icon: '🏛️',
   },
   {
-    id: 'shamela-12',
-    shamelaId: 12,
+    id: 'shamela-5479',
+    shamelaId: 5479,
     title: 'العقيدة الواسطية',
     author: 'شيخ الإسلام ابن تيمية',
     authorDeath: 'ت ٧٢٨ هـ',
@@ -113,8 +113,8 @@ export const FEATURED_ISLAMIC_CLASSICS: FeaturedClassic[] = [
     icon: '🛡️',
   },
   {
-    id: 'shamela-2601',
-    shamelaId: 2601,
+    id: 'shamela-3974',
+    shamelaId: 3974,
     title: 'سير أعلام النبلاء',
     author: 'الإمام شمس الدين الذهبي',
     authorDeath: 'ت ٧٤٨ هـ',
@@ -127,8 +127,8 @@ export const FEATURED_ISLAMIC_CLASSICS: FeaturedClassic[] = [
     icon: '📜',
   },
   {
-    id: 'shamela-2901',
-    shamelaId: 2901,
+    id: 'shamela-1462',
+    shamelaId: 1462,
     title: 'لسان العرب',
     author: 'العلامة جمال الدين ابن منظور',
     authorDeath: 'ت ٧١١ هـ',

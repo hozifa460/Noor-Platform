@@ -384,7 +384,9 @@ describe('useEBookReader & useBookOrchestration — Behavioral & Precision Navig
     expect(chunk2Signal?.signal.aborted).toBe(true);
   });
 
-  it('5. renders the reader in DOM and executes scrollIntoView on target heading and poetry elements when jumping within the same chunk', async () => {
+  // Note: Under jsdom, this unit test asserts correct DOM element selection and simulated scrollIntoView
+  // invocation via mock, rather than physical rendering/visibility within a real browser viewport (which is verified via Playwright E2E).
+  it('5. selects correct DOM elements and triggers simulated scrollIntoView on target heading and poetry elements when jumping within the same chunk', async () => {
     const scrolledElements: Element[] = [];
     const originalScrollIntoView = Element.prototype.scrollIntoView;
     Element.prototype.scrollIntoView = vi.fn(function (this: Element) {
