@@ -97,19 +97,48 @@ test.describe('Noor Platform — Published Books Reader Flows & CSP Verification
       }
     });
 
-    // 2. Navigate to Books route with book parameter for book 06485 (فتاوى الشبكة الإسلامية)
+    // 2. Set up targeted network request monitor for authentic book chapter chunks (/chapters/)
+    const isChapterChunkUrl = (url: string): boolean => {
+      return url.includes('/chapters/') || (url.includes('/chunks/') && !url.includes('_next'));
+    };
+
+    const capturedChapterRequests: string[] = [];
+    const requestListener = (req: Request) => {
+      const url = req.url();
+      if (isChapterChunkUrl(url)) {
+        capturedChapterRequests.push(url);
+      }
+    };
+    page.on('request', requestListener);
+
+    // 3. Navigate to Books route with book parameter for book 06485 (فتاوى الشبكة الإسلامية)
     await page.goto('/books?book=shamela-6485');
 
-    // 3. Verify EBookTextReader modal opens
+    // 4. Verify EBookTextReader modal opens
     const readerContainer = page.locator('div.fixed.inset-0.z-50').first();
     await expect(readerContainer).toBeVisible({ timeout: 15000 });
 
-    // 4. Verify book content loads over the network and assert Book Identity
+    // 5. Verify book content loads over the network and assert Book Identity
     const articleContent = readerContainer.locator('article').first();
     await expect(articleContent).toBeVisible({ timeout: 35000 });
     await expect(readerContainer.locator('h1, h2, div').filter({ hasText: 'فتاوى الشبكة الإسلامية' }).first()).toBeVisible({ timeout: 20000 });
 
-    // 5. Open authentic TOC sidebar (which resolves the 17.5MB Git LFS toc.json via resolve/main redirect chain)
+    // Targeted Proof 1: Verify the request monitor successfully captured the authentic initial chapter 1 chunk request (/chapters/000.json)
+    expect(capturedChapterRequests.length).toBeGreaterThan(0);
+    expect(capturedChapterRequests.some((u) => u.includes('/chapters/000.json'))).toBe(true);
+
+    // Targeted Proof 2: Advance to next chapter and prove the monitor dynamically captures the chapter 2 chunk request (/chapters/001.json)
+    capturedChapterRequests.length = 0;
+    const nextChapterBtn = readerContainer.locator('button:has-text("الفصل التالي")').first();
+    await expect(nextChapterBtn).toBeVisible({ timeout: 10000 });
+    await nextChapterBtn.click();
+
+    const chapter2Indicator = readerContainer.locator('text=/الفصل\\s+2\\s+من/').first();
+    await expect(chapter2Indicator).toBeVisible({ timeout: 20000 });
+    expect(capturedChapterRequests.length).toBeGreaterThan(0);
+    expect(capturedChapterRequests.some((u) => u.includes('/chapters/001.json'))).toBe(true);
+
+    // 6. Open authentic TOC sidebar (which resolves the 17.5MB Git LFS toc.json via resolve/main redirect chain)
     const tocButton = page.locator('[data-testid="ebook-toc-toggle"]');
     await expect(tocButton).toBeVisible({ timeout: 10000 });
     await tocButton.click();
@@ -121,24 +150,13 @@ test.describe('Noor Platform — Published Books Reader Flows & CSP Verification
     // Verify authentic TOC item count reflects the full index (92,242 entries)
     await expect(tocSidebar.locator('button:has-text("الأبواب")')).toContainText('92242', { timeout: 30000 });
 
-    // 6. Verify initial chapter is 1 before clicking unmapped heading
-    const initialChapterIndicator = readerContainer.locator('text=/الفصل\\s+1\\s+من/');
-    await expect(initialChapterIndicator.first()).toBeVisible({ timeout: 10000 });
-
     // 7. Locate the authentic unmapped heading in the TOC drawer
     const unmappedEntry = tocSidebar.locator('button:has-text("حكم نشر المقالات المقتبسة")').first();
     await expect(unmappedEntry).toBeVisible({ timeout: 15000 });
     await expect(unmappedEntry.locator('text=غير محقق')).toBeVisible();
 
-    // 8. Monitor network requests: ensure clicking unmapped heading dispatches NO chapter chunk request
-    let chunkRequested = false;
-    const requestListener = (req: Request) => {
-      const url = req.url();
-      if (url.includes('/chunks/') || url.includes('/chunk_') || url.includes('/chapter_')) {
-        chunkRequested = true;
-      }
-    };
-    page.on('request', requestListener);
+    // 8. Clear captured requests before clicking unmapped heading to strictly isolate its effect
+    capturedChapterRequests.length = 0;
 
     // 9. Click unmapped heading
     await unmappedEntry.click();
@@ -147,11 +165,11 @@ test.describe('Noor Platform — Published Books Reader Flows & CSP Verification
     const warningToast = page.locator('text=القفز المباشر لهذا العنوان غير مدعوم حالياً');
     await expect(warningToast).toBeVisible({ timeout: 10000 });
 
-    // 10. Assert Chapter Stability: chapter remains 1 and did not navigate
-    await expect(initialChapterIndicator.first()).toBeVisible();
+    // 10. Assert Chapter Stability: chapter remains 2 and did not navigate
+    await expect(chapter2Indicator).toBeVisible();
 
-    // 11. Assert NO chunk request was dispatched for unmapped heading
-    expect(chunkRequested).toBe(false);
+    // 11. Assert NO chapter chunk request was dispatched for unmapped heading
+    expect(capturedChapterRequests).toHaveLength(0);
     page.off('request', requestListener);
 
     // 12. Confirm zero CSP violations or blocked connections throughout the 17.5MB Git LFS load & interaction
