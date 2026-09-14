@@ -148,12 +148,12 @@ test.describe('Noor Platform — Published Books Reader Flows & CSP Verification
     await expect(tocSidebar).toBeVisible({ timeout: 25000 });
 
     // Verify authentic TOC item count reflects the full index (92,242 entries)
-    await expect(tocSidebar.locator('button:has-text("الأبواب")')).toContainText('92242', { timeout: 30000 });
+    await expect(tocSidebar.locator('button:has-text("الأبواب")').first()).toContainText('92242', { timeout: 30000 });
 
     // 7. Locate the authentic unmapped heading in the TOC drawer
     const unmappedEntry = tocSidebar.locator('button:has-text("حكم نشر المقالات المقتبسة")').first();
     await expect(unmappedEntry).toBeVisible({ timeout: 15000 });
-    await expect(unmappedEntry.locator('text=غير محقق')).toBeVisible();
+    await expect(unmappedEntry.locator('text=غير محقق').first()).toBeVisible();
 
     // 8. Clear captured requests before clicking unmapped heading to strictly isolate its effect
     capturedChapterRequests.length = 0;
@@ -162,7 +162,7 @@ test.describe('Noor Platform — Published Books Reader Flows & CSP Verification
     await unmappedEntry.click();
 
     // Assert warning toast appears indicating direct jump is not supported for unmapped heading
-    const warningToast = page.locator('text=القفز المباشر لهذا العنوان غير مدعوم حالياً');
+    const warningToast = page.locator('text=القفز المباشر لهذا العنوان غير مدعوم حالياً').first();
     await expect(warningToast).toBeVisible({ timeout: 10000 });
 
     // 10. Assert Chapter Stability: chapter remains 2 and did not navigate
