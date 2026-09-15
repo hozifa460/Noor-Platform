@@ -19,6 +19,7 @@ import {
   type ReciterMeta,
 } from '../domain';
 import type { RiwayahReciterEntry } from '../infrastructure';
+import { cn } from '@/lib/utils';
 
 interface QuickAyahMenuProps {
   ayah: AyahItem | null;
@@ -114,7 +115,7 @@ export function QuickAyahMenu({
                 </option>
               ))}
             </select>
-          ) : (
+          ) : riwayahReciters.length > 0 ? (
             <select
               value={activeRiwayahReciter?.reciterId || ''}
               onChange={(e) => {
@@ -131,6 +132,10 @@ export function QuickAyahMenu({
                 </option>
               ))}
             </select>
+          ) : (
+            <div className="text-[11px] text-muted-foreground p-1.5 bg-muted/40 rounded-lg">
+              لا تتوفر تسجيلات صوتية لهذه الرواية حالياً؛ يمكنك التبديل لرواية حفص أو ورش.
+            </div>
           )}
         </div>
 
@@ -139,16 +144,31 @@ export function QuickAyahMenu({
           {/* Button 1: Recite Audio */}
           <button
             onClick={() => {
-              onPlayAyah(ayah.ayahNo);
-              onClose();
+              if (isVerseLevelAvailable) {
+                onPlayAyah(ayah.ayahNo);
+                onClose();
+              }
             }}
-            className="flex items-center gap-3 p-3.5 rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700 transition-all font-bold text-xs text-right shadow-sm"
+            disabled={!isVerseLevelAvailable}
+            className={cn(
+              'flex items-center gap-3 p-3.5 rounded-2xl font-bold text-xs text-right shadow-sm transition-all',
+              isVerseLevelAvailable
+                ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                : 'bg-muted/50 text-muted-foreground cursor-not-allowed opacity-75 border border-border/50'
+            )}
+            title={
+              isVerseLevelAvailable
+                ? `تلاوة الآية (${ayah.ayahNo})`
+                : 'القفز للآية غير مدعوم في التسجيل الكامل لعدم توفر توقيتات موثقة؛ استمع للسورة كاملة أو بدّل لرواية حفص/ورش'
+            }
           >
             <Volume2 className="size-5 shrink-0" />
             <div>
-              <div>{isVerseLevelAvailable ? `تلاوة الآية (${ayah.ayahNo})` : `سورة بالرواية (${ayah.ayahNo})`}</div>
+              <div>{isVerseLevelAvailable ? `تلاوة الآية (${ayah.ayahNo})` : `تلاوة الآية (غير متاحة)`}</div>
               <div className="text-[10px] opacity-90 truncate max-w-[130px]">
-                {isVerseLevelAvailable ? activeReciter.name : activeRiwayahReciter?.reciterName || 'القارئ'}
+                {isVerseLevelAvailable
+                  ? activeReciter.name
+                  : 'متاحة بروايتي حفص وورش'}
               </div>
             </div>
           </button>

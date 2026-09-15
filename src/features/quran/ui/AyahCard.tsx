@@ -15,6 +15,8 @@ interface AyahCardProps {
   fontSize: number;
   showTranslation: boolean;
   translationText?: string;
+  translationDirection?: 'rtl' | 'ltr';
+  isEnglishTranslation?: boolean;
 }
 
 export function AyahCard({
@@ -27,6 +29,8 @@ export function AyahCard({
   fontSize,
   showTranslation,
   translationText,
+  translationDirection = 'ltr',
+  isEnglishTranslation = true,
 }: AyahCardProps) {
   return (
     <div
@@ -112,9 +116,21 @@ export function AyahCard({
       </div>
 
       {/* Translation if enabled */}
-      {showTranslation && (translationText || ayah.textEn) && (
-        <div className="mt-3 pt-3 border-t border-border/50 text-xs sm:text-sm text-muted-foreground font-sans leading-relaxed text-left dir-ltr">
-          {translationText || ayah.textEn}
+      {showTranslation && (
+        <div
+          dir={translationDirection}
+          className={cn(
+            'mt-3 pt-3 border-t border-border/50 text-xs sm:text-sm text-muted-foreground font-sans leading-relaxed',
+            translationDirection === 'rtl' ? 'text-right' : 'text-left'
+          )}
+        >
+          {translationText ? (
+            translationText
+          ) : isEnglishTranslation ? (
+            ayah.textEn
+          ) : (
+            <span className="italic opacity-60">الترجمة غير متوفرة لهذه الآية</span>
+          )}
         </div>
       )}
     </div>

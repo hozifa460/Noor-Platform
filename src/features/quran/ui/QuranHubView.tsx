@@ -42,6 +42,8 @@ export function QuranHubView() {
   const currentPlayingAyah = useQuranStore((s) => s.currentPlayingAyah);
   const isPlayingAudio = useQuranStore((s) => s.isPlayingAudio);
   const loadingSurah = useQuranStore((s) => s.loadingSurah);
+  const surahLoadError = useQuranStore((s) => s.surahLoadError);
+  const retryLoadSurah = useQuranStore((s) => s.retryLoadSurah);
 
   const setActiveQiraah = useQuranStore((s) => s.setActiveQiraah);
   const setActiveSurah = useQuranStore((s) => s.setActiveSurah);
@@ -69,32 +71,60 @@ export function QuranHubView() {
 
   const audio = useQuranAudio({ activeRiwayahReciter });
 
+  // Load surah only if not already loaded in memory to prevent duplicate requests
   useEffect(() => {
-    loadSurah(activeSurah.number);
-  }, [activeSurah.number, loadSurah]);
+    if (!surahData || surahData.surahNo !== activeSurah.number) {
+      loadSurah(activeSurah.number);
+    }
+  }, [activeSurah.number, surahData, loadSurah]);
 
+  // Load translation strictly when translation is enabled and view is interactive; cancel stale requests
   useEffect(() => {
+    if (!showTranslation || viewMode !== 'interactive') {
+      return;
+    }
+    let isCancelled = false;
     const code = activeTranslation?.code || 'en-saheeh';
     import('../infrastructure').then(({ getSurahTranslationsMap }) => {
-      getSurahTranslationsMap(code, activeSurah.number).then(setSurahTranslationsMap);
+      getSurahTranslationsMap(code, activeSurah.number).then((map) => {
+        if (!isCancelled) {
+          setSurahTranslationsMap(map);
+        }
+      });
     });
-  }, [activeTranslation?.code, activeSurah.number]);
+    return () => {
+      isCancelled = true;
+    };
+  }, [showTranslation, viewMode, activeTranslation?.code, activeSurah.number]);
 
+  // Load riwayah reciters safely without stale overwrites
   useEffect(() => {
+    let isCancelled = false;
     getRecitersForRiwayah(activeQiraah.id).then((list) => {
-      setRiwayahReciters(list);
-      if (list.length > 0) {
-        setActiveRiwayahReciter(list[0]);
+      if (!isCancelled) {
+        setRiwayahReciters(list);
+        setActiveRiwayahReciter(list.length > 0 ? list[0] : null);
       }
     });
+    return () => {
+      isCancelled = true;
+    };
   }, [activeQiraah.id]);
 
   const handleCopyAyah = (ayah: AyahItem, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const text = `﴿ ${ayah.textAr} ﴾ [سورة ${activeSurah.nameAr}: ${ayah.ayahNo}]\n${showTranslation && ayah.textEn ? `\nTranslation: ${ayah.textEn}` : ''}\n\nالمصدر: منصة النور القرآنية`;
+    const transText = surahTranslationsMap.get(ayah.ayahNo);
+    const isEnglish = activeTranslation?.code.startsWith('en-');
+    const fallbackText = isEnglish ? ayah.textEn : '';
+    const finalTrans = transText || fallbackText;
+    const transSection =
+      showTranslation && finalTrans
+        ? `\n\nالترجمة (${activeTranslation?.name || 'الإنجليزية'} - ${activeTranslation?.author || 'المعتمدة'}):\n${finalTrans}`
+        : '';
+
+    const text = `﴿ ${ayah.textAr} ﴾ [سورة ${activeSurah.nameAr}: ${ayah.ayahNo}]${transSection}\n\nالمصدر: منصة النور القرآنية`;
     copyAyah(ayah.ayahNo, text, `تم نسخ الآية رقم ${ayah.ayahNo}`);
   };
-
 
   const isVerseLevelAvailable = activeQiraah.id === 'hafs' || activeQiraah.id === 'warsh';
 
@@ -106,6 +136,7 @@ export function QuranHubView() {
         onEnded={audio.handleAudioEnded}
         onTimeUpdate={audio.handleTimeUpdate}
         onLoadedMetadata={audio.handleLoadedMetadata}
+        onError={audio.handleAudioError}
         className="hidden"
       />
 
@@ -136,6 +167,8 @@ export function QuranHubView() {
                 onChange={(e) => {
                   const q = QIRAAT_LIST.find((x) => x.id === e.target.value);
                   if (q) {
+                    stopAudio();
+                    audio.setIsPlayingFullSurah(false);
                     setActiveQiraah(q);
                     toast.success(`تم التبديل إلى: ${q.name}`);
                   }
@@ -163,9 +196,9 @@ export function QuranHubView() {
                     ? 'bg-card text-foreground shadow-sm font-bold'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
-                title="عرض صفحة المصحف الحقيقي"
+                title="عرض نص السورة بالقراءة المتصلة"
               >
-                المصحف
+                قراءة متصلة
               </button>
 
               <button
@@ -176,7 +209,7 @@ export function QuranHubView() {
                     ? 'bg-card text-foreground shadow-sm font-bold'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
-                title="عرض الآيات التفاعلية"
+                title="عرض الآيات التفاعلية مع التفسير والترجمة"
               >
                 آيات تفاعلية
               </button>
@@ -189,7 +222,7 @@ export function QuranHubView() {
                     ? 'bg-card text-foreground shadow-sm font-bold'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
-                title="المصحف المصور الأصلي"
+                title="المصحف المصور الأصلي (PDF)"
               >
                 المصحف المصور
               </button>
@@ -206,8 +239,9 @@ export function QuranHubView() {
                 } else {
                   stopAudio();
                   audio.setIsPlayingFullSurah(true);
+                  const reciterTitle = activeRiwayahReciter?.reciterName || activeReciter.name;
                   toast.success(
-                    `جاري تلاوة سورة ${activeSurah.nameAr} برواية ${activeQiraah.name} بصوت ${activeRiwayahReciter?.reciterName || activeReciter.name}`
+                    `جاري تلاوة سورة ${activeSurah.nameAr} بصوت ${reciterTitle}`
                   );
                 }
               }}
@@ -268,17 +302,65 @@ export function QuranHubView() {
 
       {/* Main Quran Content Body */}
       <main className="flex-1 max-w-5xl w-full mx-auto p-3 sm:p-6 space-y-6">
+        {/* Informative Riwayah Banner: when non-Hafs is selected in digital text mode */}
+        {activeQiraah.id !== 'hafs' && viewMode !== 'pdf-page' && (
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+            <div className="space-y-0.5">
+              <div className="font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                <span>تنبيه الرواية:</span>
+                <span>النص الرقمي المعروض مضبوط برواية حفص عن عاصم</span>
+              </div>
+              <div className="text-muted-foreground text-[11px]">
+                للاطلاع على مصحف ({activeQiraah.name}) كاملاً برسمه وضبطه، يمكنك الانتقال إلى المصحف المصور.
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setViewMode('pdf-page')}
+              className="rounded-xl text-xs font-bold shrink-0 border-amber-500/40 text-amber-900 dark:text-amber-200 hover:bg-amber-500/20"
+            >
+              عرض المصحف المصور
+            </Button>
+          </div>
+        )}
+
         {loadingSurah && (
           <div className="py-24 text-center space-y-3">
             <div className="size-10 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
             <p className="text-sm font-bold text-muted-foreground animate-pulse">
-              جاري فتح سورة {activeSurah.nameAr} برواية {activeQiraah.name}...
+              جاري فتح سورة {activeSurah.nameAr}...
             </p>
           </div>
         )}
 
-        {/* 1. Real Mushaf Page Mode */}
-        {!loadingSurah && viewMode === 'mushaf-real' && surahData && (
+        {/* Error state with retry option instead of showing stale surah content */}
+        {surahLoadError && !loadingSurah && (
+          <div className="py-16 text-center space-y-4 max-w-md mx-auto p-6 rounded-3xl bg-card border border-destructive/30 shadow-lg">
+            <div className="size-12 rounded-full bg-destructive/10 text-destructive grid place-items-center mx-auto text-xl font-bold">
+              !
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-bold text-base text-foreground">
+                تعذر تحميل سورة {activeSurah.nameAr}
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                يرجى التحقق من الاتصال بالإنترنت، أو إعادة المحاولة لجلب بيانات السورة.
+              </p>
+            </div>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={retryLoadSurah}
+              className="rounded-xl font-bold text-xs"
+            >
+              إعادة تحميل السورة
+            </Button>
+          </div>
+        )}
+
+        {/* 1. Continuous Text Reading Mode */}
+        {!loadingSurah && !surahLoadError && viewMode === 'mushaf-real' && surahData && (
           <div className="mushaf-real-page rounded-3xl border border-amber-900/20 dark:border-amber-500/20 shadow-2xl p-6 sm:p-12 relative overflow-hidden">
             <div className="mushaf-surah-header text-center my-6 py-4 px-6 rounded-2xl relative shadow-md">
               <div className="text-xs font-bold text-amber-800 dark:text-amber-300 mb-1">
@@ -324,24 +406,29 @@ export function QuranHubView() {
         )}
 
         {/* 2. Interactive Ayah List Mode */}
-        {!loadingSurah && viewMode === 'interactive' && surahData && (
+        {!loadingSurah && !surahLoadError && viewMode === 'interactive' && surahData && (
           <div className="space-y-3">
             {surahData.ayahs.map((ayah) => {
               const isPlaying = currentPlayingAyah === ayah.ayahNo;
-              const translation = surahTranslationsMap.get(ayah.ayahNo) || ayah.textEn;
+              const translation = surahTranslationsMap.get(ayah.ayahNo);
 
               return (
                 <AyahCard
                   key={ayah.ayahNo}
                   ayah={ayah}
                   isPlaying={isPlaying}
-                  onPlay={() => playAyah(ayah.ayahNo)}
+                  onPlay={() => {
+                    audio.setIsPlayingFullSurah(false);
+                    playAyah(ayah.ayahNo);
+                  }}
                   onOpenDetail={() => setSelectedAyahForModal(ayah)}
                   onCopy={(e) => handleCopyAyah(ayah, e)}
                   isCopied={copiedAyah === ayah.ayahNo}
                   fontSize={fontSize}
                   showTranslation={showTranslation}
                   translationText={translation}
+                  translationDirection={activeTranslation?.direction || 'ltr'}
+                  isEnglishTranslation={Boolean(activeTranslation?.code.startsWith('en-'))}
                 />
               );
             })}
@@ -413,10 +500,6 @@ export function QuranHubView() {
           if (isVerseLevelAvailable) {
             audio.setIsPlayingFullSurah(false);
             playAyah(num);
-          } else {
-            stopAudio();
-            audio.setIsPlayingFullSurah(true);
-            audio.setTargetSeekAyah(num);
           }
         }}
         onOpenDetailModal={() => {
@@ -425,6 +508,8 @@ export function QuranHubView() {
         onPlayFullSurah={() => {
           stopAudio();
           audio.setIsPlayingFullSurah(true);
+          const reciterTitle = activeRiwayahReciter?.reciterName || activeReciter.name;
+          toast.success(`جاري تلاوة سورة ${activeSurah.nameAr} بصوت ${reciterTitle}`);
         }}
         onCopyAyah={() => {
           if (quickMenuAyah) handleCopyAyah(quickMenuAyah);
