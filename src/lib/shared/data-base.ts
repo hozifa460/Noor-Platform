@@ -35,7 +35,7 @@ export const HADITH_BASE: string = sanitizeHadithBase(
   typeof process !== 'undefined' ? process.env?.NEXT_PUBLIC_HADITH_BASE : undefined
 );
 
-function sanitizeBooksBase(url?: string): string {
+export function sanitizeBooksBase(url?: string): string {
   const fallback = 'https://huggingface.co/datasets/hozifa1/noor-platform-books/resolve/main';
   if (!url) return fallback;
   let clean = url.trim();
@@ -48,6 +48,7 @@ function sanitizeBooksBase(url?: string): string {
   if (clean.includes('huggingface.co') && !clean.includes('/resolve/main')) {
     clean = clean.replace(/\/+$/, '') + '/resolve/main';
   }
+  clean = clean.replace(/\/+$/, '');
   return clean || fallback;
 }
 
@@ -82,6 +83,11 @@ export function booksUrl(path: string): string {
   const p = path.startsWith('/') ? path.slice(1) : path;
   if (!BOOKS_BASE) return `/${p}`;
   return ensureTrailingSlash(BOOKS_BASE) + p;
+}
+
+/** Test helper: is the books base remote/configured rather than local empty. */
+export function isRemoteBooks(): boolean {
+  return BOOKS_BASE.length > 0;
 }
 
 /** Resolve a path under the adhkar base. Falls back to /<path> if no base. */

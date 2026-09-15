@@ -1,6 +1,6 @@
 import type { MediaItem } from '@/lib/types';
 import { normalizeArabic } from '@/lib/arabic';
-import { booksUrl, isRemoteData } from '@/lib/shared';
+import { booksUrl, isRemoteBooks } from '@/lib/shared';
 import { QURANIC_MUS_HAFS } from '@/data/books';
 
 export const LOCAL_CACHE_KEY = 'noor-books-shamela-v4';
@@ -38,7 +38,7 @@ export async function cachedLoadShamelaCatalog<TState extends { books: MediaItem
   }
   shamelaCatalogPromise = (async () => {
     try {
-      if (!isRemoteData()) {
+      if (!isRemoteBooks()) {
         const res = await fetch('/data/ebooks/shamela_arabic_catalog.json').catch(() => null);
         if (res && res.ok) {
           const items = await res.json();
