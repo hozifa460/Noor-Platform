@@ -39,6 +39,7 @@ interface QuranState {
   filterType: 'all' | 'Meccan' | 'Medinan';
   filterJuz: number | 'all';
   loadingSurah: boolean;
+  surahLoadError: boolean;
 
   // Actions
   setActiveQiraah: (q: QiraahMeta) => void;
@@ -55,6 +56,7 @@ interface QuranState {
   setFilterType: (f: 'all' | 'Meccan' | 'Medinan') => void;
   setFilterJuz: (juz: number | 'all') => void;
   loadSurah: (surahNumber: number) => Promise<void>;
+  retryLoadSurah: () => void;
   getFilteredSurahs: () => SurahMeta[];
   getCurrentMushafMediaItem: () => MediaItem;
 
@@ -66,6 +68,7 @@ interface QuranState {
 }
 
 const surahMemoryCache = new Map<number, SurahDetail>();
+let latestSurahRequestId = 0;
 
 export const useQuranStore = create<QuranState>((set, get) => ({
   activeQiraah: QIRAAT_LIST[0], // مصحف حفص عن عاصم
@@ -73,7 +76,7 @@ export const useQuranStore = create<QuranState>((set, get) => ({
   surahData: null,
   activeTranslation: QURAN_TRANSLATIONS[0], // English Saheeh
   activeReciter: QURAN_RECITERS[0], // الشيخ محمد صديق المنشاوي (مرتل)
-  viewMode: 'mushaf-real', // Real Mus-haf Page by Default!
+  viewMode: 'mushaf-real', // Continuous reading / real Mus-haf view
   fontSize: 32,
   showTranslation: false,
   showTafsir: false,
@@ -87,18 +90,26 @@ export const useQuranStore = create<QuranState>((set, get) => ({
   filterType: 'all',
   filterJuz: 'all',
   loadingSurah: false,
+  surahLoadError: false,
 
   setActiveQiraah: (activeQiraah) => {
-    // If switching to Warsh, default to Warsh verse reciter; else default to Hafs
-    if (activeQiraah.id === 'warsh') {
-      set({ activeQiraah, activeReciter: WARSH_AYAH_RECITERS[0] });
-    } else {
-      set({ activeQiraah, activeReciter: QURAN_RECITERS[0] });
-    }
+    // Stop ongoing playback on Riwayah switch to avoid desync
+    set({
+      activeQiraah,
+      currentPlayingAyah: null,
+      isPlayingAudio: false,
+      activeReciter:
+        activeQiraah.id === 'warsh' ? WARSH_AYAH_RECITERS[0] : QURAN_RECITERS[0],
+    });
   },
 
   setActiveSurah: (activeSurah) => {
-    set({ activeSurah, currentPlayingAyah: null, isPlayingAudio: false });
+    set({
+      activeSurah,
+      currentPlayingAyah: null,
+      isPlayingAudio: false,
+      surahLoadError: false,
+    });
     get().loadSurah(activeSurah.number);
   },
 
@@ -133,19 +144,27 @@ export const useQuranStore = create<QuranState>((set, get) => ({
     // 1. Instant 0ms return if already loaded in memory
     const memoryCached = surahMemoryCache.get(surahNumber);
     if (memoryCached) {
-      set({ surahData: memoryCached, loadingSurah: false });
+      set({ surahData: memoryCached, loadingSurah: false, surahLoadError: false });
       return;
     }
 
-    set({ loadingSurah: true });
+    const reqId = ++latestSurahRequestId;
+    // Clear previous surah data if navigating to a new surah so old content never displays under new title
+    const currentData = get().surahData;
+    if (currentData && currentData.surahNo !== surahNumber) {
+      set({ surahData: null });
+    }
+    set({ loadingSurah: true, surahLoadError: false });
     
-    // 2. High-speed local Edge asset (now committed and served by Vercel / Cloudflare CDN)
+    // 2. High-speed local Edge asset (committed and served by Vercel / Cloudflare CDN)
     try {
       const res = await fetch(`/data/quran/surahs/${surahNumber}.json`, { cache: 'force-cache' });
       if (res.ok) {
         const data = (await res.json()) as SurahDetail;
         surahMemoryCache.set(surahNumber, data);
-        set({ surahData: data, loadingSurah: false });
+        if (reqId === latestSurahRequestId && get().activeSurah.number === surahNumber) {
+          set({ surahData: data, loadingSurah: false, surahLoadError: false });
+        }
         return;
       }
     } catch {
@@ -155,7 +174,7 @@ export const useQuranStore = create<QuranState>((set, get) => ({
     // 3. Fallback to public Quran Cloud CDN if local asset is unavailable
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
       const cdnRes = await fetch(
         `https://api.alquran.cloud/v1/surah/${surahNumber}/editions/quran-uthmani,en.sahih`,
         { cache: 'force-cache', signal: controller.signal }
@@ -190,7 +209,9 @@ export const useQuranStore = create<QuranState>((set, get) => ({
           };
 
           surahMemoryCache.set(surahNumber, constructedDetail);
-          set({ surahData: constructedDetail, loadingSurah: false });
+          if (reqId === latestSurahRequestId && get().activeSurah.number === surahNumber) {
+            set({ surahData: constructedDetail, loadingSurah: false, surahLoadError: false });
+          }
           return;
         }
       }
@@ -198,7 +219,14 @@ export const useQuranStore = create<QuranState>((set, get) => ({
       console.warn('Failed to load surah from CDN:', err);
     }
 
-    set({ loadingSurah: false });
+    if (reqId === latestSurahRequestId && get().activeSurah.number === surahNumber) {
+      set({ surahData: null, loadingSurah: false, surahLoadError: true });
+    }
+  },
+
+  retryLoadSurah: () => {
+    const { activeSurah, loadSurah } = get();
+    loadSurah(activeSurah.number);
   },
 
   getFilteredSurahs: () => {

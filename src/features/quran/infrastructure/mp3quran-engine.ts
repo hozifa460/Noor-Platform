@@ -68,10 +68,8 @@ export async function loadRiwayaatRecitersMap(): Promise<Record<string, RiwayahR
 export async function getRecitersForRiwayah(riwayahId: string): Promise<RiwayahReciterEntry[]> {
   const map = await loadRiwayaatRecitersMap();
   const list = map[riwayahId] || [];
-  if (list.length > 0) return list;
-
-  // Fallback to Hafs if none found
-  return map['hafs'] || [];
+  // Return actual recordings only; do NOT fallback to Hafs silently
+  return list;
 }
 
 /**

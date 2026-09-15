@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useQuranStore } from './quran-store';
 
 interface UseAyahAudioLoopProps {
   audioUrl: string;
@@ -15,8 +16,13 @@ export function useAyahAudioLoop({ audioUrl }: UseAyahAudioLoopProps) {
   useEffect(() => {
     if (!audioRef.current) return;
     if (isPlaying && audioUrl) {
+      // Prevent overlapping dual playbacks: stop any global surah or ayah audio
+      useQuranStore.getState().stopAudio();
       audioRef.current.src = audioUrl;
-      audioRef.current.play().catch(console.warn);
+      audioRef.current.play().catch((err) => {
+        console.warn('Loop playback prevented or failed:', err);
+        setIsPlaying(false);
+      });
     } else {
       audioRef.current.pause();
     }
