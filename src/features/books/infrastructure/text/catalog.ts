@@ -1,4 +1,4 @@
-import { booksIndexUrl, isRemoteData } from '@/lib/shared';
+import { booksIndexUrl, isRemoteBooks } from '@/lib/shared';
 import type { EBookMetadata } from '../../domain';
 
 let catalogCache: EBookMetadata[] | null = null;
@@ -25,7 +25,7 @@ export async function loadCatalogLetterIndex(
   source: 'shamela' | 'openiti',
   letter: string,
 ): Promise<EBookMetadata[]> {
-  if (isRemoteData()) {
+  if (isRemoteBooks()) {
     const url = booksIndexUrl(source, letter);
     const res = await fetch(url).catch(() => null);
     if (!res || !res.ok) return [];
@@ -75,7 +75,7 @@ export async function loadShamelaBookByLetter(
   firstLetter: string,
 ): Promise<EBookMetadata | null> {
   if (shamelaCatalogCache.has(bookId)) return shamelaCatalogCache.get(bookId)!;
-  if (isRemoteData()) {
+  if (isRemoteBooks()) {
     await loadCatalogLetterIndex('shamela', firstLetter);
     if (shamelaCatalogCache.has(bookId)) return shamelaCatalogCache.get(bookId)!;
     if (firstLetter !== '_' && firstLetter !== '__') {
