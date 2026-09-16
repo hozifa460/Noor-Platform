@@ -6,10 +6,13 @@
 import {
   ALL_SURAHS,
   normalizeArabicRoot,
+  cleanArabicForMatching,
   type QuranSurahMorphology,
   type QuranWordMorphology,
   type QuranRootsIndex,
   type QuranRootOccurrence,
+  type WordMorphologyResult,
+  type RootOccurrencesResult,
 } from '../domain';
 
 const surahMorphologyCache = new Map<number, QuranSurahMorphology>();
@@ -19,37 +22,62 @@ let rootsIndexPromise: Promise<QuranRootsIndex | null> | null = null;
 let ayahTextMapCache: Map<string, string> | null = null;
 let ayahTextMapPromise: Promise<Map<string, string>> | null = null;
 
+/** Clears all in-memory morphology caches (useful for testing retry/recovery) */
+export function clearMorphologyCacheForTesting(): void {
+  surahMorphologyCache.clear();
+  rootsIndexCache = null;
+  rootsIndexPromise = null;
+  ayahTextMapCache = null;
+  ayahTextMapPromise = null;
+}
+
 /**
  * Loads morphology data for a single surah on-demand.
  */
 export async function loadSurahMorphology(surahNo: number): Promise<QuranSurahMorphology | null> {
-  if (surahNo < 1 || surahNo > 114) return null;
+  const result = await loadSurahMorphologyResult(surahNo);
+  return result.data;
+}
+
+/**
+ * Loads morphology data for a single surah with explicit status (success vs network_error).
+ */
+export async function loadSurahMorphologyResult(
+  surahNo: number
+): Promise<{ status: 'success' | 'network_error'; data: QuranSurahMorphology | null }> {
+  if (surahNo < 1 || surahNo > 114) {
+    return { status: 'success', data: null };
+  }
   if (surahMorphologyCache.has(surahNo)) {
-    return surahMorphologyCache.get(surahNo)!;
+    return { status: 'success', data: surahMorphologyCache.get(surahNo)! };
   }
 
   try {
     const res = await fetch(`/data/quran/morphology/${surahNo}.json`);
     if (!res.ok) {
-      return null;
+      return { status: 'network_error', data: null };
     }
     const data: QuranSurahMorphology = await res.json();
     surahMorphologyCache.set(surahNo, data);
-    return data;
+    return { status: 'success', data };
   } catch {
-    return null;
+    return { status: 'network_error', data: null };
   }
 }
 
 /**
- * Loads the compact Quran roots index on-demand.
+ * Loads the compact Quran roots index on-demand with status.
  */
-export async function loadRootsIndex(): Promise<QuranRootsIndex | null> {
+export async function loadRootsIndexResult(): Promise<{
+  status: 'success' | 'network_error';
+  data: QuranRootsIndex | null;
+}> {
   if (rootsIndexCache) {
-    return rootsIndexCache;
+    return { status: 'success', data: rootsIndexCache };
   }
   if (rootsIndexPromise) {
-    return rootsIndexPromise;
+    const data = await rootsIndexPromise;
+    return { status: data ? 'success' : 'network_error', data };
   }
 
   rootsIndexPromise = (async () => {
@@ -68,7 +96,13 @@ export async function loadRootsIndex(): Promise<QuranRootsIndex | null> {
     }
   })();
 
-  return rootsIndexPromise;
+  const data = await rootsIndexPromise;
+  return { status: data ? 'success' : 'network_error', data };
+}
+
+export async function loadRootsIndex(): Promise<QuranRootsIndex | null> {
+  const res = await loadRootsIndexResult();
+  return res.data;
 }
 
 /**
@@ -106,25 +140,109 @@ async function loadAyahTextsMap(): Promise<Map<string, string>> {
 }
 
 /**
- * Retrieves morphology for a specific word in an ayah.
+ * Retrieves morphology for a specific word in an ayah with text-verified alignment
+ * and distinction between network error and unavailable analysis.
+ */
+export async function getWordMorphologyResult(
+  surahNo: number,
+  ayahNo: number,
+  wordIndex: number,
+  wordText?: string
+): Promise<WordMorphologyResult> {
+  const surahLoad = await loadSurahMorphologyResult(surahNo);
+  if (surahLoad.status === 'network_error') {
+    return { status: 'network_error', morphology: null, errorMessage: 'تعذر الاتصال بالخادم لتحميل ملف الصرف' };
+  }
+  const surahData = surahLoad.data;
+  if (!surahData || !surahData.words) {
+    return { status: 'not_found', morphology: null };
+  }
+
+  // 1. Determine corpus word index based on known structural alignments
+  let corpusIndex = wordIndex;
+
+  // Surah 95 (At-Tin) Ayah 1: words 1..4 are Basmalah in Tanzil text (not in corpus)
+  if (surahNo === 95 && ayahNo === 1) {
+    if (wordIndex <= 4) {
+      return { status: 'not_found', morphology: null };
+    }
+    corpusIndex = wordIndex - 4;
+  }
+  // Surah 97 (Al-Qadr) Ayah 1: words 1..4 are Basmalah in Tanzil text (not in corpus)
+  else if (surahNo === 97 && ayahNo === 1) {
+    if (wordIndex <= 4) {
+      return { status: 'not_found', morphology: null };
+    }
+    corpusIndex = wordIndex - 4;
+  }
+  // Surah 37 (As-Saffat) Ayah 130: words 3 (إِلْ) and 4 (يَاسِينَ) are token 3 (إِلْ يَاسِينَ) in corpus
+  else if (surahNo === 37 && ayahNo === 130) {
+    if (wordIndex === 1) corpusIndex = 1;
+    else if (wordIndex === 2) corpusIndex = 2;
+    else if (wordIndex === 3 || wordIndex === 4) corpusIndex = 3;
+  }
+
+  // 2. Lookup candidate morphology
+  let candidate: QuranWordMorphology | null = surahData.words[`${ayahNo}:${corpusIndex}`] || null;
+
+  // 3. Strict content-verified text check
+  if (wordText) {
+    const cleanTarget = cleanArabicForMatching(wordText);
+    if (candidate) {
+      const cleanCandidate = cleanArabicForMatching(candidate.wordArabic);
+      const isDirectMatch =
+        cleanCandidate === cleanTarget ||
+        (surahNo === 37 && ayahNo === 130 && cleanCandidate.includes(cleanTarget));
+
+      if (!isDirectMatch) {
+        // Direct index mismatch; scan words of this ayah to verify by text rather than position alone
+        let verifiedMatch: QuranWordMorphology | null = null;
+        for (let w = 1; ; w++) {
+          const wItem = surahData.words[`${ayahNo}:${w}`];
+          if (!wItem) break;
+          const cleanW = cleanArabicForMatching(wItem.wordArabic);
+          if (cleanW === cleanTarget || (cleanW.includes(cleanTarget) && cleanTarget.length >= 2)) {
+            verifiedMatch = wItem;
+            break;
+          }
+        }
+        candidate = verifiedMatch;
+      }
+    }
+  }
+
+  if (!candidate) {
+    return { status: 'not_found', morphology: null };
+  }
+
+  return { status: 'success', morphology: candidate };
+}
+
+/**
+ * Retrieves morphology for a specific word in an ayah (convenience helper).
  */
 export async function getWordMorphology(
   surahNo: number,
   ayahNo: number,
-  wordIndex: number
+  wordIndex: number,
+  wordText?: string
 ): Promise<QuranWordMorphology | null> {
-  const surahData = await loadSurahMorphology(surahNo);
-  if (!surahData || !surahData.words) return null;
-  return surahData.words[`${ayahNo}:${wordIndex}`] || null;
+  const res = await getWordMorphologyResult(surahNo, ayahNo, wordIndex, wordText);
+  return res.morphology;
 }
 
 /**
- * Retrieves all occurrences of a root across the Quran, enriched with surah names and ayah texts.
+ * Retrieves all occurrences of a root across the Quran with error separation.
  */
-export async function getRootOccurrences(root: string): Promise<QuranRootOccurrence[]> {
-  if (!root) return [];
-  const index = await loadRootsIndex();
-  if (!index) return [];
+export async function getRootOccurrencesResult(root: string): Promise<RootOccurrencesResult> {
+  if (!root) return { status: 'success', occurrences: [] };
+
+  const indexRes = await loadRootsIndexResult();
+  if (indexRes.status === 'network_error') {
+    return { status: 'network_error', occurrences: [], errorMessage: 'تعذر تحميل فهرس الجذور من الشبكة' };
+  }
+  const index = indexRes.data;
+  if (!index) return { status: 'success', occurrences: [] };
 
   // 1. Direct match
   let entry = index[root];
@@ -141,12 +259,12 @@ export async function getRootOccurrences(root: string): Promise<QuranRootOccurre
   }
 
   if (!entry || !entry.occurrences || entry.occurrences.length === 0) {
-    return [];
+    return { status: 'success', occurrences: [] };
   }
 
   const ayahTexts = await loadAyahTextsMap();
 
-  return entry.occurrences.map(([sNo, aNo, wIdx]) => {
+  const occurrences = entry.occurrences.map(([sNo, aNo, wIdx]) => {
     const surahMeta = ALL_SURAHS[sNo - 1];
     const surahName = surahMeta ? surahMeta.nameAr : `سورة ${sNo}`;
     const ayahText = ayahTexts.get(`${sNo}:${aNo}`) || '';
@@ -158,4 +276,14 @@ export async function getRootOccurrences(root: string): Promise<QuranRootOccurre
       ayahText,
     };
   });
+
+  return { status: 'success', occurrences };
+}
+
+/**
+ * Retrieves all occurrences of a root across the Quran (convenience helper).
+ */
+export async function getRootOccurrences(root: string): Promise<QuranRootOccurrence[]> {
+  const res = await getRootOccurrencesResult(root);
+  return res.occurrences;
 }

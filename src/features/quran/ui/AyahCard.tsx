@@ -131,36 +131,55 @@ export function AyahCard({
       >
         {onWordClick && surahNo ? (
           words.map((token, idx) => {
-            if (token.type === 'waqf') {
-              return (
-                <span key={`waqf-${idx}`} className="inline-block px-1 text-muted-foreground/70 select-none">
-                  {token.text}
-                </span>
-              );
-            }
-            const isSelected = selectedWordIndex === token.wordIndex;
+            const isSelected = token.type === 'word' && selectedWordIndex === token.wordIndex;
             return (
-              <span
-                key={`word-${token.wordIndex}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onWordClick && token.wordIndex) {
-                    onWordClick({
-                      surahNo,
-                      ayahNo: ayah.ayahNo,
-                      wordIndex: token.wordIndex,
-                      wordText: token.text,
-                    });
-                  }
-                }}
-                className={cn(
-                  'inline-block px-1 py-0.5 rounded-lg transition-colors cursor-pointer',
-                  'hover:bg-primary/15 hover:text-primary',
-                  isSelected && 'bg-primary/20 text-primary font-bold ring-1 ring-primary/40'
+              <span key={token.type === 'word' ? `word-${token.wordIndex}` : `waqf-${idx}`}>
+                {idx > 0 && ' '}
+                {token.type === 'waqf' ? (
+                  <span className="inline-block px-0.5 text-muted-foreground/80">
+                    {token.text}
+                  </span>
+                ) : (
+                  <span
+                    id={`word-token-${surahNo}-${ayah.ayahNo}-${token.wordIndex}`}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`استكشف كلمة: ${token.text}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onWordClick && token.wordIndex) {
+                        onWordClick({
+                          surahNo,
+                          ayahNo: ayah.ayahNo,
+                          wordIndex: token.wordIndex,
+                          wordText: token.text,
+                        });
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (onWordClick && token.wordIndex) {
+                          onWordClick({
+                            surahNo,
+                            ayahNo: ayah.ayahNo,
+                            wordIndex: token.wordIndex,
+                            wordText: token.text,
+                          });
+                        }
+                      }
+                    }}
+                    className={cn(
+                      'inline-block px-1 py-0.5 rounded-lg transition-colors cursor-pointer',
+                      'hover:bg-primary/15 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                      isSelected && 'bg-primary/20 text-primary font-bold ring-1 ring-primary/40'
+                    )}
+                    title={`استكشف كلمة: ${token.text}`}
+                  >
+                    {token.text}
+                  </span>
                 )}
-                title={`استكشف كلمة: ${token.text}`}
-              >
-                {token.text}
               </span>
             );
           })

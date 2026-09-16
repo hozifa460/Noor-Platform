@@ -48,7 +48,10 @@ BW_TO_AR = {
     "m": "م", "n": "ن", "h": "ه", "w": "و", "Y": "ى",
     "y": "ي", "F": "ً", "N": "ٌ", "K": "ٍ", "a": "َ",
     "u": "ُ", "i": "ِ", "~": "ّ", "o": "ْ", "^": "ٰ",
-    "`": "ٰ", "{": "ٱ", "@": ""
+    "`": "ٰ", "{": "ٱ", "@": "",
+    "[": "\u06E2", "]": "\u06ED", ",": "\u06E5", ".": "\u06E6", ":": "\u06DC",
+    ";": "\u06E3", "\"": "\u06DF", "#": "\u0654",
+    "+": "\u06EB", "!": "\u06E8", "%": "\u06EC", "-": "\u065C"
 }
 
 TAG_AR = {
@@ -56,7 +59,7 @@ TAG_AR = {
     'PN': 'اسم علم',
     'ADJ': 'صفة',
     'IMPN': 'اسم فعل',
-    'PRON': 'ضمير متصل',
+    'PRON': 'ضمير',
     'DEM': 'اسم إشارة',
     'REL': 'اسم موصول',
     'T': 'ظرف زمان',
@@ -206,12 +209,19 @@ def main():
                 if lem_bw:
                     lemma_ar = bw_to_ar(lem_bw)
 
+                tag_ar_val = TAG_AR.get(row['tag'], row['tag'])
+                if row['tag'] == 'PRON':
+                    if seg_type == 'suffix' or 'SUFFIX' in feat:
+                        tag_ar_val = 'ضمير متصل'
+                    else:
+                        tag_ar_val = 'ضمير'
+
                 seg_dict = {
                     'segment': int(row['segment']),
                     'type': seg_type,
                     'arabic': bw_to_ar(row['form_bw']),
                     'tag': row['tag'],
-                    'tagAr': TAG_AR.get(row['tag'], row['tag']),
+                    'tagAr': tag_ar_val,
                     'featuresAr': parse_features(feat)
                 }
                 segments.append(seg_dict)

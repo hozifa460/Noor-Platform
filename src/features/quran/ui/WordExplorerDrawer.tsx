@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useId } from 'react';
+import { useState, useEffect, useMemo, useCallback, useId, useRef } from 'react';
 import {
   X,
   BookOpen,
@@ -11,6 +11,8 @@ import {
   Loader2,
   Sparkles,
   Search,
+  RotateCcw,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,10 +23,11 @@ import {
   type QuranWordTarget,
   type QuranWordMorphology,
   type QuranRootOccurrence,
+  type MorphologyLoadStatus,
 } from '../domain';
 import {
-  getWordMorphology,
-  getRootOccurrences,
+  getWordMorphologyResult,
+  getRootOccurrencesResult,
 } from '../infrastructure';
 import { useQuranStore } from '../model';
 
@@ -43,56 +46,88 @@ function WordExplorerPanel({
   const surahData = useQuranStore((s) => s.surahData);
 
   const [activeTab, setActiveTab] = useState<'morphology' | 'root_occurrences'>('morphology');
-  const [loadingMorphology, setLoadingMorphology] = useState(true);
+  const [morphologyStatus, setMorphologyStatus] = useState<MorphologyLoadStatus | 'loading'>('loading');
+  const [morphologyError, setMorphologyError] = useState('');
   const [morphology, setMorphology] = useState<QuranWordMorphology | null>(null);
 
-  const [loadingOccurrences, setLoadingOccurrences] = useState(false);
+  const [occurrencesStatus, setOccurrencesStatus] = useState<MorphologyLoadStatus | 'idle' | 'loading'>('idle');
   const [occurrences, setOccurrences] = useState<QuranRootOccurrence[]>([]);
   const [occurrencesFilter, setOccurrencesFilter] = useState('');
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  // Focus close button on mount
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+  }, []);
 
   // Fetch word morphology on mount of this word instance
   useEffect(() => {
     let isCancelled = false;
-    getWordMorphology(
+    getWordMorphologyResult(
       selectedWordTarget.surahNo,
       selectedWordTarget.ayahNo,
-      selectedWordTarget.wordIndex
+      selectedWordTarget.wordIndex,
+      selectedWordTarget.wordText
     )
-      .then((data) => {
+      .then((res) => {
         if (!isCancelled) {
-          setMorphology(data);
-          setLoadingMorphology(false);
+          setMorphology(res.morphology);
+          setMorphologyStatus(res.status);
+          setMorphologyError(res.errorMessage || '');
         }
       })
       .catch(() => {
         if (!isCancelled) {
           setMorphology(null);
-          setLoadingMorphology(false);
+          setMorphologyStatus('network_error');
+          setMorphologyError('تعذر الاتصال بالخادم لتحميل التحليل الصرفي');
         }
       });
 
     return () => {
       isCancelled = true;
     };
-  }, [selectedWordTarget.surahNo, selectedWordTarget.ayahNo, selectedWordTarget.wordIndex]);
+  }, [selectedWordTarget.surahNo, selectedWordTarget.ayahNo, selectedWordTarget.wordIndex, selectedWordTarget.wordText]);
+
+  // Retry fetching word morphology
+  const handleRetryMorphology = useCallback(() => {
+    setMorphologyStatus('loading');
+    setMorphologyError('');
+    getWordMorphologyResult(
+      selectedWordTarget.surahNo,
+      selectedWordTarget.ayahNo,
+      selectedWordTarget.wordIndex,
+      selectedWordTarget.wordText
+    )
+      .then((res) => {
+        setMorphology(res.morphology);
+        setMorphologyStatus(res.status);
+        setMorphologyError(res.errorMessage || '');
+      })
+      .catch(() => {
+        setMorphology(null);
+        setMorphologyStatus('network_error');
+        setMorphologyError('تعذر الاتصال بالخادم لتحميل التحليل الصرفي');
+      });
+  }, [selectedWordTarget]);
 
   // Load root occurrences when user switches to the root occurrences tab
-  const handleLoadRootOccurrences = () => {
+  const handleLoadRootOccurrences = useCallback(() => {
     if (!morphology || !morphology.root) return;
     setActiveTab('root_occurrences');
-    if (occurrences.length > 0) return;
+    if (occurrences.length > 0 && occurrencesStatus === 'success') return;
 
-    setLoadingOccurrences(true);
-    getRootOccurrences(morphology.root)
-      .then((list) => {
-        setOccurrences(list);
-        setLoadingOccurrences(false);
+    setOccurrencesStatus('loading');
+    getRootOccurrencesResult(morphology.root)
+      .then((res) => {
+        setOccurrences(res.occurrences);
+        setOccurrencesStatus(res.status);
       })
       .catch(() => {
         setOccurrences([]);
-        setLoadingOccurrences(false);
+        setOccurrencesStatus('network_error');
       });
-  };
+  }, [morphology, occurrences.length, occurrencesStatus]);
 
   const surahMeta = useMemo(() => {
     return ALL_SURAHS[selectedWordTarget.surahNo - 1] || null;
@@ -143,10 +178,11 @@ function WordExplorerPanel({
         </div>
 
         <Button
+          ref={closeButtonRef}
           variant="ghost"
           size="icon"
           onClick={onClose}
-          className="size-9 rounded-xl text-muted-foreground hover:text-foreground"
+          className="size-9 rounded-xl text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary"
           title="إغلاق (Esc)"
         >
           <X className="size-5" />
@@ -203,10 +239,31 @@ function WordExplorerPanel({
         {activeTab === 'morphology' ? (
           /* Tab 1: Morphology & Root Overview */
           <>
-            {loadingMorphology ? (
+            {morphologyStatus === 'loading' ? (
               <div className="py-16 text-center space-y-3 text-muted-foreground">
                 <Loader2 className="size-8 animate-spin mx-auto text-primary" />
                 <p className="text-sm">جاري جلب التحليل اللغوي والصرفي...</p>
+              </div>
+            ) : morphologyStatus === 'network_error' ? (
+              <div className="py-12 px-4 text-center space-y-4 bg-destructive/5 rounded-2xl border border-destructive/20">
+                <div className="size-12 rounded-2xl bg-destructive/10 text-destructive grid place-items-center mx-auto">
+                  <AlertTriangle className="size-6" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-foreground">تعذر تحميل بيانات التحليل الصرفي</h4>
+                  <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
+                    {morphologyError || 'حدث خطأ في الشبكة أثناء جلب بيانات الصرف. يرجى التحقق من الاتصال والمحاولة مجدداً.'}
+                  </p>
+                </div>
+                <Button
+                  onClick={handleRetryMorphology}
+                  variant="outline"
+                  size="sm"
+                  className="mx-auto gap-2 rounded-xl text-xs font-bold border-destructive/30 hover:bg-destructive/10"
+                >
+                  <RotateCcw className="size-3.5" />
+                  إعادة المحاولة
+                </Button>
               </div>
             ) : morphology ? (
               <>
@@ -347,10 +404,31 @@ function WordExplorerPanel({
               </p>
             </div>
 
-            {loadingOccurrences ? (
+            {occurrencesStatus === 'loading' ? (
               <div className="py-16 text-center space-y-3 text-muted-foreground">
                 <Loader2 className="size-8 animate-spin mx-auto text-primary" />
                 <p className="text-sm">جاري جلب مواضع الجذر في القرآن الكريم...</p>
+              </div>
+            ) : occurrencesStatus === 'network_error' ? (
+              <div className="py-12 px-4 text-center space-y-4 bg-destructive/5 rounded-2xl border border-destructive/20">
+                <div className="size-12 rounded-2xl bg-destructive/10 text-destructive grid place-items-center mx-auto">
+                  <AlertTriangle className="size-6" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-foreground">تعذر تحميل مواضع هذا الجذر</h4>
+                  <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
+                    حدث خطأ في الشبكة أثناء جلب مواضع الجذر. يرجى التحقق من الاتصال والمحاولة مجدداً.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleLoadRootOccurrences}
+                  variant="outline"
+                  size="sm"
+                  className="mx-auto gap-2 rounded-xl text-xs font-bold border-destructive/30 hover:bg-destructive/10"
+                >
+                  <RotateCcw className="size-3.5" />
+                  إعادة المحاولة
+                </Button>
               </div>
             ) : occurrences.length > 0 ? (
               <>
@@ -374,10 +452,19 @@ function WordExplorerPanel({
                   {filteredOccurrences.map((occ, idx) => (
                     <div
                       key={`${occ.surahNo}:${occ.ayahNo}:${occ.wordIndex}-${idx}`}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`انتقال إلى سورة ${occ.surahName} الآية ${occ.ayahNo}`}
                       onClick={() => {
                         navigateToAyah(occ.surahNo, occ.ayahNo);
                       }}
-                      className="p-3.5 rounded-2xl border border-border/70 bg-card hover:border-primary/50 hover:bg-primary/5 transition-all duration-200 cursor-pointer text-right group space-y-1.5"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          navigateToAyah(occ.surahNo, occ.ayahNo);
+                        }
+                      }}
+                      className="p-3.5 rounded-2xl border border-border/70 bg-card hover:border-primary/50 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-all duration-200 cursor-pointer text-right group space-y-1.5"
                     >
                       <div className="flex items-center justify-between gap-2 text-xs">
                         <span className="font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
@@ -435,10 +522,27 @@ export function WordExplorerDrawer() {
   const selectedWordTarget = useQuranStore((s) => s.selectedWordTarget);
   const closeWordExplorer = useQuranStore((s) => s.closeWordExplorer);
   const titleId = useId();
+  const triggerElementRef = useRef<HTMLElement | null>(null);
+
+  // Capture originating active element on open
+  useEffect(() => {
+    if (isWordExplorerOpen) {
+      triggerElementRef.current = document.activeElement as HTMLElement | null;
+    }
+  }, [isWordExplorerOpen]);
 
   const handleClose = useCallback(() => {
     closeWordExplorer();
-  }, [closeWordExplorer]);
+
+    // Restore focus to originating word token or saved active element
+    const wordId = selectedWordTarget
+      ? `word-token-${selectedWordTarget.surahNo}-${selectedWordTarget.ayahNo}-${selectedWordTarget.wordIndex}`
+      : null;
+    const el = (wordId && document.getElementById(wordId)) || triggerElementRef.current;
+    if (el && typeof el.focus === 'function') {
+      setTimeout(() => el.focus(), 0);
+    }
+  }, [closeWordExplorer, selectedWordTarget]);
 
   // Keyboard shortcut: close on Escape
   useEffect(() => {

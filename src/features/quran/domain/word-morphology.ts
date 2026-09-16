@@ -113,3 +113,34 @@ export function normalizeArabicRoot(root: string): string {
     .replace(/ى/g, 'ي')
     .trim();
 }
+
+/**
+ * Normalizes Quranic Arabic text for matching against morphological corpus entries.
+ * Strips tashkeel, Quranic recitation signs, and unifies alif/hamza/ya/ta-marbuta forms.
+ */
+export function cleanArabicForMatching(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\s\-_]/g, '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/ء/g, '')
+    .replace(/[\u06E5\u06E6\u06DF\u06E0\u06E2\u06ED\u06EB\u06E8\u06EC\u06E3\u065C]/g, '')
+    .trim();
+}
+
+/** Status types for distinguishing network/asset load errors from unavailable analysis */
+export type MorphologyLoadStatus = 'success' | 'network_error' | 'not_found';
+
+export interface WordMorphologyResult {
+  status: MorphologyLoadStatus;
+  morphology: QuranWordMorphology | null;
+  errorMessage?: string;
+}
+
+export interface RootOccurrencesResult {
+  status: MorphologyLoadStatus;
+  occurrences: QuranRootOccurrence[];
+  errorMessage?: string;
+}
