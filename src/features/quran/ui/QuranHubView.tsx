@@ -64,9 +64,9 @@ export function QuranHubView() {
   const pauseAudio = useQuranStore((s) => s.pauseAudio);
   const stopAudio = useQuranStore((s) => s.stopAudio);
   const playNextAyah = useQuranStore((s) => s.playNextAyah);
-  const highlightedAyah = useQuranStore((s) => s.highlightedAyah);
+  const highlightedTarget = useQuranStore((s) => s.highlightedTarget);
   const openQuranSearch = useQuranStore((s) => s.openQuranSearch);
-  const setHighlightedAyah = useQuranStore((s) => s.setHighlightedAyah);
+  const setHighlightedTarget = useQuranStore((s) => s.setHighlightedTarget);
 
   const [surahDrawerOpen, setSurahDrawerOpen] = useState(false);
   const [recitersModalOpen, setRecitersModalOpen] = useState(false);
@@ -133,7 +133,7 @@ export function QuranHubView() {
     };
   }, [activeQiraah.id]);
 
-  // Global Ctrl+K / Cmd+K listener to trigger search
+  // Global keydown listener for Ctrl+K / Cmd+K to open search modal
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -146,6 +146,7 @@ export function QuranHubView() {
   }, [openQuranSearch]);
 
   // Deep link URL query params parser (?surah=X&ayah=Y)
+  // Decoupled from activeSurah so manual user surah selection is never overridden by old URL
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -159,17 +160,24 @@ export function QuranHubView() {
           const sNum = parseInt(sParam, 10);
           if (!isNaN(sNum) && sNum >= 1 && sNum <= 114) {
             const targetSurah = ALL_SURAHS[sNum - 1];
-            if (activeSurah.number !== sNum) {
-              setActiveSurah(targetSurah);
+            const currentSurah = useQuranStore.getState().activeSurah;
+            if (currentSurah.number !== sNum) {
+              setActiveSurah(targetSurah, { skipUrlUpdate: true });
             }
             if (aParam) {
               const aNum = parseInt(aParam, 10);
               if (!isNaN(aNum) && aNum >= 1 && aNum <= targetSurah.numberOfAyahs) {
                 setViewMode('interactive');
-                setHighlightedAyah(aNum);
+                setHighlightedTarget({ surahNo: sNum, ayahNo: aNum });
+              } else {
+                setHighlightedTarget(null);
               }
+            } else {
+              setHighlightedTarget(null);
             }
           }
+        } else {
+          setHighlightedTarget(null);
         }
       } catch {
         /* ignore */
@@ -179,20 +187,34 @@ export function QuranHubView() {
     parseDeepLinkParams();
     window.addEventListener('popstate', parseDeepLinkParams);
     return () => window.removeEventListener('popstate', parseDeepLinkParams);
-  }, [activeSurah.number, setActiveSurah, setViewMode, setHighlightedAyah]);
+  }, [setActiveSurah, setViewMode, setHighlightedTarget]);
 
-  // Smooth scroll to highlighted ayah when surah is rendered in interactive view
+  // Smooth scroll to highlighted ayah when destination surah is rendered in interactive view
   useEffect(() => {
-    if (highlightedAyah && !loadingSurah && surahData && viewMode === 'interactive') {
+    if (
+      highlightedTarget &&
+      highlightedTarget.surahNo === activeSurah.number &&
+      highlightedTarget.surahNo === surahData?.surahNo &&
+      !loadingSurah &&
+      viewMode === 'interactive'
+    ) {
+      const targetAyah = highlightedTarget.ayahNo;
       const timer = setTimeout(() => {
-        const el = document.getElementById(`ayah-${highlightedAyah}`);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const currentTarget = useQuranStore.getState().highlightedTarget;
+        if (
+          currentTarget &&
+          currentTarget.surahNo === activeSurah.number &&
+          currentTarget.ayahNo === targetAyah
+        ) {
+          const el = document.getElementById(`ayah-${targetAyah}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
         }
       }, 150);
       return () => clearTimeout(timer);
     }
-  }, [highlightedAyah, loadingSurah, surahData, viewMode]);
+  }, [highlightedTarget, activeSurah.number, loadingSurah, surahData, viewMode]);
 
   const handleCopyAyah = (ayah: AyahItem, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -515,7 +537,10 @@ export function QuranHubView() {
                   key={ayah.ayahNo}
                   ayah={ayah}
                   isPlaying={isPlaying}
-                  isHighlighted={highlightedAyah === ayah.ayahNo}
+                  isHighlighted={
+                    highlightedTarget?.surahNo === activeSurah.number &&
+                    highlightedTarget?.ayahNo === ayah.ayahNo
+                  }
                   isAudioSupported={isVerseLevelAvailable}
                   onPlay={() => {
                     if (isPlaying) {

@@ -5,7 +5,7 @@ import {
   parseQuranReference,
 } from '../domain';
 
-export type QuranSearchMatchType = 'reference' | 'exact_phrase' | 'all_words';
+export type QuranSearchMatchType = 'surah' | 'reference' | 'exact_phrase' | 'all_words';
 
 export interface QuranSearchResult {
   surahNumber: number;
@@ -122,7 +122,7 @@ export async function searchQuranAyahs(
   rawQuery: string,
   options?: { maxResults?: number }
 ): Promise<QuranSearchResponse> {
-  const maxResults = options?.maxResults ?? 50;
+  const maxResults = options?.maxResults;
   const trimmed = rawQuery.trim();
 
   if (!trimmed) {
@@ -149,16 +149,19 @@ export async function searchQuranAyahs(
       );
       if (entry) {
         const surah = surahMetaMap.get(entry.surahNo);
+        const matchType: QuranSearchMatchType = refResult.isSurahOnly ? 'surah' : 'reference';
         resultsMap.set(matchKey, {
           surahNumber: entry.surahNo,
           ayahNumber: entry.ayahNo,
           surahNameAr: surah?.nameAr || `سورة ${entry.surahNo}`,
           surahNameEn: surah?.nameEn || '',
           ayahTextAr: entry.textAr,
-          matchType: 'reference',
+          matchType,
           score: 1000,
         });
-        referenceNotice = `تم العثور على المرجع المحدد: سورة ${surah?.nameAr}، الآية ${entry.ayahNo}`;
+        referenceNotice = refResult.isSurahOnly
+          ? `الانتقال إلى بداية سورة ${surah?.nameAr} (الآية 1)`
+          : `تم العثور على المرجع المحدد: سورة ${surah?.nameAr}، الآية ${entry.ayahNo}`;
       }
     } else if (refResult.errorMessage) {
       invalidReferenceMessage = refResult.errorMessage;
@@ -218,7 +221,7 @@ export async function searchQuranAyahs(
   });
 
   return {
-    results: allResults.slice(0, maxResults),
+    results: maxResults !== undefined ? allResults.slice(0, maxResults) : allResults,
     totalMatches: allResults.length,
     referenceNotice,
     invalidReferenceMessage,

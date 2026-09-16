@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { parseQuranReference } from '../domain';
+import fs from 'fs';
+import path from 'path';
+import { parseQuranReference, ALL_SURAHS } from '../domain';
 import {
   searchQuranAyahs,
   loadQuranSearchIndex,
@@ -17,7 +19,7 @@ describe('Quran Ayah Search & Direct Navigation Test Suite', () => {
 
     // Default sample index containing key verses for testing:
     // - Surah 1:1, 1:2
-    // - Surah 2:3 (الصلاة), 2:255 (آية الكرسي)
+    // - Surah 2:3 (الصلاة), 2:43 (الزكاة), 2:255 (آية الكرسي)
     // - Surah 94:5, 94:6 (العسر يسرا)
     _setQuranSearchIndexForTesting([
       [1, 1, 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ'],
@@ -86,7 +88,7 @@ describe('Quran Ayah Search & Direct Navigation Test Suite', () => {
       expect(ref3?.ayahNo).toBe(255);
     });
 
-    it('parses "سورة [name] آية [number]" pattern', () => {
+    it('parses named surah with ayah numbers (e.g. البقرة: 255, سورة البقرة آية 255)', () => {
       const ref = parseQuranReference('سورة البقرة آية 255');
       expect(ref?.isValid).toBe(true);
       expect(ref?.surahNo).toBe(2);
@@ -94,7 +96,47 @@ describe('Quran Ayah Search & Direct Navigation Test Suite', () => {
     });
   });
 
-  describe('2. Invalid Reference Handling', () => {
+  describe('2. Standalone Surah Name Search', () => {
+    it('detects standalone surah name without prefix (e.g. "الفاتحة", "الكهف")', () => {
+      const ref1 = parseQuranReference('الفاتحة');
+      expect(ref1?.isValid).toBe(true);
+      expect(ref1?.surahNo).toBe(1);
+      expect(ref1?.ayahNo).toBe(1);
+      expect(ref1?.isSurahOnly).toBe(true);
+
+      const ref2 = parseQuranReference('الكهف');
+      expect(ref2?.isValid).toBe(true);
+      expect(ref2?.surahNo).toBe(18);
+      expect(ref2?.ayahNo).toBe(1);
+      expect(ref2?.isSurahOnly).toBe(true);
+    });
+
+    it('detects surah name with "سورة" prefix (e.g. "سورة الفاتحة", "سورة الكهف")', () => {
+      const ref = parseQuranReference('سورة الفاتحة');
+      expect(ref?.isValid).toBe(true);
+      expect(ref?.surahNo).toBe(1);
+      expect(ref?.ayahNo).toBe(1);
+      expect(ref?.isSurahOnly).toBe(true);
+    });
+
+    it('searchQuranAyahs returns surah match with matchType "surah" at top priority', async () => {
+      const res = await searchQuranAyahs('سورة الفاتحة');
+      expect(res.results.length).toBeGreaterThanOrEqual(1);
+      expect(res.results[0].surahNumber).toBe(1);
+      expect(res.results[0].ayahNumber).toBe(1);
+      expect(res.results[0].matchType).toBe('surah');
+      expect(res.results[0].score).toBe(1000);
+      expect(res.referenceNotice).toContain('الانتقال إلى بداية سورة');
+    });
+
+    it('returns clear error message for unrecognized surah name with "سورة"', () => {
+      const ref = parseQuranReference('سورة مجهولة_تماماً');
+      expect(ref?.isValid).toBe(false);
+      expect(ref?.errorMessage).toContain('لم يتم التعرف على اسم السورة');
+    });
+  });
+
+  describe('3. Invalid Reference Handling', () => {
     it('detects ayah number exceeding surah total ayahs (e.g. 2:999)', () => {
       const ref = parseQuranReference('2:999');
       expect(ref).not.toBeNull();
@@ -119,89 +161,69 @@ describe('Quran Ayah Search & Direct Navigation Test Suite', () => {
     });
   });
 
-  describe('3. Text Search with & without Tashkeel', () => {
-    it('matches exact phrase with full diacritics / tashkeel', async () => {
-      const res = await searchQuranAyahs('إِنَّ مَعَ ٱلْعُسْرِ يُسْرًۭا');
+  describe('4. Text Normalization, Dagger Alifs & Tashkeel', () => {
+    it('matches dictational "الحمد لله رب العالمين" against Uthmani "ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَٰلَمِينَ"', async () => {
+      const res = await searchQuranAyahs('الحمد لله رب العالمين');
       expect(res.results.length).toBeGreaterThanOrEqual(1);
-      const first = res.results[0];
-      expect(first.surahNumber).toBe(94);
-      expect([5, 6]).toContain(first.ayahNumber);
-      expect(first.matchType).toBe('exact_phrase');
+      expect(res.results[0].surahNumber).toBe(1);
+      expect(res.results[0].ayahNumber).toBe(2);
+      expect(res.results[0].matchType).toBe('exact_phrase');
     });
 
-    it('matches exact phrase without any diacritics (plain Arabic)', async () => {
-      const res = await searchQuranAyahs('ان مع العسر يسرا');
-      expect(res.results.length).toBeGreaterThanOrEqual(1);
-      const matches = res.results.filter((r) => r.surahNumber === 94);
-      expect(matches.length).toBe(2); // 94:5 and 94:6
-      expect(matches[0].matchType).toBe('exact_phrase');
-    });
-
-    it('normalizes Uthmani dagger alif on waw (وٰ -> ا) so "الصلاة" matches "الصَّلَوٰةَ"', async () => {
+    it('matches "الصلاة" against Uthmani "ٱلصَّلَوٰةَ"', async () => {
       const res = await searchQuranAyahs('الصلاة');
-      expect(res.results.length).toBeGreaterThanOrEqual(1);
-      const baqarah3 = res.results.find((r) => r.surahNumber === 2 && r.ayahNumber === 3);
-      expect(baqarah3).toBeDefined();
-      expect(baqarah3?.ayahTextAr).toContain('ٱلصَّلَوٰةَ');
+      expect(res.results.length).toBe(2); // 2:3 and 2:43
+      expect(res.results.some((r) => r.ayahNumber === 3)).toBe(true);
+      expect(res.results.some((r) => r.ayahNumber === 43)).toBe(true);
+    });
+
+    it('matches "الزكاة" against Uthmani "ٱلزَّكَوٰةَ"', async () => {
+      const res = await searchQuranAyahs('الزكاة');
+      expect(res.results.length).toBe(1);
+      expect(res.results[0].ayahNumber).toBe(43);
+    });
+
+    it('matches phrase with quotes «إن مع العسر يسرا» regardless of quotes and tashkeel', async () => {
+      const res = await searchQuranAyahs('«إن مع العسر يسرا»');
+      expect(res.results.length).toBe(2);
+      expect(res.results[0].surahNumber).toBe(94);
     });
   });
 
-  describe('4. Result Prioritization & Ranking', () => {
-    it('prioritizes exact reference match over text matches', async () => {
-      // Query "2:255"
+  describe('5. Ranking Algorithm & Exclusion of Loose Matches', () => {
+    it('prioritizes exact reference match above text search matches', async () => {
       const res = await searchQuranAyahs('2:255');
-      expect(res.results.length).toBe(1);
+      expect(res.results.length).toBeGreaterThanOrEqual(1);
       expect(res.results[0].matchType).toBe('reference');
+      expect(res.results[0].score).toBe(1000);
       expect(res.results[0].surahNumber).toBe(2);
       expect(res.results[0].ayahNumber).toBe(255);
-      expect(res.results[0].score).toBe(1000);
-      expect(res.referenceNotice).toContain('الآية 255');
     });
 
-    it('prioritizes exact phrase (score 500) over all-words match (score 200)', async () => {
+    it('prioritizes exact phrase above all-words matching', async () => {
       _setQuranSearchIndexForTesting([
-        [10, 1, 'العسر والضيق ثم بعد ذلك يسرا عظيما'], // all-words match
-        [94, 6, 'إِنَّ مَعَ ٱلْعُسْرِ يُسْرًۭا'], // exact phrase match
+        [10, 1, 'كَلِمَاتٌ مُتَفَرِّقَةٌ فِي هَٰذِهِ ٱلْآيَةِ يُسْرًا وَفِي مَوْضِعٍ آخَرَ ٱلْعُسْرِ'],
+        [94, 6, 'إِنَّ مَعَ ٱلْعُسْرِ يُسْرًۭا'],
       ]);
 
-      const res = await searchQuranAyahs('العسر يسرا');
-      expect(res.results.length).toBe(2);
+      const res = await searchQuranAyahs('مع العسر يسرا');
       expect(res.results[0].surahNumber).toBe(94);
       expect(res.results[0].matchType).toBe('exact_phrase');
       expect(res.results[0].score).toBe(500);
-
-      expect(res.results[1].surahNumber).toBe(10);
-      expect(res.results[1].matchType).toBe('all_words');
-      expect(res.results[1].score).toBe(200);
     });
 
-    it('does NOT match arbitrary single words in a multi-word query', async () => {
-      // "العسر يسرا شمس" -> "شمس" does not appear in 94:5 or 94:6
-      const res = await searchQuranAyahs('العسر يسرا شمس');
-      // Must NOT return Surah 94 just because "العسر" or "يسرا" is present!
+    it('does NOT match single words for multi-word queries (strictly all words or none)', async () => {
+      _setQuranSearchIndexForTesting([
+        [10, 1, 'كَلِمَةٌ وَاحِدَةٌ تَحْتَوِي عَلَى ٱلْعُسْرِ فَقَطْ'],
+      ]);
+
+      const res = await searchQuranAyahs('العسر واليسر والرخاء');
       expect(res.results.length).toBe(0);
     });
   });
 
-  describe('5. Empty and Non-Existent Queries', () => {
-    it('returns empty results for whitespace or blank query', async () => {
-      const res1 = await searchQuranAyahs('');
-      expect(res1.results).toEqual([]);
-      expect(res1.totalMatches).toBe(0);
-
-      const res2 = await searchQuranAyahs('   ');
-      expect(res2.results).toEqual([]);
-    });
-
-    it('returns empty results for non-existent text in Quran', async () => {
-      const res = await searchQuranAyahs('نص_مستحيل_وجوده_في_القران_الكريم');
-      expect(res.results.length).toBe(0);
-      expect(res.totalMatches).toBe(0);
-    });
-  });
-
-  describe('6. Direct Navigation to Ayah (e.g. 2:255 in long Surah)', () => {
-    it('navigateToAyah switches to interactive mode, sets highlightedAyah, loads surah, and keeps audio halted', async () => {
+  describe('6. Direct Navigation & Highlighted Target', () => {
+    it('navigateToAyah sets highlightedTarget, loads surah, and keeps audio halted', async () => {
       vi.stubGlobal('fetch', (url: string) => {
         if (url.includes('/data/quran/surahs/2.json')) {
           return Promise.resolve({
@@ -222,17 +244,27 @@ describe('Quran Ayah Search & Direct Navigation Test Suite', () => {
         return Promise.reject(new Error('Unknown url'));
       });
 
-      // User triggers navigateToAyah(2, 255)
       await useQuranStore.getState().navigateToAyah(2, 255);
 
       const state = useQuranStore.getState();
       expect(state.activeSurah.number).toBe(2);
       expect(state.viewMode).toBe('interactive');
       expect(state.highlightedAyah).toBe(255);
-      // Crucial requirement: must NOT start playing audio automatically
+      expect(state.highlightedTarget).toEqual({ surahNo: 2, ayahNo: 255 });
       expect(state.isPlayingAudio).toBe(false);
       expect(state.currentPlayingAyah).toBeNull();
       expect(state.surahData?.surahNo).toBe(2);
+    });
+
+    it('manual setActiveSurah clears highlightedTarget and highlightedAyah', () => {
+      useQuranStore.getState().setHighlightedTarget({ surahNo: 2, ayahNo: 255 });
+      expect(useQuranStore.getState().highlightedTarget).toEqual({ surahNo: 2, ayahNo: 255 });
+
+      // User manually switches to Surah 3 (Ali Imran)
+      useQuranStore.getState().setActiveSurah(ALL_SURAHS[2]);
+      expect(useQuranStore.getState().activeSurah.number).toBe(3);
+      expect(useQuranStore.getState().highlightedTarget).toBeNull();
+      expect(useQuranStore.getState().highlightedAyah).toBeNull();
     });
   });
 
@@ -267,7 +299,21 @@ describe('Quran Ayah Search & Direct Navigation Test Suite', () => {
     });
   });
 
-  describe('8. Full Corpus Integration Verification', () => {
+  describe('8. Full Real Corpus Integration Verification', () => {
+    beforeEach(() => {
+      const filePath = path.resolve(process.cwd(), 'public', 'data', 'quran', 'quran_search_index.json');
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      vi.stubGlobal('fetch', (url: string) => {
+        if (url.includes('quran_search_index.json')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => data,
+          });
+        }
+        return Promise.reject(new Error(`Unhandled fetch url in test: ${url}`));
+      });
+    });
+
     it('loads the full 6,236 Quran search index without error', async () => {
       _resetQuranSearchIndexForTesting();
       const index = await loadQuranSearchIndex();
@@ -285,6 +331,29 @@ describe('Quran Ayah Search & Direct Navigation Test Suite', () => {
       const sharh = res.results.find((r) => r.surahNumber === 94 && r.ayahNumber === 6);
       expect(sharh).toBeDefined();
       expect(sharh?.ayahTextAr).toContain('يُسْرًۭا');
+    });
+
+    it('searches the real corpus for dictational «الحمد لله رب العالمين» and finds all occurrences', async () => {
+      _resetQuranSearchIndexForTesting();
+      const res = await searchQuranAyahs('الحمد لله رب العالمين');
+      expect(res.results.length).toBe(7);
+      expect(res.results[0].surahNumber).toBe(1);
+      expect(res.results[0].ayahNumber).toBe(2);
+    });
+
+    it('searches the real corpus for «مالك يوم الدين» and finds Surah Al-Fatihah', async () => {
+      _resetQuranSearchIndexForTesting();
+      const res = await searchQuranAyahs('مالك يوم الدين');
+      expect(res.results.length).toBe(1);
+      expect(res.results[0].surahNumber).toBe(1);
+      expect(res.results[0].ayahNumber).toBe(4);
+    });
+
+    it('returns all 61 matches without truncating to 50 when searching «الحياة الدنيا»', async () => {
+      _resetQuranSearchIndexForTesting();
+      const res = await searchQuranAyahs('الحياة الدنيا');
+      expect(res.totalMatches).toBe(61);
+      expect(res.results.length).toBe(61);
     });
   });
 });

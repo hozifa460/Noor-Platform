@@ -2,6 +2,8 @@ import { ALL_SURAHS } from './data';
 import type { SurahMeta } from './types';
 
 // Unicode Regex constants for Arabic and Quranic text
+// Unicode Regex constants for Arabic and Quranic text
+export const TASHKEEL_WITHOUT_DAGGER_REGEX = /[\u0610-\u061A\u064B-\u065F\u06D6-\u06ED]/g;
 export const TASHKEEL_REGEX = /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g;
 export const TATWEEL_REGEX = /\u0640/g;
 export const ZERO_WIDTH_REGEX = /[\u200B-\u200F\uFEFF\u202A-\u202E\u00AD\u061C]/g;
@@ -23,22 +25,26 @@ export function convertArabicNumeralsToEnglish(str: string): string {
  * Normalizes Quranic text specifically for fast, accurate search comparisons:
  * - Converts Arabic digits to English digits
  * - Replaces Uthmani dagger alif on waw (وٰ -> ا) so 'الصَّلَوٰةَ' matches 'الصلاة'
- * - Strips zero-width characters, tatweel, tashkeel, and Quranic annotations
+ * - Converts Uthmani dagger alifs (ٰ) to Alif (ا) so 'ٱلْعَٰلَمِينَ' matches dictational 'العالمين'
+ * - Strips zero-width characters, tatweel, remaining tashkeel, and Quranic annotations
  * - Normalizes Alef forms (أ, إ, آ, ٱ -> ا)
  * - Normalizes Taa Marbuta (ة -> ه)
  * - Normalizes Yaa / Alef Maksura (ى -> ي)
+ * - Unifies common words where modern dictational spelling omits the alif that Uthmani includes via dagger alif
  * - Strips punctuation and collapses whitespace
  */
 export function normalizeQuranArabic(text: string | null | undefined): string {
   if (!text) return '';
 
-  return text
+  let s = text
     .normalize('NFKD')
     .replace(ZERO_WIDTH_REGEX, '')
-    // Replace Uthmani waw + dagger alif with alif (e.g. صلوٰة -> صلاة -> صلاه)
+    // Replace Uthmani waw/yaa + dagger alif with alif (e.g. صلوٰة -> صلاة -> صلاه)
     .replace(/و\u0670/g, 'ا')
     .replace(/ى\u0670/g, 'ا')
-    .replace(TASHKEEL_REGEX, '')
+    // Convert Uthmani dagger alifs to alif (e.g. ٱلْعَٰلَمِينَ -> العالمين, مَٰلِكِ -> مالك)
+    .replace(/\u0670/g, 'ا')
+    .replace(TASHKEEL_WITHOUT_DAGGER_REGEX, '')
     .replace(TATWEEL_REGEX, '')
     .replace(/[أإآٱٲٳ]/g, 'ا')
     .replace(/ة/g, 'ه')
@@ -49,6 +55,19 @@ export function normalizeQuranArabic(text: string | null | undefined): string {
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
+
+  // Unify common words where modern dictational spelling omits the alif that Uthmani includes via dagger alif:
+  s = s
+    .replace(/الرحمان/g, 'الرحمن')
+    .replace(/هاذا/g, 'هذا')
+    .replace(/هاذه/g, 'هذه')
+    .replace(/ذالك/g, 'ذلك')
+    .replace(/هاؤلاء/g, 'هؤلاء')
+    .replace(/لاكن/g, 'لكن')
+    .replace(/الاه/g, 'اله')
+    .replace(/اولائك/g, 'اولئك');
+
+  return s;
 }
 
 export interface QuranReferenceResult {
@@ -58,6 +77,7 @@ export interface QuranReferenceResult {
   ayahNo?: number;
   surahMeta?: SurahMeta;
   errorMessage?: string;
+  isSurahOnly?: boolean;
 }
 
 // Pre-computed map of normalized surah names to SurahMeta
@@ -77,6 +97,7 @@ for (const surah of ALL_SURAHS) {
  * - '2:255', '٢:٢٥٥', '2 : 255', '2-255'
  * - 'البقرة: 255', 'البقرة 255', 'سورة البقرة: 255'
  * - 'سورة البقرة آية 255', 'سورة 2 آية 255'
+ * - 'الفاتحة', 'سورة الفاتحة', 'الكهف', 'سورة الكهف' (Surah name alone)
  */
 export function parseQuranReference(rawQuery: string): QuranReferenceResult | null {
   if (!rawQuery) return null;
@@ -119,7 +140,30 @@ export function parseQuranReference(rawQuery: string): QuranReferenceResult | nu
     }
   }
 
-  // 4. Single number reference alone (e.g. "2") - if strictly 1..114, consider as surah pointer
+  // 4. Standalone Surah name or "سورة [name]" alone (e.g. "الفاتحة", "سورة الفاتحة", "الكهف")
+  const strippedSurahPrefix = query.replace(/^(?:سوره|سورة)\s+/, '').trim();
+  const standaloneSurahMeta = findSurahByNameOrNumber(strippedSurahPrefix);
+  if (standaloneSurahMeta) {
+    return {
+      isReference: true,
+      isValid: true,
+      surahNo: standaloneSurahMeta.number,
+      ayahNo: 1,
+      surahMeta: standaloneSurahMeta,
+      isSurahOnly: true,
+    };
+  }
+
+  // If query explicitly starts with "سورة" / "سوره" but was not recognized
+  if (/^(?:سوره|سورة)\s+/i.test(query)) {
+    return {
+      isReference: true,
+      isValid: false,
+      errorMessage: `لم يتم التعرف على اسم السورة: "${strippedSurahPrefix}"`,
+    };
+  }
+
+  // 5. Single number reference alone (e.g. "2") - if strictly 1..114, consider as surah pointer
   const singleNumMatch = query.match(/^(\d{1,3})$/);
   if (singleNumMatch) {
     const sNum = parseInt(singleNumMatch[1], 10);
@@ -131,8 +175,14 @@ export function parseQuranReference(rawQuery: string): QuranReferenceResult | nu
         surahNo: sNum,
         ayahNo: 1,
         surahMeta: meta,
+        isSurahOnly: true,
       };
     }
+    return {
+      isReference: true,
+      isValid: false,
+      errorMessage: `رقم السورة غير صحيح (${sNum}). القرآن الكريم يضم 114 سورة (1 - 114).`,
+    };
   }
 
   return null;

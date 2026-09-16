@@ -26,18 +26,34 @@ export function QuranSearchModal() {
   const [invalidRefMessage, setInvalidRefMessage] = useState<string | null>(null);
   const [referenceNotice, setReferenceNotice] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
+  const [executedQuery, setExecutedQuery] = useState<string>('');
+  const [displayCount, setDisplayCount] = useState<number>(25);
   const [, startTransition] = useTransition();
 
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const previousActiveElementRef = useRef<HTMLElement | null>(null);
 
-  // Auto-focus input on modal open
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as unknown as { __QURAN_SEARCH__?: typeof searchQuranAyahs }).__QURAN_SEARCH__ = searchQuranAyahs;
+    }
+  }, []);
+
+  // Manage focus: capture prior element, auto-focus on open, restore on close
   useEffect(() => {
     if (isOpen) {
-      setTimeout(() => {
+      previousActiveElementRef.current = document.activeElement as HTMLElement | null;
+      const timer = setTimeout(() => {
         inputRef.current?.focus();
         inputRef.current?.select();
       }, 50);
+      return () => clearTimeout(timer);
+    } else {
+      if (previousActiveElementRef.current && typeof previousActiveElementRef.current.focus === 'function') {
+        previousActiveElementRef.current.focus();
+      }
     }
   }, [isOpen]);
 
@@ -53,6 +69,8 @@ export function QuranSearchModal() {
         setInvalidRefMessage(null);
         setReferenceNotice(null);
         setIsLoading(false);
+        setExecutedQuery('');
+        setDisplayCount(25);
       }, 0);
       return () => {
         isMounted = false;
@@ -72,6 +90,8 @@ export function QuranSearchModal() {
           setInvalidRefMessage(resp.invalidReferenceMessage || null);
           setReferenceNotice(resp.referenceNotice || null);
           setSelectedIndex(0);
+          setDisplayCount(25);
+          setExecutedQuery(trimmed);
           setIsLoading(false);
         });
       } catch (err: unknown) {
@@ -95,39 +115,72 @@ export function QuranSearchModal() {
     [navigateToAyah]
   );
 
-  // Keyboard navigation: Escape to close, Up/Down to navigate, Enter to select
+  // Keyboard navigation & Focus Trap
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      // 1. Focus trap inside modal
+      if (e.key === 'Tab') {
+        const modal = modalRef.current;
+        if (!modal) return;
+        const focusable = modal.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length > 0) {
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (e.shiftKey) {
+            if (document.activeElement === first) {
+              e.preventDefault();
+              last.focus();
+            }
+          } else {
+            if (document.activeElement === last) {
+              e.preventDefault();
+              first.focus();
+            }
+          }
+        }
+      } else if (e.key === 'Escape') {
         e.preventDefault();
         closeSearch();
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelectedIndex((prev) => (results.length > 0 ? (prev + 1) % results.length : 0));
+        setSelectedIndex((prev) => (results.length > 0 ? (prev + 1) % Math.min(results.length, displayCount) : 0));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setSelectedIndex((prev) => (results.length > 0 ? (prev - 1 + results.length) % results.length : 0));
-      } else if (e.key === 'Enter' && results.length > 0 && results[selectedIndex]) {
-        e.preventDefault();
-        handleSelectResult(results[selectedIndex]);
+        const limit = Math.min(results.length, displayCount);
+        setSelectedIndex((prev) => (limit > 0 ? (prev - 1 + limit) % limit : 0));
+      } else if (e.key === 'Enter') {
+        // Prevent selecting stale results while new query is in flight
+        if (isLoading || query.trim() !== executedQuery) {
+          e.preventDefault();
+          return;
+        }
+        if (results.length > 0 && results[selectedIndex]) {
+          e.preventDefault();
+          handleSelectResult(results[selectedIndex]);
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, results, selectedIndex, closeSearch, handleSelectResult]);
+  }, [isOpen, results, selectedIndex, displayCount, isLoading, query, executedQuery, closeSearch, handleSelectResult]);
 
   const handleRetry = async () => {
-    if (!query.trim()) return;
+    const trimmed = query.trim();
+    if (!trimmed) return;
     setIsLoading(true);
     setLoadError(null);
     try {
-      const resp = await searchQuranAyahs(query.trim());
+      const resp = await searchQuranAyahs(trimmed);
       setResults(resp.results);
       setInvalidRefMessage(resp.invalidReferenceMessage || null);
       setReferenceNotice(resp.referenceNotice || null);
+      setExecutedQuery(trimmed);
+      setDisplayCount(25);
       setIsLoading(false);
     } catch (err: unknown) {
       setLoadError(err instanceof Error ? err.message : 'تعذر تحميل فهرس البحث');
@@ -145,6 +198,7 @@ export function QuranSearchModal() {
       className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-start sm:items-center justify-center p-2 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
     >
       <div
+        ref={modalRef}
         className="w-full max-w-2xl bg-card border border-border rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[85vh] animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
@@ -278,7 +332,7 @@ export function QuranSearchModal() {
           {/* Results List */}
           {!isLoading &&
             !loadError &&
-            results.map((item, idx) => {
+            results.slice(0, displayCount).map((item, idx) => {
               const isSelected = idx === selectedIndex;
               return (
                 <div
@@ -290,6 +344,7 @@ export function QuranSearchModal() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
+                      e.stopPropagation();
                       handleSelectResult(item);
                     }
                   }}
@@ -314,6 +369,11 @@ export function QuranSearchModal() {
                     </div>
 
                     <div className="flex items-center gap-1.5">
+                      {item.matchType === 'surah' && (
+                        <Badge variant="default" className="text-[10px] font-bold bg-primary text-primary-foreground">
+                          بداية السورة
+                        </Badge>
+                      )}
                       {item.matchType === 'reference' && (
                         <Badge variant="default" className="text-[10px] font-bold bg-primary text-primary-foreground">
                           مرجع محدد
@@ -343,6 +403,23 @@ export function QuranSearchModal() {
                 </div>
               );
             })}
+
+          {/* Show More Results Button */}
+          {!isLoading && !loadError && results.length > displayCount && (
+            <div className="pt-2 pb-3 text-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDisplayCount((prev) => prev + 25)}
+                className="rounded-2xl px-5 py-2 text-xs font-bold gap-2 border-primary/30 hover:bg-primary/5 hover:border-primary"
+              >
+                <span>عرض المزيد من النتائج</span>
+                <Badge variant="secondary" className="text-[11px] font-mono px-2 py-0">
+                  متبقي {results.length - displayCount}
+                </Badge>
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Modal Footer / Keyboard Shortcuts */}

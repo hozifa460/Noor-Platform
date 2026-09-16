@@ -47,7 +47,7 @@ interface QuranState {
 
   // Actions
   setActiveQiraah: (q: QiraahMeta) => void;
-  setActiveSurah: (s: SurahMeta) => void;
+  setActiveSurah: (s: SurahMeta, options?: { skipUrlUpdate?: boolean }) => void;
   nextSurah: () => void;
   prevSurah: () => void;
   setActiveTranslation: (t: QuranTranslationMeta | null) => void;
@@ -74,6 +74,7 @@ interface QuranState {
 
   // Quran Ayah Search & Deep Navigation
   highlightedAyah: number | null;
+  highlightedTarget: { surahNo: number; ayahNo: number } | null;
   quranSearchQuery: string;
   quranSearchResults: QuranSearchResult[];
   isSearchModalOpen: boolean;
@@ -82,6 +83,7 @@ interface QuranState {
   openQuranSearch: () => void;
   closeQuranSearch: () => void;
   setHighlightedAyah: (ayah: number | null) => void;
+  setHighlightedTarget: (target: { surahNo: number; ayahNo: number } | null) => void;
   navigateToAyah: (surahNumber: number, ayahNumber: number) => Promise<void>;
 }
 
@@ -189,6 +191,7 @@ export const useQuranStore = create<QuranState>((set, get) => ({
 
   // Quran Ayah Search & Highlighting State
   highlightedAyah: null,
+  highlightedTarget: null,
   quranSearchQuery: '',
   quranSearchResults: [],
   isSearchModalOpen: false,
@@ -197,7 +200,16 @@ export const useQuranStore = create<QuranState>((set, get) => ({
   setQuranSearchResults: (quranSearchResults) => set({ quranSearchResults }),
   openQuranSearch: () => set({ isSearchModalOpen: true }),
   closeQuranSearch: () => set({ isSearchModalOpen: false }),
-  setHighlightedAyah: (highlightedAyah) => set({ highlightedAyah }),
+  setHighlightedAyah: (highlightedAyah) =>
+    set((s) => ({
+      highlightedAyah,
+      highlightedTarget: highlightedAyah ? { surahNo: s.activeSurah.number, ayahNo: highlightedAyah } : null,
+    })),
+  setHighlightedTarget: (highlightedTarget) =>
+    set({
+      highlightedTarget,
+      highlightedAyah: highlightedTarget?.ayahNo ?? null,
+    }),
 
   navigateToAyah: async (surahNumber: number, ayahNumber: number): Promise<void> => {
     // 1. Ensure audio is stopped (do not auto-play audio)
@@ -210,6 +222,7 @@ export const useQuranStore = create<QuranState>((set, get) => ({
         activeSurah: surahMeta,
         viewMode: 'interactive',
         highlightedAyah: ayahNumber,
+        highlightedTarget: { surahNo: surahNumber, ayahNo: ayahNumber },
         isSearchModalOpen: false,
       });
     }
@@ -229,12 +242,15 @@ export const useQuranStore = create<QuranState>((set, get) => ({
     // 4. Load the target surah
     await get().loadSurah(surahNumber);
 
-    // 5. Scroll smoothly to target Ayah element in DOM
+    // 5. Scroll smoothly to target Ayah element in DOM (only if destination still matches)
     if (typeof window !== 'undefined') {
       setTimeout(() => {
-        const el = document.getElementById(`ayah-${ayahNumber}`);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const currentTarget = get().highlightedTarget;
+        if (currentTarget?.surahNo === surahNumber && currentTarget?.ayahNo === ayahNumber) {
+          const el = document.getElementById(`ayah-${ayahNumber}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
         }
       }, 150);
     }
@@ -250,12 +266,30 @@ export const useQuranStore = create<QuranState>((set, get) => ({
     });
   },
 
-  setActiveSurah: (activeSurah) => {
+  setActiveSurah: (activeSurah, options) => {
     get().stopAudio();
     set({
       activeSurah,
       surahLoadError: false,
+      highlightedAyah: null,
+      highlightedTarget: null,
     });
+    // Remove obsolete ayah parameter from URL if user manually changed surah
+    if (!options?.skipUrlUpdate && typeof window !== 'undefined') {
+      try {
+        const url = new URL(window.location.href);
+        const prevSurah = url.searchParams.get('surah');
+        url.searchParams.set('surah', String(activeSurah.number));
+        url.searchParams.delete('ayah');
+        if (prevSurah && prevSurah !== String(activeSurah.number)) {
+          window.history.pushState({}, '', url.toString());
+        } else {
+          window.history.replaceState({}, '', url.toString());
+        }
+      } catch {
+        /* ignore */
+      }
+    }
     get().loadSurah(activeSurah.number);
   },
 
