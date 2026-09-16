@@ -83,7 +83,7 @@ export function ReciterModal({
         {/* Content list */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Section 1: Verse-by-verse reciters */}
-          {verseReciters.length > 0 && (
+          {verseReciters.length > 0 ? (
             <div className="space-y-2">
               <div className="text-xs font-bold text-muted-foreground px-1">
                 قراء التلاوة آية بآية (EveryAyah Sync)
@@ -112,6 +112,11 @@ export function ReciterModal({
                 })}
               </div>
             </div>
+          ) : (
+            <div className="p-3 rounded-2xl bg-muted/30 border border-border/70 text-xs text-muted-foreground space-y-1">
+              <div className="font-bold text-foreground">تلاوة الآيات المنفصلة (آية بآية):</div>
+              <div>غير متوفرة لهذه الرواية لعدم وجود تسجيلات مقطعة؛ التلاوة آية بآية مدعومة بروايتي حفص وورش.</div>
+            </div>
           )}
 
           {/* Section 2: Full surah reciters for Riwayah */}
@@ -119,32 +124,38 @@ export function ReciterModal({
             <div className="text-xs font-bold text-muted-foreground px-1">
               تسجيلات السور الكاملة المتوفرة لهذه الرواية ({filteredReciters.length})
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {filteredReciters.map((r) => {
-                const isSelected = activeReciter?.reciterId === r.reciterId;
-                return (
-                  <button
-                    key={`${r.reciterId}-${r.moshafId}`}
-                    onClick={() => {
-                      onSelectReciter(r);
-                      onClose();
-                    }}
-                    className={cn(
-                      'flex items-center justify-between p-3 rounded-xl border text-right transition-all',
-                      isSelected
-                        ? 'bg-primary/10 border-primary text-primary font-bold shadow-xs'
-                        : 'bg-muted/30 border-border/70 hover:bg-muted/70 text-foreground'
-                    )}
-                  >
-                    <div className="truncate">
-                      <div className="text-sm font-semibold truncate">{r.reciterName}</div>
-                      <div className="text-[11px] text-muted-foreground">{r.moshafName}</div>
-                    </div>
-                    {isSelected && <Check className="size-4 text-primary shrink-0" />}
-                  </button>
-                );
-              })}
-            </div>
+            {filteredReciters.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {filteredReciters.map((r) => {
+                  const isSelected = activeReciter?.reciterId === r.reciterId;
+                  return (
+                    <button
+                      key={`${r.reciterId}-${r.moshafId}`}
+                      onClick={() => {
+                        onSelectReciter(r);
+                        onClose();
+                      }}
+                      className={cn(
+                        'flex items-center justify-between p-3 rounded-xl border text-right transition-all',
+                        isSelected
+                          ? 'bg-primary/10 border-primary text-primary font-bold shadow-xs'
+                          : 'bg-muted/30 border-border/70 hover:bg-muted/70 text-foreground'
+                      )}
+                    >
+                      <div className="truncate">
+                        <div className="text-sm font-semibold truncate">{r.reciterName}</div>
+                        <div className="text-[11px] text-muted-foreground">{r.moshafName}</div>
+                      </div>
+                      {isSelected && <Check className="size-4 text-primary shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-muted/20 border border-dashed border-border text-center text-xs text-muted-foreground">
+                لا تتوفر تسجيلات سور كاملة لهذه الرواية حالياً؛ يمكنك التبديل إلى رواية أخرى أو تصفح المصحف المصور.
+              </div>
+            )}
           </div>
         </div>
       </div>

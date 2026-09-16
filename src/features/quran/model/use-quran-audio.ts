@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useQuranStore } from './quran-store';
 import { getMp3QuranSurahUrl, type RiwayahReciterEntry } from '../infrastructure';
-import { getWarshAyahAudioNumber } from '@/lib/shared';
+import { getAyahAudioUrl, isAyahAudioSupportedForQiraah } from '../domain';
 
 interface UseQuranAudioProps {
   activeRiwayahReciter: RiwayahReciterEntry | null;
@@ -16,32 +16,41 @@ export function useQuranAudio({ activeRiwayahReciter }: UseQuranAudioProps) {
   const activeReciter = useQuranStore((s) => s.activeReciter);
   const currentPlayingAyah = useQuranStore((s) => s.currentPlayingAyah);
   const isPlayingAudio = useQuranStore((s) => s.isPlayingAudio);
+  const isPlayingFullSurah = useQuranStore((s) => s.isPlayingFullSurah);
+  const setIsPlayingFullSurah = useQuranStore((s) => s.setIsPlayingFullSurah);
+  const registerAudioElement = useQuranStore((s) => s.registerAudioElement);
   const playNextAyah = useQuranStore((s) => s.playNextAyah);
 
-  const [isPlayingFullSurah, setIsPlayingFullSurah] = useState(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
   const [isSeeking, setIsSeeking] = useState<boolean>(false);
-  const [targetSeekAyah, setTargetSeekAyah] = useState<number | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    registerAudioElement(audioRef.current);
+    return () => {
+      registerAudioElement(null);
+    };
+  }, [registerAudioElement]);
 
   const currentAudioUrl = useMemo(() => {
     if (isPlayingFullSurah && activeRiwayahReciter) {
       return getMp3QuranSurahUrl(activeRiwayahReciter.server, activeSurah.number);
     }
-    if (!currentPlayingAyah || !surahData) return null;
-    const sStr = String(surahData.surahNo).padStart(3, '0');
-    const adjustedAyahNo =
-      activeQiraah.id === 'warsh'
-        ? getWarshAyahAudioNumber(surahData.surahNo, currentPlayingAyah)
-        : currentPlayingAyah;
-    const aStr = String(adjustedAyahNo).padStart(3, '0');
-    return `https://everyayah.com/data/${activeReciter.subfolder}/${sStr}${aStr}.mp3`;
+    if (!currentPlayingAyah || !surahData || !isAyahAudioSupportedForQiraah(activeQiraah.id)) {
+      return null;
+    }
+    return getAyahAudioUrl(
+      activeReciter.subfolder,
+      surahData.surahNo,
+      currentPlayingAyah,
+      activeQiraah.id
+    );
   }, [
     currentPlayingAyah,
     surahData,
-    activeReciter,
+    activeReciter.subfolder,
     isPlayingFullSurah,
     activeRiwayahReciter,
     activeSurah.number,
@@ -58,30 +67,25 @@ export function useQuranAudio({ activeRiwayahReciter }: UseQuranAudioProps) {
 
     if ((isPlayingAudio || isPlayingFullSurah) && currentAudioUrl) {
       audio.play().catch((err) => {
-        console.warn('Audio play prevented or format fallback:', err);
+        console.warn('Audio play prevented or failed:', err);
+        // Synchronize state with reality if play was rejected
+        if (isPlayingAudio) {
+          useQuranStore.getState().pauseAudio();
+        }
+        if (isPlayingFullSurah) {
+          setIsPlayingFullSurah(false);
+        }
       });
     } else {
       audio.pause();
     }
-  }, [isPlayingAudio, isPlayingFullSurah, currentAudioUrl]);
+  }, [isPlayingAudio, isPlayingFullSurah, currentAudioUrl, setIsPlayingFullSurah]);
 
   const handleLoadedMetadata = useCallback(() => {
     if (!audioRef.current) return;
     const dur = audioRef.current.duration || 0;
     setDuration(dur);
-
-    if (isPlayingFullSurah && targetSeekAyah && surahData && dur > 0) {
-      const totalChars = surahData.ayahs.reduce((acc, a) => acc + a.textAr.length, 0);
-      const charsBefore = surahData.ayahs
-        .slice(0, Math.max(0, targetSeekAyah - 1))
-        .reduce((acc, a) => acc + a.textAr.length, 0);
-      const fraction = totalChars > 0 ? charsBefore / totalChars : 0;
-      const targetSec = fraction * dur;
-      audioRef.current.currentTime = targetSec;
-      setCurrentTime(targetSec);
-      setTargetSeekAyah(null);
-    }
-  }, [isPlayingFullSurah, targetSeekAyah, surahData]);
+  }, []);
 
   const handleTimeUpdate = useCallback(() => {
     if (!audioRef.current || isSeeking) return;
@@ -95,7 +99,17 @@ export function useQuranAudio({ activeRiwayahReciter }: UseQuranAudioProps) {
       return;
     }
     playNextAyah();
-  }, [isPlayingFullSurah, playNextAyah]);
+  }, [isPlayingFullSurah, playNextAyah, setIsPlayingFullSurah]);
+
+  const handleAudioError = useCallback(() => {
+    console.warn('Audio resource load failed or was aborted');
+    if (isPlayingAudio) {
+      useQuranStore.getState().pauseAudio();
+    }
+    if (isPlayingFullSurah) {
+      setIsPlayingFullSurah(false);
+    }
+  }, [isPlayingAudio, isPlayingFullSurah, setIsPlayingFullSurah]);
 
   const handleSeek = useCallback((val: number) => {
     setCurrentTime(val);
@@ -126,12 +140,11 @@ export function useQuranAudio({ activeRiwayahReciter }: UseQuranAudioProps) {
     setIsSeeking,
     isPlayingFullSurah,
     setIsPlayingFullSurah,
-    targetSeekAyah,
-    setTargetSeekAyah,
     currentAudioUrl,
     handleLoadedMetadata,
     handleTimeUpdate,
     handleAudioEnded,
+    handleAudioError,
     handleSeek,
     handleFastForward,
     handleRewind,

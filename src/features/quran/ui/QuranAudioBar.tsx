@@ -15,7 +15,7 @@ import { formatAudioTime } from '@/lib/shared';
 interface QuranAudioBarProps {
   isPlaying: boolean;
   onTogglePlay: () => void;
-  onNextAyah: () => void;
+  onNextAyah?: () => void;
   onPrevAyah?: () => void;
   onFastForward: () => void;
   onRewind: () => void;
@@ -136,15 +136,17 @@ export function QuranAudioBar({
               <FastForward className="size-4" />
             </Button>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8 rounded-full"
-              onClick={onNextAyah}
-              title="الآية التالية"
-            >
-              <ChevronLeft className="size-4" />
-            </Button>
+            {onNextAyah && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 rounded-full"
+                onClick={onNextAyah}
+                title="الآية التالية"
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+            )}
           </div>
 
           {/* Mode Switcher: Full Surah vs Ayah-by-Ayah */}

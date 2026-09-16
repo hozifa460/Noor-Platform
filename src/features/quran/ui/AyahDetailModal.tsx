@@ -23,6 +23,7 @@ import {
 import {
   QURAN_TRANSLATIONS,
   getAyahRecitersForQiraah,
+  getAyahAudioUrl,
   type QuranTranslationMeta,
   type SurahMeta,
   type QiraahMeta,
@@ -30,7 +31,6 @@ import {
   type ReciterMeta,
 } from '../domain';
 import {
-  useQuranStore,
   useAyahAudioLoop,
 } from '../model';
 import { AyahTafsirTab } from './ayah-tabs/AyahTafsirTab';
@@ -58,8 +58,6 @@ export function AyahDetailModal({
   onPrevAyah,
   onNextAyah,
 }: AyahDetailModalProps) {
-  const activeReciter = useQuranStore((s) => s.activeReciter);
-
   const [activeTab, setActiveTab] = useState<'tafsir' | 'eerab' | 'asbab' | 'translation' | 'memorize'>('tafsir');
   const [selectedTafsirId, setSelectedTafsirId] = useState<number>(16);
   const [tafsirContent, setTafsirContent] = useState<string>('');
@@ -87,11 +85,11 @@ export function AyahDetailModal({
   const selectedAyahReciter =
     (customReciter && availableAyahReciters.some((r) => r.id === customReciter.id) && customReciter) ||
     availableAyahReciters[0] ||
-    activeReciter;
+    null;
 
-  const sStr = String(surah.number).padStart(3, '0');
-  const aStr = String(ayah.ayahNo).padStart(3, '0');
-  const audioUrl = `https://everyayah.com/data/${selectedAyahReciter.subfolder}/${sStr}${aStr}.mp3`;
+  const audioUrl = selectedAyahReciter
+    ? getAyahAudioUrl(selectedAyahReciter.subfolder, surah.number, ayah.ayahNo, activeQiraah.id)
+    : '';
 
   const {
     audioRef,
@@ -103,6 +101,10 @@ export function AyahDetailModal({
     togglePlay: toggleLoopPlay,
     resetLoop,
   } = useAyahAudioLoop({ audioUrl });
+
+  useEffect(() => {
+    resetLoop();
+  }, [ayah.ayahNo, resetLoop]);
 
   useEffect(() => {
     let isMounted = true;
@@ -158,7 +160,11 @@ export function AyahDetailModal({
       })
       .catch(() => {
         if (isMounted) {
-          setTranslationText(ayah.textEn || 'Translation unavailable.');
+          // Do not silently fallback to English if another language was chosen
+          const fallback = selectedTranslation.code.startsWith('en-')
+            ? (ayah.textEn || 'Translation unavailable.')
+            : 'الترجمة غير متوفرة لهذه الآية.';
+          setTranslationText(fallback);
           setLoadedTranslationKey(translationKey);
         }
       });
@@ -169,7 +175,21 @@ export function AyahDetailModal({
   }, [selectedTranslation.code, surah.number, ayah.ayahNo, ayah.textEn, translationKey]);
 
   const handleCopy = () => {
-    const text = `﴿ ${ayah.textAr} ﴾\n[سورة ${surah.nameAr}: الآية ${ayah.ayahNo} - ${activeQiraah.name}]\n\nالتفسير (${SUPPORTED_TAFSIRS.find((t) => t.id === selectedTafsirId)?.name}):\n${stripHtmlToPlainText(tafsirContent)}\n\nالمصدر: منصة النور القرآنية`;
+    if (activeTab === 'translation') {
+      if (loadingTranslation || loadedTranslationKey !== translationKey) {
+        return;
+      }
+      const text = `﴿ ${ayah.textAr} ﴾\n[سورة ${surah.nameAr}: الآية ${ayah.ayahNo}]\n\nالترجمة (${selectedTranslation.name} - ${selectedTranslation.author}):\n${translationText}\n\nالمصدر: منصة النور القرآنية`;
+      copy(text, 'تم نسخ نص الآية والترجمة بنجاح');
+      return;
+    }
+    if (activeTab === 'eerab') {
+      const text = `﴿ ${ayah.textAr} ﴾\n[سورة ${surah.nameAr}: الآية ${ayah.ayahNo}]\n\nالإعراب:\n${stripHtmlToPlainText(eerabContent)}\n\nالمصدر: منصة النور القرآنية`;
+      copy(text, 'تم نسخ نص الآية والإعراب بنجاح');
+      return;
+    }
+    const tafsirName = SUPPORTED_TAFSIRS.find((t) => t.id === selectedTafsirId)?.name || 'التفسير';
+    const text = `﴿ ${ayah.textAr} ﴾\n[سورة ${surah.nameAr}: الآية ${ayah.ayahNo}]\n\nالتفسير (${tafsirName}):\n${stripHtmlToPlainText(tafsirContent)}\n\nالمصدر: منصة النور القرآنية`;
     copy(text, 'تم نسخ نص الآية والتفسير بنجاح');
   };
 
@@ -324,17 +344,27 @@ export function AyahDetailModal({
         )}
 
         {activeTab === 'memorize' && (
-          <AyahMemorizeTab
-            availableAyahReciters={availableAyahReciters}
-            selectedAyahReciter={selectedAyahReciter}
-            onSelectAyahReciter={setCustomReciter}
-            repeatLimit={repeatLimit}
-            onSetRepeatLimit={setRepeatLimit}
-            repeatCount={repeatCount}
-            isPlaying={isLoopPlaying}
-            onTogglePlay={toggleLoopPlay}
-            onReset={resetLoop}
-          />
+          availableAyahReciters.length > 0 && selectedAyahReciter ? (
+            <AyahMemorizeTab
+              availableAyahReciters={availableAyahReciters}
+              selectedAyahReciter={selectedAyahReciter}
+              onSelectAyahReciter={setCustomReciter}
+              repeatLimit={repeatLimit}
+              onSetRepeatLimit={setRepeatLimit}
+              repeatCount={repeatCount}
+              isPlaying={isLoopPlaying}
+              onTogglePlay={toggleLoopPlay}
+              onReset={resetLoop}
+            />
+          ) : (
+            <div className="p-6 flex-1 flex flex-col items-center justify-center text-center space-y-2">
+              <RotateCcw className="size-10 text-muted-foreground/50 animate-pulse" />
+              <h4 className="font-bold text-sm text-foreground">تكرار التحفيظ غير متاح لهذه الرواية</h4>
+              <p className="text-xs text-muted-foreground max-w-sm">
+                تلاوة وتكرار الآيات المنفصلة غير متوفرة لرواية ({activeQiraah.name}) لعدم وجود تسجيلات مقطعة. يمكنك التبديل لرواية حفص أو ورش للاستفادة من ميزة التحفيظ والتكرار.
+              </p>
+            </div>
+          )
         )}
 
         {/* Footer with Copy button */}
@@ -346,7 +376,15 @@ export function AyahDetailModal({
             className="gap-2 rounded-xl text-xs font-bold"
           >
             {copied ? <Check className="size-4 text-emerald-600" /> : <Copy className="size-4" />}
-            <span>{copied ? 'تم النسخ' : 'نسخ الآية والتفسير'}</span>
+            <span>
+              {copied
+                ? 'تم النسخ'
+                : activeTab === 'translation'
+                ? 'نسخ الآية والترجمة'
+                : activeTab === 'eerab'
+                ? 'نسخ الآية والإعراب'
+                : 'نسخ الآية والتفسير'}
+            </span>
           </Button>
 
           <Button size="sm" variant="ghost" onClick={onClose} className="rounded-xl text-xs">

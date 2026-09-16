@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 interface AyahCardProps {
   ayah: AyahItem;
   isPlaying: boolean;
+  isAudioSupported?: boolean;
   onPlay: () => void;
   onOpenDetail: () => void;
   onCopy: (e: React.MouseEvent) => void;
@@ -15,11 +16,14 @@ interface AyahCardProps {
   fontSize: number;
   showTranslation: boolean;
   translationText?: string;
+  translationDirection?: 'rtl' | 'ltr';
+  isEnglishTranslation?: boolean;
 }
 
 export function AyahCard({
   ayah,
   isPlaying,
+  isAudioSupported = true,
   onPlay,
   onOpenDetail,
   onCopy,
@@ -27,6 +31,8 @@ export function AyahCard({
   fontSize,
   showTranslation,
   translationText,
+  translationDirection = 'ltr',
+  isEnglishTranslation = true,
 }: AyahCardProps) {
   return (
     <div
@@ -62,9 +68,16 @@ export function AyahCard({
           <Button
             variant="ghost"
             size="icon"
-            className="size-8 rounded-lg"
-            onClick={onPlay}
-            title={isPlaying ? 'إيقاف مؤقت' : 'استماع للآية'}
+            className={cn('size-8 rounded-lg', !isAudioSupported && 'opacity-40 cursor-not-allowed')}
+            disabled={!isAudioSupported}
+            onClick={isAudioSupported ? onPlay : undefined}
+            title={
+              !isAudioSupported
+                ? 'تلاوة مقاطع الآيات غير متوفرة لهذه الرواية'
+                : isPlaying
+                ? 'إيقاف مؤقت'
+                : 'استماع للآية'
+            }
           >
             {isPlaying ? (
               <Pause className="size-4 text-primary" />
@@ -112,9 +125,21 @@ export function AyahCard({
       </div>
 
       {/* Translation if enabled */}
-      {showTranslation && (translationText || ayah.textEn) && (
-        <div className="mt-3 pt-3 border-t border-border/50 text-xs sm:text-sm text-muted-foreground font-sans leading-relaxed text-left dir-ltr">
-          {translationText || ayah.textEn}
+      {showTranslation && (
+        <div
+          dir={translationDirection}
+          className={cn(
+            'mt-3 pt-3 border-t border-border/50 text-xs sm:text-sm text-muted-foreground font-sans leading-relaxed',
+            translationDirection === 'rtl' ? 'text-right' : 'text-left'
+          )}
+        >
+          {translationText ? (
+            translationText
+          ) : isEnglishTranslation ? (
+            ayah.textEn
+          ) : (
+            <span className="italic opacity-60">الترجمة غير متوفرة لهذه الآية</span>
+          )}
         </div>
       )}
     </div>
