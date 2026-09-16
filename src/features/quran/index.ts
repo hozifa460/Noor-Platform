@@ -65,5 +65,6 @@ export {
   QuranAudioBar,
   ReciterModal,
   SurahDrawer,
+  QuranSearchModal,
 } from './ui';
 

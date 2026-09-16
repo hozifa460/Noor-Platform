@@ -5,3 +5,4 @@ export * from './QuickAyahMenu';
 export * from './QuranAudioBar';
 export * from './ReciterModal';
 export * from './SurahDrawer';
+export * from './QuranSearchModal';
