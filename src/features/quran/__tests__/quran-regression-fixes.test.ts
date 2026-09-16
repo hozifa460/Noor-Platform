@@ -13,11 +13,12 @@ import {
   getRecitersForRiwayah,
   getAyahTranslation,
 } from '../infrastructure';
-import { useQuranStore } from '../model/quran-store';
+import { useQuranStore, clearQuranMemoryCacheForTesting } from '../model/quran-store';
 
 describe('Quran Feature — Review Fixes & Regression Test Suite', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    clearQuranMemoryCacheForTesting();
     useQuranStore.setState({
       activeQiraah: QIRAAT_LIST[0],
       activeSurah: ALL_SURAHS[0],
@@ -95,7 +96,7 @@ describe('Quran Feature — Review Fixes & Regression Test Suite', () => {
     });
   });
 
-  describe('Point 2: Audio Exclusivity & Memorization Handoff', () => {
+  describe('Point 2: Audio Exclusivity & Session Invalidation During Transitions', () => {
     it('stopAudio synchronously halts both full surah and verse audio, and pauses registered audio element', () => {
       const mockAudio = {
         pause: vi.fn(),
@@ -132,9 +133,129 @@ describe('Quran Feature — Review Fixes & Regression Test Suite', () => {
       expect(state.isPlayingAudio).toBe(true);
       expect(state.currentPlayingAyah).toBe(2);
     });
+
+    it('playNextAyah halts playback if stopAudio() is called while awaiting loadSurah()', async () => {
+      let resolveSurah2: (val: unknown) => void = () => {};
+
+      vi.stubGlobal('fetch', (url: string) => {
+        if (url.includes('/data/quran/surahs/2.json')) {
+          return new Promise((res) => {
+            resolveSurah2 = () =>
+              res({
+                ok: true,
+                json: async () => ({
+                  surahNo: 2,
+                  nameAr: 'البقرة',
+                  nameEn: 'Al-Baqarah',
+                  nameRoman: 'The Cow',
+                  placeOfRevelation: 'Medinan',
+                  totalAyahs: 286,
+                  ayahs: [{ ayahNo: 1, ayahNoQuran: 8, textAr: 'الم', textEn: '', juz: 1 }],
+                }),
+              });
+          });
+        }
+        return Promise.reject(new Error('Unknown url'));
+      });
+
+      // Position playback at final verse of Surah 1
+      useQuranStore.setState({
+        activeSurah: ALL_SURAHS[0],
+        surahData: {
+          surahNo: 1,
+          nameAr: 'الفاتحة',
+          nameEn: 'Al-Fatihah',
+          nameRoman: 'The Opening',
+          placeOfRevelation: 'Meccan',
+          totalAyahs: 7,
+          ayahs: [],
+        },
+        currentPlayingAyah: 7,
+        isPlayingAudio: true,
+      });
+
+      // Trigger automatic advancement to Surah 2
+      const nextPromise = useQuranStore.getState().playNextAyah();
+
+      // User explicitly stops audio while Surah 2 is still fetching over the network
+      useQuranStore.getState().stopAudio();
+
+      // Surah 2 finishes loading afterwards
+      resolveSurah2(null);
+      await nextPromise;
+
+      const state = useQuranStore.getState();
+      // Playback MUST remain halted; previous session was invalidated by stopAudio()
+      expect(state.isPlayingAudio).toBe(false);
+      expect(state.currentPlayingAyah).toBeNull();
+    });
+
+    it('playNextAyah halts playback if user manually navigates away during auto-advance', async () => {
+      let resolveSurah2: (val: unknown) => void = () => {};
+
+      vi.stubGlobal('fetch', (url: string) => {
+        if (url.includes('/data/quran/surahs/2.json')) {
+          return new Promise((res) => {
+            resolveSurah2 = () =>
+              res({
+                ok: true,
+                json: async () => ({
+                  surahNo: 2,
+                  nameAr: 'البقرة',
+                  nameEn: 'Al-Baqarah',
+                  totalAyahs: 286,
+                  ayahs: [{ ayahNo: 1, ayahNoQuran: 8, textAr: 'الم', textEn: '', juz: 1 }],
+                }),
+              });
+          });
+        }
+        if (url.includes('/data/quran/surahs/5.json')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              surahNo: 5,
+              nameAr: 'المائدة',
+              nameEn: "Al-Ma'idah",
+              totalAyahs: 120,
+              ayahs: [],
+            }),
+          });
+        }
+        return Promise.reject(new Error('Unknown url'));
+      });
+
+      useQuranStore.setState({
+        activeSurah: ALL_SURAHS[0],
+        surahData: {
+          surahNo: 1,
+          nameAr: 'الفاتحة',
+          nameEn: 'Al-Fatihah',
+          nameRoman: 'The Opening',
+          placeOfRevelation: 'Meccan',
+          totalAyahs: 7,
+          ayahs: [],
+        },
+        currentPlayingAyah: 7,
+        isPlayingAudio: true,
+      });
+
+      const nextPromise = useQuranStore.getState().playNextAyah();
+
+      // User manually navigates to Surah 5
+      useQuranStore.getState().setActiveSurah(ALL_SURAHS[4]);
+
+      resolveSurah2(null);
+      await nextPromise;
+
+      const state = useQuranStore.getState();
+      // Must not start playing Surah 2 ayah 1!
+      expect(state.activeSurah.number).toBe(5);
+      expect(state.isPlayingAudio).toBe(false);
+      expect(state.currentPlayingAyah).toBeNull();
+    });
   });
 
-  describe('Point 3: Navigation Safety, Race Conditions & Error Handling', () => {
+  describe('Point 3: Navigation Safety, Race Conditions & Rapid A -> B -> A', () => {
     it('prevents stale slower response from overwriting newer active surah', async () => {
       let resolveSurah1: (val: unknown) => void = () => {};
       let resolveSurah2: (val: unknown) => void = () => {};
@@ -184,6 +305,144 @@ describe('Quran Feature — Review Fixes & Regression Test Suite', () => {
       await new Promise((r) => setTimeout(r, 10));
       expect(useQuranStore.getState().surahData?.surahNo).toBe(2);
       expect(useQuranStore.getState().surahData?.nameAr).toBe('البقرة');
+    });
+
+    it('supports rapid A -> B -> A navigation during loading (order: A finishes before B)', async () => {
+      let resolveSurah1: (val: unknown) => void = () => {};
+      let resolveSurah2: (val: unknown) => void = () => {};
+      let fetchCountSurah1 = 0;
+
+      vi.stubGlobal('fetch', (url: string) => {
+        if (url.includes('/data/quran/surahs/11.json')) {
+          fetchCountSurah1++;
+          return new Promise((res) => {
+            resolveSurah1 = () =>
+              res({
+                ok: true,
+                json: async () => ({
+                  surahNo: 11,
+                  nameAr: 'هود',
+                  totalAyahs: 123,
+                  ayahs: [],
+                }),
+              });
+          });
+        }
+        if (url.includes('/data/quran/surahs/12.json')) {
+          return new Promise((res) => {
+            resolveSurah2 = () =>
+              res({
+                ok: true,
+                json: async () => ({
+                  surahNo: 12,
+                  nameAr: 'يوسف',
+                  totalAyahs: 111,
+                  ayahs: [],
+                }),
+              });
+          });
+        }
+        return Promise.reject(new Error('Unknown url'));
+      });
+
+      // 1. User navigates to Surah 11
+      const p1 = useQuranStore.getState().loadSurah(11);
+      useQuranStore.setState({ activeSurah: ALL_SURAHS[10] });
+
+      // 2. User rapidly navigates to Surah 12
+      const p2 = useQuranStore.getState().loadSurah(12);
+      useQuranStore.setState({ activeSurah: ALL_SURAHS[11] });
+
+      // 3. User rapidly navigates back to Surah 11 while both are in-flight
+      const p3 = useQuranStore.getState().loadSurah(11);
+      useQuranStore.setState({ activeSurah: ALL_SURAHS[10] });
+
+      // Zero duplicate fetch for Surah 11
+      expect(fetchCountSurah1).toBe(1);
+
+      // Order 1: Surah 11 finishes, then Surah 12 finishes
+      resolveSurah1(null);
+      await Promise.all([p1, p3]);
+
+      expect(useQuranStore.getState().surahData?.surahNo).toBe(11);
+      expect(useQuranStore.getState().loadingSurah).toBe(false);
+
+      // Now Surah 12 finishes later
+      resolveSurah2(null);
+      await p2;
+
+      // Active Surah 11 MUST NOT be overwritten by Surah 12
+      expect(useQuranStore.getState().surahData?.surahNo).toBe(11);
+      expect(useQuranStore.getState().loadingSurah).toBe(false);
+      expect(fetchCountSurah1).toBe(1);
+    });
+
+    it('supports rapid A -> B -> A navigation during loading (order: B finishes before A)', async () => {
+      let resolveSurah1: (val: unknown) => void = () => {};
+      let resolveSurah2: (val: unknown) => void = () => {};
+      let fetchCountSurah1 = 0;
+
+      vi.stubGlobal('fetch', (url: string) => {
+        if (url.includes('/data/quran/surahs/21.json')) {
+          fetchCountSurah1++;
+          return new Promise((res) => {
+            resolveSurah1 = () =>
+              res({
+                ok: true,
+                json: async () => ({
+                  surahNo: 21,
+                  nameAr: 'الأنبياء',
+                  totalAyahs: 112,
+                  ayahs: [],
+                }),
+              });
+          });
+        }
+        if (url.includes('/data/quran/surahs/22.json')) {
+          return new Promise((res) => {
+            resolveSurah2 = () =>
+              res({
+                ok: true,
+                json: async () => ({
+                  surahNo: 22,
+                  nameAr: 'الحج',
+                  totalAyahs: 78,
+                  ayahs: [],
+                }),
+              });
+          });
+        }
+        return Promise.reject(new Error('Unknown url'));
+      });
+
+      // 1. User navigates to Surah 21
+      const p1 = useQuranStore.getState().loadSurah(21);
+      useQuranStore.setState({ activeSurah: ALL_SURAHS[20] });
+
+      // 2. User rapidly navigates to Surah 22
+      const p2 = useQuranStore.getState().loadSurah(22);
+      useQuranStore.setState({ activeSurah: ALL_SURAHS[21] });
+
+      // 3. User rapidly navigates back to Surah 21
+      const p3 = useQuranStore.getState().loadSurah(21);
+      useQuranStore.setState({ activeSurah: ALL_SURAHS[20] });
+
+      // Order 2: Surah 22 finishes first
+      resolveSurah2(null);
+      await p2;
+
+      // Surah 22 must NOT overwrite active Surah 21
+      expect(useQuranStore.getState().surahData).toBeNull();
+      expect(useQuranStore.getState().loadingSurah).toBe(true);
+
+      // Then Surah 21 finishes
+      resolveSurah1(null);
+      await Promise.all([p1, p3]);
+
+      // Active Surah 21 is adopted and loading ends
+      expect(useQuranStore.getState().surahData?.surahNo).toBe(21);
+      expect(useQuranStore.getState().loadingSurah).toBe(false);
+      expect(fetchCountSurah1).toBe(1);
     });
 
     it('sets surahLoadError to true and clears old surahData when load fails', async () => {
@@ -292,8 +551,6 @@ describe('Quran Feature — Review Fixes & Regression Test Suite', () => {
       const p1 = useQuranStore.getState().loadSurah(5);
       const p2 = useQuranStore.getState().loadSurah(5);
 
-      // Both should return the exact same in-flight Promise instance
-      expect(p1).toBe(p2);
       expect(fetchCallCount).toBe(1);
 
       resolvePromise(null);
@@ -333,7 +590,6 @@ describe('Quran Feature — Review Fixes & Regression Test Suite', () => {
       const tafsirName = 'تفسير ابن كثير';
       const tafsirContent = 'افتتح بها كتاب الله تبارك وتعالى...';
 
-      // Verify the formatted string template
       const text = `﴿ ${ayahTextAr} ﴾\n[سورة ${surahNameAr}: الآية ${ayahNo}]\n\nالتفسير (${tafsirName}):\n${tafsirContent}\n\nالمصدر: منصة النور القرآنية`;
 
       expect(text).toContain('[سورة الفاتحة: الآية 1]');
