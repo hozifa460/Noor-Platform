@@ -7,6 +7,7 @@ import {
   Headphones,
   Play,
   Pause,
+  Search,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +16,7 @@ import {
   useQuranAudio,
 } from '../model';
 import {
+  ALL_SURAHS,
   QIRAAT_LIST,
   getAyahRecitersForQiraah,
   isAyahAudioSupportedForQiraah,
@@ -28,6 +30,7 @@ import { PdfViewer } from '@/components/pdf-viewer/PdfViewer';
 import { AyahDetailModal } from './AyahDetailModal';
 import { SurahDrawer } from './SurahDrawer';
 import { ReciterModal } from './ReciterModal';
+import { QuranSearchModal } from './QuranSearchModal';
 import { QuranAudioBar } from './QuranAudioBar';
 import { AyahCard } from './AyahCard';
 import { QuickAyahMenu } from './QuickAyahMenu';
@@ -61,6 +64,9 @@ export function QuranHubView() {
   const pauseAudio = useQuranStore((s) => s.pauseAudio);
   const stopAudio = useQuranStore((s) => s.stopAudio);
   const playNextAyah = useQuranStore((s) => s.playNextAyah);
+  const highlightedTarget = useQuranStore((s) => s.highlightedTarget);
+  const openQuranSearch = useQuranStore((s) => s.openQuranSearch);
+  const setHighlightedTarget = useQuranStore((s) => s.setHighlightedTarget);
 
   const [surahDrawerOpen, setSurahDrawerOpen] = useState(false);
   const [recitersModalOpen, setRecitersModalOpen] = useState(false);
@@ -126,6 +132,89 @@ export function QuranHubView() {
       isCancelled = true;
     };
   }, [activeQiraah.id]);
+
+  // Global keydown listener for Ctrl+K / Cmd+K to open search modal
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        openQuranSearch();
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [openQuranSearch]);
+
+  // Deep link URL query params parser (?surah=X&ayah=Y)
+  // Decoupled from activeSurah so manual user surah selection is never overridden by old URL
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const parseDeepLinkParams = () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const sParam = params.get('surah');
+        const aParam = params.get('ayah');
+
+        if (sParam) {
+          const sNum = parseInt(sParam, 10);
+          if (!isNaN(sNum) && sNum >= 1 && sNum <= 114) {
+            const targetSurah = ALL_SURAHS[sNum - 1];
+            const currentSurah = useQuranStore.getState().activeSurah;
+            if (currentSurah.number !== sNum) {
+              setActiveSurah(targetSurah, { skipUrlUpdate: true });
+            }
+            if (aParam) {
+              const aNum = parseInt(aParam, 10);
+              if (!isNaN(aNum) && aNum >= 1 && aNum <= targetSurah.numberOfAyahs) {
+                setViewMode('interactive');
+                setHighlightedTarget({ surahNo: sNum, ayahNo: aNum });
+              } else {
+                setHighlightedTarget(null);
+              }
+            } else {
+              setHighlightedTarget(null);
+            }
+          }
+        } else {
+          setHighlightedTarget(null);
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+
+    parseDeepLinkParams();
+    window.addEventListener('popstate', parseDeepLinkParams);
+    return () => window.removeEventListener('popstate', parseDeepLinkParams);
+  }, [setActiveSurah, setViewMode, setHighlightedTarget]);
+
+  // Smooth scroll to highlighted ayah when destination surah is rendered in interactive view
+  useEffect(() => {
+    if (
+      highlightedTarget &&
+      highlightedTarget.surahNo === activeSurah.number &&
+      highlightedTarget.surahNo === surahData?.surahNo &&
+      !loadingSurah &&
+      viewMode === 'interactive'
+    ) {
+      const targetAyah = highlightedTarget.ayahNo;
+      const timer = setTimeout(() => {
+        const currentTarget = useQuranStore.getState().highlightedTarget;
+        if (
+          currentTarget &&
+          currentTarget.surahNo === activeSurah.number &&
+          currentTarget.ayahNo === targetAyah
+        ) {
+          const el = document.getElementById(`ayah-${targetAyah}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedTarget, activeSurah.number, loadingSurah, surahData, viewMode]);
 
   const handleCopyAyah = (ayah: AyahItem, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -198,6 +287,21 @@ export function QuranHubView() {
                 ))}
               </select>
             </div>
+
+            {/* Quran Ayah Search Trigger */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={openQuranSearch}
+              className="gap-2 font-bold text-xs sm:text-sm rounded-2xl bg-card hover:bg-muted border-border shadow-sm h-10 px-3 sm:px-4 text-muted-foreground hover:text-foreground"
+              title="البحث في آيات القرآن الكريم (Ctrl+K)"
+            >
+              <Search className="size-4 text-primary shrink-0" />
+              <span className="hidden sm:inline font-bold text-foreground">بحث في الآيات</span>
+              <kbd className="hidden md:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-lg bg-muted border border-border text-[10px] font-mono text-muted-foreground">
+                Ctrl K
+              </kbd>
+            </Button>
           </div>
 
           {/* Center & Left: Controls & Reciters */}
@@ -433,6 +537,10 @@ export function QuranHubView() {
                   key={ayah.ayahNo}
                   ayah={ayah}
                   isPlaying={isPlaying}
+                  isHighlighted={
+                    highlightedTarget?.surahNo === activeSurah.number &&
+                    highlightedTarget?.ayahNo === ayah.ayahNo
+                  }
                   isAudioSupported={isVerseLevelAvailable}
                   onPlay={() => {
                     if (isPlaying) {
@@ -607,6 +715,9 @@ export function QuranHubView() {
           }}
         />
       )}
+
+      {/* Full-featured Quran Ayah Search Modal */}
+      <QuranSearchModal />
     </div>
   );
 }

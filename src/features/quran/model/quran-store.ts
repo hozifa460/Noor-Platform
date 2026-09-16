@@ -15,6 +15,7 @@ import {
   type SurahDetail,
   type ReciterMeta,
 } from '../domain';
+import type { QuranSearchResult } from '../infrastructure';
 import type { MediaItem } from '@/lib/types';
 
 
@@ -46,7 +47,7 @@ interface QuranState {
 
   // Actions
   setActiveQiraah: (q: QiraahMeta) => void;
-  setActiveSurah: (s: SurahMeta) => void;
+  setActiveSurah: (s: SurahMeta, options?: { skipUrlUpdate?: boolean }) => void;
   nextSurah: () => void;
   prevSurah: () => void;
   setActiveTranslation: (t: QuranTranslationMeta | null) => void;
@@ -70,6 +71,20 @@ interface QuranState {
   playNextAyah: () => void;
   setIsPlayingFullSurah: (playing: boolean) => void;
   registerAudioElement: (el: HTMLAudioElement | null) => void;
+
+  // Quran Ayah Search & Deep Navigation
+  highlightedAyah: number | null;
+  highlightedTarget: { surahNo: number; ayahNo: number } | null;
+  quranSearchQuery: string;
+  quranSearchResults: QuranSearchResult[];
+  isSearchModalOpen: boolean;
+  setQuranSearchQuery: (q: string) => void;
+  setQuranSearchResults: (results: QuranSearchResult[]) => void;
+  openQuranSearch: () => void;
+  closeQuranSearch: () => void;
+  setHighlightedAyah: (ayah: number | null) => void;
+  setHighlightedTarget: (target: { surahNo: number; ayahNo: number } | null) => void;
+  navigateToAyah: (surahNumber: number, ayahNumber: number) => Promise<void>;
 }
 
 const surahMemoryCache = new Map<number, SurahDetail>();
@@ -82,6 +97,12 @@ export function clearQuranMemoryCacheForTesting(): void {
   inFlightSurahFetches.clear();
   latestSurahRequestId = 0;
   currentAudioSessionId = 0;
+  useQuranStore.setState({
+    highlightedAyah: null,
+    quranSearchQuery: '',
+    quranSearchResults: [],
+    isSearchModalOpen: false,
+  });
 }
 
 async function fetchSurahDetail(surahNumber: number): Promise<SurahDetail> {
@@ -168,6 +189,73 @@ export const useQuranStore = create<QuranState>((set, get) => ({
   loadingSurah: false,
   surahLoadError: false,
 
+  // Quran Ayah Search & Highlighting State
+  highlightedAyah: null,
+  highlightedTarget: null,
+  quranSearchQuery: '',
+  quranSearchResults: [],
+  isSearchModalOpen: false,
+
+  setQuranSearchQuery: (quranSearchQuery) => set({ quranSearchQuery }),
+  setQuranSearchResults: (quranSearchResults) => set({ quranSearchResults }),
+  openQuranSearch: () => set({ isSearchModalOpen: true }),
+  closeQuranSearch: () => set({ isSearchModalOpen: false }),
+  setHighlightedAyah: (highlightedAyah) =>
+    set((s) => ({
+      highlightedAyah,
+      highlightedTarget: highlightedAyah ? { surahNo: s.activeSurah.number, ayahNo: highlightedAyah } : null,
+    })),
+  setHighlightedTarget: (highlightedTarget) =>
+    set({
+      highlightedTarget,
+      highlightedAyah: highlightedTarget?.ayahNo ?? null,
+    }),
+
+  navigateToAyah: async (surahNumber: number, ayahNumber: number): Promise<void> => {
+    // 1. Ensure audio is stopped (do not auto-play audio)
+    get().stopAudio();
+
+    // 2. Set active surah and interactive view mode
+    const surahMeta = ALL_SURAHS.find((s) => s.number === surahNumber);
+    if (surahMeta) {
+      set({
+        activeSurah: surahMeta,
+        viewMode: 'interactive',
+        highlightedAyah: ayahNumber,
+        highlightedTarget: { surahNo: surahNumber, ayahNo: ayahNumber },
+        isSearchModalOpen: false,
+      });
+    }
+
+    // 3. Update URL with query parameters without full page reload
+    if (typeof window !== 'undefined') {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('surah', String(surahNumber));
+        url.searchParams.set('ayah', String(ayahNumber));
+        window.history.pushState({}, '', url.toString());
+      } catch {
+        /* ignore */
+      }
+    }
+
+    // 4. Load the target surah
+    await get().loadSurah(surahNumber);
+
+    // 5. Scroll smoothly to target Ayah element in DOM (only if destination still matches)
+    if (typeof window !== 'undefined') {
+      setTimeout(() => {
+        const currentTarget = get().highlightedTarget;
+        if (currentTarget?.surahNo === surahNumber && currentTarget?.ayahNo === ayahNumber) {
+          const el = document.getElementById(`ayah-${ayahNumber}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      }, 150);
+    }
+  },
+
   setActiveQiraah: (activeQiraah) => {
     // Stop ongoing playback on Riwayah switch to avoid desync
     get().stopAudio();
@@ -178,12 +266,30 @@ export const useQuranStore = create<QuranState>((set, get) => ({
     });
   },
 
-  setActiveSurah: (activeSurah) => {
+  setActiveSurah: (activeSurah, options) => {
     get().stopAudio();
     set({
       activeSurah,
       surahLoadError: false,
+      highlightedAyah: null,
+      highlightedTarget: null,
     });
+    // Remove obsolete ayah parameter from URL if user manually changed surah
+    if (!options?.skipUrlUpdate && typeof window !== 'undefined') {
+      try {
+        const url = new URL(window.location.href);
+        const prevSurah = url.searchParams.get('surah');
+        url.searchParams.set('surah', String(activeSurah.number));
+        url.searchParams.delete('ayah');
+        if (prevSurah && prevSurah !== String(activeSurah.number)) {
+          window.history.pushState({}, '', url.toString());
+        } else {
+          window.history.replaceState({}, '', url.toString());
+        }
+      } catch {
+        /* ignore */
+      }
+    }
     get().loadSurah(activeSurah.number);
   },
 

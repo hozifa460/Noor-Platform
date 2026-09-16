@@ -13,6 +13,7 @@ interface AyahCardProps {
   onOpenDetail: () => void;
   onCopy: (e: React.MouseEvent) => void;
   isCopied: boolean;
+  isHighlighted?: boolean;
   fontSize: number;
   showTranslation: boolean;
   translationText?: string;
@@ -28,6 +29,7 @@ export function AyahCard({
   onOpenDetail,
   onCopy,
   isCopied,
+  isHighlighted = false,
   fontSize,
   showTranslation,
   translationText,
@@ -41,7 +43,8 @@ export function AyahCard({
         'group relative p-4 sm:p-6 rounded-2xl border transition-all duration-300 text-right',
         isPlaying
           ? 'bg-primary/5 border-primary/60 shadow-lg ring-2 ring-primary/20 -translate-y-0.5'
-          : 'bg-card border-border/80 hover:border-primary/40 hover:shadow-sm'
+          : 'bg-card border-border/80 hover:border-primary/40 hover:shadow-sm',
+        isHighlighted && 'ring-2 sm:ring-4 ring-primary ring-offset-2 ring-offset-background border-primary shadow-2xl bg-primary/10 transition-all duration-500'
       )}
     >
       {/* Top action row */}
