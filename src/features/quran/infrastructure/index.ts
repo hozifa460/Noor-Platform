@@ -3,3 +3,4 @@ export * from './eerab-engine';
 export * from './translation-engine';
 export * from './mp3quran-engine';
 export * from './quran-search-engine';
+export * from './word-morphology-engine';

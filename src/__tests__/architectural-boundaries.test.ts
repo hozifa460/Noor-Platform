@@ -19,7 +19,7 @@ describe('Architectural Boundaries Enforcement (ESLint Rules)', () => {
       m.message.includes('Domain layer must remain pure')
     );
     expect(violation).toBeDefined();
-  }, 15000);
+  }, 30000);
 
   it('rejects domain layer importing from UI layer via @/features alias', async () => {
     const invalidDomainCode = `

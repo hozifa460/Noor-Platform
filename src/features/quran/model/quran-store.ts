@@ -14,6 +14,7 @@ import {
   type AyahItem,
   type SurahDetail,
   type ReciterMeta,
+  type QuranWordTarget,
 } from '../domain';
 import type { QuranSearchResult } from '../infrastructure';
 import type { MediaItem } from '@/lib/types';
@@ -85,6 +86,12 @@ interface QuranState {
   setHighlightedAyah: (ayah: number | null) => void;
   setHighlightedTarget: (target: { surahNo: number; ayahNo: number } | null) => void;
   navigateToAyah: (surahNumber: number, ayahNumber: number) => Promise<void>;
+
+  // Word Morphology & Root Explorer («استكشف الكلمة»)
+  selectedWordTarget: QuranWordTarget | null;
+  isWordExplorerOpen: boolean;
+  openWordExplorer: (target: QuranWordTarget) => void;
+  closeWordExplorer: () => void;
 }
 
 const surahMemoryCache = new Map<number, SurahDetail>();
@@ -99,9 +106,12 @@ export function clearQuranMemoryCacheForTesting(): void {
   currentAudioSessionId = 0;
   useQuranStore.setState({
     highlightedAyah: null,
+    highlightedTarget: null,
     quranSearchQuery: '',
     quranSearchResults: [],
     isSearchModalOpen: false,
+    selectedWordTarget: null,
+    isWordExplorerOpen: false,
   });
 }
 
@@ -211,6 +221,11 @@ export const useQuranStore = create<QuranState>((set, get) => ({
       highlightedAyah: highlightedTarget?.ayahNo ?? null,
     }),
 
+  selectedWordTarget: null,
+  isWordExplorerOpen: false,
+  openWordExplorer: (selectedWordTarget) => set({ selectedWordTarget, isWordExplorerOpen: true }),
+  closeWordExplorer: () => set({ isWordExplorerOpen: false }),
+
   navigateToAyah: async (surahNumber: number, ayahNumber: number): Promise<void> => {
     // 1. Ensure audio is stopped (do not auto-play audio)
     get().stopAudio();
@@ -224,6 +239,7 @@ export const useQuranStore = create<QuranState>((set, get) => ({
         highlightedAyah: ayahNumber,
         highlightedTarget: { surahNo: surahNumber, ayahNo: ayahNumber },
         isSearchModalOpen: false,
+        isWordExplorerOpen: false,
       });
     }
 
