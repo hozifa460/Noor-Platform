@@ -31,6 +31,7 @@ import { AyahDetailModal } from './AyahDetailModal';
 import { SurahDrawer } from './SurahDrawer';
 import { ReciterModal } from './ReciterModal';
 import { QuranSearchModal } from './QuranSearchModal';
+import { WordExplorerDrawer } from './WordExplorerDrawer';
 import { QuranAudioBar } from './QuranAudioBar';
 import { AyahCard } from './AyahCard';
 import { QuickAyahMenu } from './QuickAyahMenu';
@@ -67,6 +68,8 @@ export function QuranHubView() {
   const highlightedTarget = useQuranStore((s) => s.highlightedTarget);
   const openQuranSearch = useQuranStore((s) => s.openQuranSearch);
   const setHighlightedTarget = useQuranStore((s) => s.setHighlightedTarget);
+  const openWordExplorer = useQuranStore((s) => s.openWordExplorer);
+  const selectedWordTarget = useQuranStore((s) => s.selectedWordTarget);
 
   const [surahDrawerOpen, setSurahDrawerOpen] = useState(false);
   const [recitersModalOpen, setRecitersModalOpen] = useState(false);
@@ -558,6 +561,14 @@ export function QuranHubView() {
                   translationText={translation}
                   translationDirection={activeTranslation?.direction || 'ltr'}
                   isEnglishTranslation={Boolean(activeTranslation?.code.startsWith('en-'))}
+                  surahNo={activeSurah.number}
+                  onWordClick={openWordExplorer}
+                  selectedWordIndex={
+                    selectedWordTarget?.surahNo === activeSurah.number &&
+                    selectedWordTarget?.ayahNo === ayah.ayahNo
+                      ? selectedWordTarget.wordIndex
+                      : null
+                  }
                 />
               );
             })}
@@ -718,6 +729,9 @@ export function QuranHubView() {
 
       {/* Full-featured Quran Ayah Search Modal */}
       <QuranSearchModal />
+
+      {/* Word Morphology & Root Explorer Drawer («استكشف الكلمة») */}
+      <WordExplorerDrawer />
     </div>
   );
 }

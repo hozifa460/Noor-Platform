@@ -1,12 +1,14 @@
 'use client';
 
+import { useMemo } from 'react';
 import { Play, Pause, Copy, BookOpen, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { AyahItem } from '../domain';
+import { type AyahItem, type QuranWordTarget, tokenizeAyahWords } from '../domain';
 import { cn } from '@/lib/utils';
 
 interface AyahCardProps {
   ayah: AyahItem;
+  surahNo?: number;
   isPlaying: boolean;
   isAudioSupported?: boolean;
   onPlay: () => void;
@@ -19,10 +21,13 @@ interface AyahCardProps {
   translationText?: string;
   translationDirection?: 'rtl' | 'ltr';
   isEnglishTranslation?: boolean;
+  onWordClick?: (target: QuranWordTarget) => void;
+  selectedWordIndex?: number | null;
 }
 
 export function AyahCard({
   ayah,
+  surahNo,
   isPlaying,
   isAudioSupported = true,
   onPlay,
@@ -35,7 +40,10 @@ export function AyahCard({
   translationText,
   translationDirection = 'ltr',
   isEnglishTranslation = true,
+  onWordClick,
+  selectedWordIndex,
 }: AyahCardProps) {
+  const words = useMemo(() => tokenizeAyahWords(ayah.textAr), [ayah.textAr]);
   return (
     <div
       id={`ayah-${ayah.ayahNo}`}
@@ -121,7 +129,44 @@ export function AyahCard({
         style={{ fontSize: `${fontSize}px`, lineHeight: `${fontSize * 2.2}px` }}
         onClick={onOpenDetail}
       >
-        {ayah.textAr}
+        {onWordClick && surahNo ? (
+          words.map((token, idx) => {
+            if (token.type === 'waqf') {
+              return (
+                <span key={`waqf-${idx}`} className="inline-block px-1 text-muted-foreground/70 select-none">
+                  {token.text}
+                </span>
+              );
+            }
+            const isSelected = selectedWordIndex === token.wordIndex;
+            return (
+              <span
+                key={`word-${token.wordIndex}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onWordClick && token.wordIndex) {
+                    onWordClick({
+                      surahNo,
+                      ayahNo: ayah.ayahNo,
+                      wordIndex: token.wordIndex,
+                      wordText: token.text,
+                    });
+                  }
+                }}
+                className={cn(
+                  'inline-block px-1 py-0.5 rounded-lg transition-colors cursor-pointer',
+                  'hover:bg-primary/15 hover:text-primary',
+                  isSelected && 'bg-primary/20 text-primary font-bold ring-1 ring-primary/40'
+                )}
+                title={`استكشف كلمة: ${token.text}`}
+              >
+                {token.text}
+              </span>
+            );
+          })
+        ) : (
+          ayah.textAr
+        )}
         <span className="inline-block mx-2 text-primary font-mono text-base select-none">
           ﴿{ayah.ayahNo}﴾
         </span>
