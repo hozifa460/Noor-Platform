@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 interface AyahCardProps {
   ayah: AyahItem;
   isPlaying: boolean;
+  isAudioSupported?: boolean;
   onPlay: () => void;
   onOpenDetail: () => void;
   onCopy: (e: React.MouseEvent) => void;
@@ -22,6 +23,7 @@ interface AyahCardProps {
 export function AyahCard({
   ayah,
   isPlaying,
+  isAudioSupported = true,
   onPlay,
   onOpenDetail,
   onCopy,
@@ -66,9 +68,16 @@ export function AyahCard({
           <Button
             variant="ghost"
             size="icon"
-            className="size-8 rounded-lg"
-            onClick={onPlay}
-            title={isPlaying ? 'إيقاف مؤقت' : 'استماع للآية'}
+            className={cn('size-8 rounded-lg', !isAudioSupported && 'opacity-40 cursor-not-allowed')}
+            disabled={!isAudioSupported}
+            onClick={isAudioSupported ? onPlay : undefined}
+            title={
+              !isAudioSupported
+                ? 'تلاوة مقاطع الآيات غير متوفرة لهذه الرواية'
+                : isPlaying
+                ? 'إيقاف مؤقت'
+                : 'استماع للآية'
+            }
           >
             {isPlaying ? (
               <Pause className="size-4 text-primary" />

@@ -23,6 +23,7 @@ import {
 import {
   QURAN_TRANSLATIONS,
   getAyahRecitersForQiraah,
+  getAyahAudioUrl,
   type QuranTranslationMeta,
   type SurahMeta,
   type QiraahMeta,
@@ -86,10 +87,8 @@ export function AyahDetailModal({
     availableAyahReciters[0] ||
     null;
 
-  const sStr = String(surah.number).padStart(3, '0');
-  const aStr = String(ayah.ayahNo).padStart(3, '0');
   const audioUrl = selectedAyahReciter
-    ? `https://everyayah.com/data/${selectedAyahReciter.subfolder}/${sStr}${aStr}.mp3`
+    ? getAyahAudioUrl(selectedAyahReciter.subfolder, surah.number, ayah.ayahNo, activeQiraah.id)
     : '';
 
   const {
@@ -102,6 +101,10 @@ export function AyahDetailModal({
     togglePlay: toggleLoopPlay,
     resetLoop,
   } = useAyahAudioLoop({ audioUrl });
+
+  useEffect(() => {
+    resetLoop();
+  }, [ayah.ayahNo, resetLoop]);
 
   useEffect(() => {
     let isMounted = true;
@@ -173,6 +176,9 @@ export function AyahDetailModal({
 
   const handleCopy = () => {
     if (activeTab === 'translation') {
+      if (loadingTranslation || loadedTranslationKey !== translationKey) {
+        return;
+      }
       const text = `﴿ ${ayah.textAr} ﴾\n[سورة ${surah.nameAr}: الآية ${ayah.ayahNo}]\n\nالترجمة (${selectedTranslation.name} - ${selectedTranslation.author}):\n${translationText}\n\nالمصدر: منصة النور القرآنية`;
       copy(text, 'تم نسخ نص الآية والترجمة بنجاح');
       return;
@@ -183,7 +189,7 @@ export function AyahDetailModal({
       return;
     }
     const tafsirName = SUPPORTED_TAFSIRS.find((t) => t.id === selectedTafsirId)?.name || 'التفسير';
-    const text = `﴿ ${ayah.textAr} ﴾\n[سورة ${surah.nameAr}: الآية ${ayah.ayahNo} - ${activeQiraah.name}]\n\nالتفسير (${tafsirName}):\n${stripHtmlToPlainText(tafsirContent)}\n\nالمصدر: منصة النور القرآنية`;
+    const text = `﴿ ${ayah.textAr} ﴾\n[سورة ${surah.nameAr}: الآية ${ayah.ayahNo}]\n\nالتفسير (${tafsirName}):\n${stripHtmlToPlainText(tafsirContent)}\n\nالمصدر: منصة النور القرآنية`;
     copy(text, 'تم نسخ نص الآية والتفسير بنجاح');
   };
 

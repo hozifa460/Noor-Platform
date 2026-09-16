@@ -7,6 +7,7 @@ import {
   QURAN_TRANSLATIONS,
   WARSH_AYAH_RECITERS,
   QURAN_RECITERS,
+  isAyahAudioSupportedForQiraah,
   type SurahMeta,
   type QiraahMeta,
   type QuranTranslationMeta,
@@ -32,6 +33,8 @@ interface QuranState {
   // Audio Playback
   currentPlayingAyah: number | null;
   isPlayingAudio: boolean;
+  isPlayingFullSurah: boolean;
+  registeredAudioElement: HTMLAudioElement | null;
   autoPlayNext: boolean;
 
   // Surah browser
@@ -65,9 +68,12 @@ interface QuranState {
   pauseAudio: () => void;
   stopAudio: () => void;
   playNextAyah: () => void;
+  setIsPlayingFullSurah: (playing: boolean) => void;
+  registerAudioElement: (el: HTMLAudioElement | null) => void;
 }
 
 const surahMemoryCache = new Map<number, SurahDetail>();
+const inFlightSurahPromises = new Map<number, Promise<void>>();
 let latestSurahRequestId = 0;
 
 export const useQuranStore = create<QuranState>((set, get) => ({
@@ -84,6 +90,8 @@ export const useQuranStore = create<QuranState>((set, get) => ({
 
   currentPlayingAyah: null,
   isPlayingAudio: false,
+  isPlayingFullSurah: false,
+  registeredAudioElement: null,
   autoPlayNext: true,
 
   searchQuery: '',
@@ -94,20 +102,18 @@ export const useQuranStore = create<QuranState>((set, get) => ({
 
   setActiveQiraah: (activeQiraah) => {
     // Stop ongoing playback on Riwayah switch to avoid desync
+    get().stopAudio();
     set({
       activeQiraah,
-      currentPlayingAyah: null,
-      isPlayingAudio: false,
       activeReciter:
         activeQiraah.id === 'warsh' ? WARSH_AYAH_RECITERS[0] : QURAN_RECITERS[0],
     });
   },
 
   setActiveSurah: (activeSurah) => {
+    get().stopAudio();
     set({
       activeSurah,
-      currentPlayingAyah: null,
-      isPlayingAudio: false,
       surahLoadError: false,
     });
     get().loadSurah(activeSurah.number);
@@ -140,88 +146,101 @@ export const useQuranStore = create<QuranState>((set, get) => ({
   setFilterType: (filterType) => set({ filterType }),
   setFilterJuz: (filterJuz) => set({ filterJuz }),
 
-  loadSurah: async (surahNumber: number) => {
+  loadSurah: (surahNumber: number): Promise<void> => {
     // 1. Instant 0ms return if already loaded in memory
     const memoryCached = surahMemoryCache.get(surahNumber);
     if (memoryCached) {
       set({ surahData: memoryCached, loadingSurah: false, surahLoadError: false });
-      return;
+      return Promise.resolve();
     }
 
-    const reqId = ++latestSurahRequestId;
-    // Clear previous surah data if navigating to a new surah so old content never displays under new title
-    const currentData = get().surahData;
-    if (currentData && currentData.surahNo !== surahNumber) {
-      set({ surahData: null });
+    // 2. Return identical in-flight promise if already loading
+    const existingInFlight = inFlightSurahPromises.get(surahNumber);
+    if (existingInFlight) {
+      return existingInFlight;
     }
-    set({ loadingSurah: true, surahLoadError: false });
-    
-    // 2. High-speed local Edge asset (committed and served by Vercel / Cloudflare CDN)
-    try {
-      const res = await fetch(`/data/quran/surahs/${surahNumber}.json`, { cache: 'force-cache' });
-      if (res.ok) {
-        const data = (await res.json()) as SurahDetail;
-        surahMemoryCache.set(surahNumber, data);
-        if (reqId === latestSurahRequestId && get().activeSurah.number === surahNumber) {
-          set({ surahData: data, loadingSurah: false, surahLoadError: false });
-        }
-        return;
+
+    const loadPromise = (async () => {
+      const reqId = ++latestSurahRequestId;
+      // Clear previous surah data if navigating to a new surah so old content never displays under new title
+      const currentData = get().surahData;
+      if (currentData && currentData.surahNo !== surahNumber) {
+        set({ surahData: null });
       }
-    } catch {
-      /* fallback to CDN */
-    }
+      set({ loadingSurah: true, surahLoadError: false });
 
-    // 3. Fallback to public Quran Cloud CDN if local asset is unavailable
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
-      const cdnRes = await fetch(
-        `https://api.alquran.cloud/v1/surah/${surahNumber}/editions/quran-uthmani,en.sahih`,
-        { cache: 'force-cache', signal: controller.signal }
-      );
-      clearTimeout(timeoutId);
-      if (cdnRes.ok) {
-        const json = await cdnRes.json();
-        if (json.code === 200 && Array.isArray(json.data) && json.data.length >= 2) {
-          const arData = json.data[0];
-          const enData = json.data[1];
-          const ayahs: AyahItem[] = arData.ayahs.map((a: { numberInSurah: number, number: number, text: string, juz: number, manzil: number, ruku: number, hizbQuarter: number, sajda: boolean | string | object }, idx: number) => ({
-            ayahNo: a.numberInSurah,
-            ayahNoQuran: a.number,
-            textAr: a.text,
-            textEn: enData.ayahs[idx]?.text || '',
-            juz: a.juz,
-            manzil: a.manzil,
-            ruku: a.ruku,
-            hizbQuarter: a.hizbQuarter,
-            isSajdah: Boolean(a.sajda),
-          }));
-
-          const surahMeta = ALL_SURAHS.find((s) => s.number === surahNumber);
-          const constructedDetail: SurahDetail = {
-            surahNo: surahNumber,
-            nameAr: arData.name || surahMeta?.nameAr || `سورة رقم ${surahNumber}`,
-            nameEn: arData.englishName || surahMeta?.nameEn || '',
-            nameRoman: arData.englishNameTranslation || surahMeta?.nameTranslation || '',
-            placeOfRevelation: arData.revelationType || surahMeta?.revelationType || 'Meccan',
-            totalAyahs: arData.numberOfAyahs || ayahs.length,
-            ayahs,
-          };
-
-          surahMemoryCache.set(surahNumber, constructedDetail);
+      // High-speed local Edge asset (committed and served by Vercel / Cloudflare CDN)
+      try {
+        const res = await fetch(`/data/quran/surahs/${surahNumber}.json`, { cache: 'force-cache' });
+        if (res.ok) {
+          const data = (await res.json()) as SurahDetail;
+          surahMemoryCache.set(surahNumber, data);
           if (reqId === latestSurahRequestId && get().activeSurah.number === surahNumber) {
-            set({ surahData: constructedDetail, loadingSurah: false, surahLoadError: false });
+            set({ surahData: data, loadingSurah: false, surahLoadError: false });
           }
           return;
         }
+      } catch {
+        /* fallback to CDN */
       }
-    } catch (err) {
-      console.warn('Failed to load surah from CDN:', err);
-    }
 
-    if (reqId === latestSurahRequestId && get().activeSurah.number === surahNumber) {
-      set({ surahData: null, loadingSurah: false, surahLoadError: true });
-    }
+      // Fallback to public Quran Cloud CDN if local asset is unavailable
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const cdnRes = await fetch(
+          `https://api.alquran.cloud/v1/surah/${surahNumber}/editions/quran-uthmani,en.sahih`,
+          { cache: 'force-cache', signal: controller.signal }
+        );
+        clearTimeout(timeoutId);
+        if (cdnRes.ok) {
+          const json = await cdnRes.json();
+          if (json.code === 200 && Array.isArray(json.data) && json.data.length >= 2) {
+            const arData = json.data[0];
+            const enData = json.data[1];
+            const ayahs: AyahItem[] = arData.ayahs.map((a: { numberInSurah: number, number: number, text: string, juz: number, manzil: number, ruku: number, hizbQuarter: number, sajda: boolean | string | object }, idx: number) => ({
+              ayahNo: a.numberInSurah,
+              ayahNoQuran: a.number,
+              textAr: a.text,
+              textEn: enData.ayahs[idx]?.text || '',
+              juz: a.juz,
+              manzil: a.manzil,
+              ruku: a.ruku,
+              hizbQuarter: a.hizbQuarter,
+              isSajdah: Boolean(a.sajda),
+            }));
+
+            const surahMeta = ALL_SURAHS.find((s) => s.number === surahNumber);
+            const constructedDetail: SurahDetail = {
+              surahNo: surahNumber,
+              nameAr: arData.name || surahMeta?.nameAr || `سورة رقم ${surahNumber}`,
+              nameEn: arData.englishName || surahMeta?.nameEn || '',
+              nameRoman: arData.englishNameTranslation || surahMeta?.nameTranslation || '',
+              placeOfRevelation: arData.revelationType || surahMeta?.revelationType || 'Meccan',
+              totalAyahs: arData.numberOfAyahs || ayahs.length,
+              ayahs,
+            };
+
+            surahMemoryCache.set(surahNumber, constructedDetail);
+            if (reqId === latestSurahRequestId && get().activeSurah.number === surahNumber) {
+              set({ surahData: constructedDetail, loadingSurah: false, surahLoadError: false });
+            }
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load surah from CDN:', err);
+      }
+
+      if (reqId === latestSurahRequestId && get().activeSurah.number === surahNumber) {
+        set({ surahData: null, loadingSurah: false, surahLoadError: true });
+      }
+    })().finally(() => {
+      inFlightSurahPromises.delete(surahNumber);
+    });
+
+    inFlightSurahPromises.set(surahNumber, loadPromise);
+    return loadPromise;
   },
 
   retryLoadSurah: () => {
@@ -261,30 +280,61 @@ export const useQuranStore = create<QuranState>((set, get) => ({
   },
 
   playAyah: (ayahNo) => {
-    set({ currentPlayingAyah: ayahNo, isPlayingAudio: true });
+    const { activeQiraah } = get();
+    if (!isAyahAudioSupportedForQiraah(activeQiraah.id)) {
+      return;
+    }
+    set({ currentPlayingAyah: ayahNo, isPlayingAudio: true, isPlayingFullSurah: false });
   },
 
   pauseAudio: () => {
-    set({ isPlayingAudio: false });
+    const { registeredAudioElement } = get();
+    if (registeredAudioElement) {
+      try {
+        registeredAudioElement.pause();
+      } catch {}
+    }
+    set({ isPlayingAudio: false, isPlayingFullSurah: false });
   },
 
   stopAudio: () => {
-    set({ currentPlayingAyah: null, isPlayingAudio: false });
+    const { registeredAudioElement } = get();
+    if (registeredAudioElement) {
+      try {
+        registeredAudioElement.pause();
+        registeredAudioElement.currentTime = 0;
+      } catch {}
+    }
+    set({ currentPlayingAyah: null, isPlayingAudio: false, isPlayingFullSurah: false });
+  },
+
+  setIsPlayingFullSurah: (isPlayingFullSurah) => {
+    if (isPlayingFullSurah) {
+      set({ isPlayingFullSurah: true, isPlayingAudio: false, currentPlayingAyah: null });
+    } else {
+      set({ isPlayingFullSurah: false });
+    }
+  },
+
+  registerAudioElement: (el) => {
+    set({ registeredAudioElement: el });
   },
 
   playNextAyah: async () => {
-    const { currentPlayingAyah, surahData, autoPlayNext, activeSurah, loadSurah } = get();
-    if (!surahData || currentPlayingAyah === null) return;
+    const { currentPlayingAyah, surahData, autoPlayNext, activeSurah, loadSurah, activeQiraah } = get();
+    if (!surahData || currentPlayingAyah === null || !isAyahAudioSupportedForQiraah(activeQiraah.id)) return;
 
     if (currentPlayingAyah < surahData.totalAyahs) {
-      set({ currentPlayingAyah: currentPlayingAyah + 1, isPlayingAudio: true });
+      set({ currentPlayingAyah: currentPlayingAyah + 1, isPlayingAudio: true, isPlayingFullSurah: false });
     } else if (autoPlayNext && activeSurah.number < 114) {
       const next = ALL_SURAHS[activeSurah.number];
-      set({ activeSurah: next, currentPlayingAyah: null, isPlayingAudio: false });
+      set({ activeSurah: next, currentPlayingAyah: null, isPlayingAudio: false, isPlayingFullSurah: false });
       await loadSurah(next.number);
-      set({ currentPlayingAyah: 1, isPlayingAudio: true });
+      if (isAyahAudioSupportedForQiraah(get().activeQiraah.id)) {
+        set({ currentPlayingAyah: 1, isPlayingAudio: true, isPlayingFullSurah: false });
+      }
     } else {
-      set({ currentPlayingAyah: null, isPlayingAudio: false });
+      set({ currentPlayingAyah: null, isPlayingAudio: false, isPlayingFullSurah: false });
     }
   },
 }));

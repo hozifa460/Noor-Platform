@@ -4,6 +4,7 @@ import type {
   ReciterMeta,
   QuranTranslationMeta,
 } from './types';
+import { getWarshAyahAudioNumber } from '@/lib/shared';
 
 const HF_BASE = 'https://huggingface.co/datasets/hozifa1/islamic_books/resolve/main/books/Alqiraat_Quran';
 
@@ -345,6 +346,10 @@ export const QURAN_RECITERS: ReciterMeta[] = [
 
 export const RECITERS = QURAN_RECITERS;
 
+export function isAyahAudioSupportedForQiraah(qiraahId: string): boolean {
+  return qiraahId === 'hafs' || qiraahId === 'warsh';
+}
+
 export function getAyahRecitersForQiraah(qiraahId: string): ReciterMeta[] {
   if (qiraahId === 'hafs') {
     return QURAN_RECITERS;
@@ -354,5 +359,18 @@ export function getAyahRecitersForQiraah(qiraahId: string): ReciterMeta[] {
   }
   // Other Riwayahs do not have segmented verse-by-verse recordings in EveryAyah; do not fallback to Hafs silently
   return [];
+}
+
+export function getAyahAudioUrl(
+  reciterSubfolder: string,
+  surahNo: number,
+  ayahNo: number,
+  qiraahId: string
+): string {
+  const sStr = String(surahNo).padStart(3, '0');
+  const adjustedAyahNo =
+    qiraahId === 'warsh' ? getWarshAyahAudioNumber(surahNo, ayahNo) : ayahNo;
+  const aStr = String(adjustedAyahNo).padStart(3, '0');
+  return `https://everyayah.com/data/${reciterSubfolder}/${sStr}${aStr}.mp3`;
 }
 

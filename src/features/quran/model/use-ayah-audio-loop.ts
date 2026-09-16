@@ -12,6 +12,14 @@ export function useAyahAudioLoop({ audioUrl }: UseAyahAudioLoopProps) {
   const [repeatLimit, setRepeatLimit] = useState<number>(3);
   const [repeatCount, setRepeatCount] = useState<number>(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     if (!audioRef.current) return;
@@ -21,41 +29,70 @@ export function useAyahAudioLoop({ audioUrl }: UseAyahAudioLoopProps) {
       audioRef.current.src = audioUrl;
       audioRef.current.play().catch((err) => {
         console.warn('Loop playback prevented or failed:', err);
+        clearTimer();
         setIsPlaying(false);
       });
     } else {
+      clearTimer();
       audioRef.current.pause();
     }
-  }, [isPlaying, audioUrl]);
+
+    return () => {
+      clearTimer();
+    };
+  }, [isPlaying, audioUrl, clearTimer]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    return () => {
+      clearTimer();
+      if (audio) {
+        audio.pause();
+      }
+    };
+  }, [clearTimer]);
 
   const handleAudioEnded = useCallback(() => {
     const nextCount = repeatCount + 1;
     if (nextCount < repeatLimit) {
       setRepeatCount(nextCount);
-      setTimeout(() => {
+      clearTimer();
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null;
         if (audioRef.current) {
           audioRef.current.currentTime = 0;
-          audioRef.current.play().catch(console.warn);
+          audioRef.current.play().catch((err) => {
+            console.warn('Loop repeat playback prevented or failed:', err);
+            clearTimer();
+            setIsPlaying(false);
+          });
         }
       }, 800);
     } else {
+      clearTimer();
       setIsPlaying(false);
       setRepeatCount(0);
     }
-  }, [repeatCount, repeatLimit]);
+  }, [repeatCount, repeatLimit, clearTimer]);
 
   const togglePlay = useCallback(() => {
-    setIsPlaying((prev) => !prev);
-  }, []);
+    setIsPlaying((prev) => {
+      if (prev) {
+        clearTimer();
+      }
+      return !prev;
+    });
+  }, [clearTimer]);
 
   const resetLoop = useCallback(() => {
+    clearTimer();
     setIsPlaying(false);
     setRepeatCount(0);
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
-  }, []);
+  }, [clearTimer]);
 
   return {
     audioRef,
