@@ -94,6 +94,30 @@ describe('Quran Ayah Search & Direct Navigation Test Suite', () => {
       expect(ref?.surahNo).toBe(2);
       expect(ref?.ayahNo).toBe(255);
     });
+
+    it('strictly requires full surah number match and rejects partial numeric prefixes (e.g. 2abc, 2:255x, سورة 2abc)', () => {
+      // Inputs with alphanumeric suffix should not be accepted as valid reference
+      const ref1 = parseQuranReference('2abc');
+      expect(ref1?.isValid).not.toBe(true);
+
+      const ref2 = parseQuranReference('2:255x');
+      expect(ref2?.isValid).not.toBe(true);
+
+      const ref3 = parseQuranReference('سورة 2abc');
+      expect(ref3?.isValid).toBe(false);
+      expect(ref3?.errorMessage).toContain('لم يتم التعرف على اسم السورة');
+
+      // Valid full matches continue to succeed
+      const validRef = parseQuranReference('2:255');
+      expect(validRef?.isValid).toBe(true);
+      expect(validRef?.surahNo).toBe(2);
+      expect(validRef?.ayahNo).toBe(255);
+
+      const validSurahNum = parseQuranReference('2');
+      expect(validSurahNum?.isValid).toBe(true);
+      expect(validSurahNum?.surahNo).toBe(2);
+      expect(validSurahNum?.isSurahOnly).toBe(true);
+    });
   });
 
   describe('2. Standalone Surah Name Search', () => {

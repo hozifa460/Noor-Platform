@@ -34,12 +34,7 @@ export function QuranSearchModal() {
   const listRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElementRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      (window as unknown as { __QURAN_SEARCH__?: typeof searchQuranAyahs }).__QURAN_SEARCH__ = searchQuranAyahs;
-    }
-  }, []);
+  const searchRequestIdRef = useRef<number>(0);
 
   // Manage focus: capture prior element, auto-focus on open, restore on close
   useEffect(() => {
@@ -63,6 +58,7 @@ export function QuranSearchModal() {
     const trimmed = query.trim();
 
     if (!trimmed) {
+      searchRequestIdRef.current += 1;
       const timer = setTimeout(() => {
         if (!isMounted) return;
         setResults([]);
@@ -78,12 +74,14 @@ export function QuranSearchModal() {
       };
     }
 
+    const currentRequestId = ++searchRequestIdRef.current;
+
     const timer = setTimeout(async () => {
       setIsLoading(true);
       setLoadError(null);
       try {
         const resp = await searchQuranAyahs(trimmed);
-        if (!isMounted) return;
+        if (!isMounted || currentRequestId !== searchRequestIdRef.current) return;
 
         startTransition(() => {
           setResults(resp.results);
@@ -95,7 +93,7 @@ export function QuranSearchModal() {
           setIsLoading(false);
         });
       } catch (err: unknown) {
-        if (!isMounted) return;
+        if (!isMounted || currentRequestId !== searchRequestIdRef.current) return;
         const msg = err instanceof Error ? err.message : 'تعذر تنفيذ البحث';
         setLoadError(msg);
         setIsLoading(false);
@@ -109,10 +107,16 @@ export function QuranSearchModal() {
   }, [query, setResults]);
 
   const handleSelectResult = useCallback(
-    (item: QuranSearchResult) => {
+    (item: QuranSearchResult | null | undefined) => {
+      if (!item) return;
+      const trimmed = query.trim();
+      // Unified validity check: never select stale results while query changed or search in-flight
+      if (isLoading || trimmed !== executedQuery) {
+        return;
+      }
       navigateToAyah(item.surahNumber, item.ayahNumber);
     },
-    [navigateToAyah]
+    [isLoading, query, executedQuery, navigateToAyah]
   );
 
   // Keyboard navigation & Focus Trap
@@ -153,11 +157,20 @@ export function QuranSearchModal() {
         const limit = Math.min(results.length, displayCount);
         setSelectedIndex((prev) => (limit > 0 ? (prev - 1 + limit) % limit : 0));
       } else if (e.key === 'Enter') {
-        // Prevent selecting stale results while new query is in flight
-        if (isLoading || query.trim() !== executedQuery) {
-          e.preventDefault();
+        const activeEl = document.activeElement;
+        const isInput = activeEl === inputRef.current;
+        const isList = listRef.current ? listRef.current.contains(activeEl) : false;
+
+        // If focus is on any button (Close, Clear, Load More, Retry), let Enter trigger the button's native action
+        if (activeEl instanceof HTMLButtonElement || activeEl?.tagName === 'BUTTON') {
           return;
         }
+
+        // Only handle Enter for selecting search results when focus is on search input or results list
+        if (!isInput && !isList) {
+          return;
+        }
+
         if (results.length > 0 && results[selectedIndex]) {
           e.preventDefault();
           handleSelectResult(results[selectedIndex]);
@@ -167,22 +180,29 @@ export function QuranSearchModal() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, results, selectedIndex, displayCount, isLoading, query, executedQuery, closeSearch, handleSelectResult]);
+  }, [isOpen, results, selectedIndex, displayCount, closeSearch, handleSelectResult]);
 
   const handleRetry = async () => {
     const trimmed = query.trim();
     if (!trimmed) return;
+    const currentRequestId = ++searchRequestIdRef.current;
     setIsLoading(true);
     setLoadError(null);
     try {
       const resp = await searchQuranAyahs(trimmed);
-      setResults(resp.results);
-      setInvalidRefMessage(resp.invalidReferenceMessage || null);
-      setReferenceNotice(resp.referenceNotice || null);
-      setExecutedQuery(trimmed);
-      setDisplayCount(25);
-      setIsLoading(false);
+      if (currentRequestId !== searchRequestIdRef.current) return;
+
+      startTransition(() => {
+        setResults(resp.results);
+        setInvalidRefMessage(resp.invalidReferenceMessage || null);
+        setReferenceNotice(resp.referenceNotice || null);
+        setSelectedIndex(0);
+        setDisplayCount(25);
+        setExecutedQuery(trimmed);
+        setIsLoading(false);
+      });
     } catch (err: unknown) {
+      if (currentRequestId !== searchRequestIdRef.current) return;
       setLoadError(err instanceof Error ? err.message : 'تعذر تحميل فهرس البحث');
       setIsLoading(false);
     }

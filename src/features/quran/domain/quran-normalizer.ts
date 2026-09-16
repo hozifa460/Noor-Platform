@@ -189,12 +189,17 @@ export function parseQuranReference(rawQuery: string): QuranReferenceResult | nu
 }
 
 function findSurahByNameOrNumber(target: string): SurahMeta | null {
-  const asNum = parseInt(target, 10);
-  if (!isNaN(asNum) && asNum >= 1 && asNum <= 114) {
-    return ALL_SURAHS[asNum - 1];
+  const trimmed = target.trim();
+  // Require full match for pure numeric surah identifiers (prevent partial prefix matching like 2abc or 2:255x)
+  if (/^\d+$/.test(trimmed)) {
+    const asNum = parseInt(trimmed, 10);
+    if (asNum >= 1 && asNum <= 114) {
+      return ALL_SURAHS[asNum - 1];
+    }
+    return null;
   }
 
-  const norm = normalizeQuranArabic(target).replace(/^(?:سوره|سورة)\s+/, '');
+  const norm = normalizeQuranArabic(trimmed).replace(/^(?:سوره|سورة)\s+/, '');
   if (SURAH_NAME_MAP.has(norm)) {
     return SURAH_NAME_MAP.get(norm)!;
   }
