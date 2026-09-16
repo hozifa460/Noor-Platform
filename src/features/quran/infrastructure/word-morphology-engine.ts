@@ -20,7 +20,7 @@ let rootsIndexCache: QuranRootsIndex | null = null;
 let rootsIndexPromise: Promise<QuranRootsIndex | null> | null = null;
 
 let ayahTextMapCache: Map<string, string> | null = null;
-let ayahTextMapPromise: Promise<Map<string, string>> | null = null;
+let ayahTextMapPromise: Promise<Map<string, string> | null> | null = null;
 
 /** Clears all in-memory morphology caches (useful for testing retry/recovery) */
 export function clearMorphologyCacheForTesting(): void {
@@ -106,21 +106,25 @@ export async function loadRootsIndex(): Promise<QuranRootsIndex | null> {
 }
 
 /**
- * Loads the verse texts mapping for displaying occurrences text.
+ * Loads the verse texts mapping for displaying occurrences text with explicit status.
  */
-async function loadAyahTextsMap(): Promise<Map<string, string>> {
+export async function loadAyahTextsMapResult(): Promise<{
+  status: 'success' | 'network_error';
+  data: Map<string, string> | null;
+}> {
   if (ayahTextMapCache) {
-    return ayahTextMapCache;
+    return { status: 'success', data: ayahTextMapCache };
   }
   if (ayahTextMapPromise) {
-    return ayahTextMapPromise;
+    const data = await ayahTextMapPromise;
+    return { status: data ? 'success' : 'network_error', data };
   }
 
   ayahTextMapPromise = (async () => {
     try {
       const res = await fetch('/data/quran/quran_search_index.json');
       if (!res.ok) {
-        return new Map<string, string>();
+        return null;
       }
       const rawRows: [number, number, string][] = await res.json();
       const map = new Map<string, string>();
@@ -130,13 +134,19 @@ async function loadAyahTextsMap(): Promise<Map<string, string>> {
       ayahTextMapCache = map;
       return map;
     } catch {
-      return new Map<string, string>();
+      return null;
     } finally {
       ayahTextMapPromise = null;
     }
   })();
 
-  return ayahTextMapPromise;
+  const data = await ayahTextMapPromise;
+  return { status: data ? 'success' : 'network_error', data };
+}
+
+export async function loadAyahTextsMap(): Promise<Map<string, string>> {
+  const res = await loadAyahTextsMapResult();
+  return res.data || new Map<string, string>();
 }
 
 /**
@@ -185,7 +195,7 @@ export async function getWordMorphologyResult(
   // 2. Lookup candidate morphology
   let candidate: QuranWordMorphology | null = surahData.words[`${ayahNo}:${corpusIndex}`] || null;
 
-  // 3. Strict content-verified text check
+  // 3. Strict content-verified text check (without generic search/includes compensation)
   if (wordText) {
     const cleanTarget = cleanArabicForMatching(wordText);
     if (candidate) {
@@ -195,18 +205,8 @@ export async function getWordMorphologyResult(
         (surahNo === 37 && ayahNo === 130 && cleanCandidate.includes(cleanTarget));
 
       if (!isDirectMatch) {
-        // Direct index mismatch; scan words of this ayah to verify by text rather than position alone
-        let verifiedMatch: QuranWordMorphology | null = null;
-        for (let w = 1; ; w++) {
-          const wItem = surahData.words[`${ayahNo}:${w}`];
-          if (!wItem) break;
-          const cleanW = cleanArabicForMatching(wItem.wordArabic);
-          if (cleanW === cleanTarget || (cleanW.includes(cleanTarget) && cleanTarget.length >= 2)) {
-            verifiedMatch = wItem;
-            break;
-          }
-        }
-        candidate = verifiedMatch;
+        // Alignment not proven; do not guess or search across other words
+        candidate = null;
       }
     }
   }
@@ -262,7 +262,15 @@ export async function getRootOccurrencesResult(root: string): Promise<RootOccurr
     return { status: 'success', occurrences: [] };
   }
 
-  const ayahTexts = await loadAyahTextsMap();
+  const textsRes = await loadAyahTextsMapResult();
+  if (textsRes.status === 'network_error' || !textsRes.data) {
+    return {
+      status: 'network_error',
+      occurrences: [],
+      errorMessage: 'تعذر تحميل نصوص الآيات لعرض مواضع الجذر',
+    };
+  }
+  const ayahTexts = textsRes.data;
 
   const occurrences = entry.occurrences.map(([sNo, aNo, wIdx]) => {
     const surahMeta = ALL_SURAHS[sNo - 1];

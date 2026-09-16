@@ -51,6 +51,7 @@ function WordExplorerPanel({
   const [morphology, setMorphology] = useState<QuranWordMorphology | null>(null);
 
   const [occurrencesStatus, setOccurrencesStatus] = useState<MorphologyLoadStatus | 'idle' | 'loading'>('idle');
+  const [occurrencesError, setOccurrencesError] = useState('');
   const [occurrences, setOccurrences] = useState<QuranRootOccurrence[]>([]);
   const [occurrencesFilter, setOccurrencesFilter] = useState('');
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -118,16 +119,41 @@ function WordExplorerPanel({
     if (occurrences.length > 0 && occurrencesStatus === 'success') return;
 
     setOccurrencesStatus('loading');
+    setOccurrencesError('');
     getRootOccurrencesResult(morphology.root)
       .then((res) => {
         setOccurrences(res.occurrences);
         setOccurrencesStatus(res.status);
+        if (res.status === 'network_error') {
+          setOccurrencesError(res.errorMessage || 'تعذر تحميل مواضع هذا الجذر بسبب انقطاع الاتصال');
+        }
       })
       .catch(() => {
         setOccurrences([]);
         setOccurrencesStatus('network_error');
+        setOccurrencesError('تعذر تحميل مواضع هذا الجذر بسبب انقطاع الاتصال');
       });
   }, [morphology, occurrences.length, occurrencesStatus]);
+
+  // Explicit retry for root occurrences
+  const handleRetryRootOccurrences = useCallback(() => {
+    if (!morphology || !morphology.root) return;
+    setOccurrencesStatus('loading');
+    setOccurrencesError('');
+    getRootOccurrencesResult(morphology.root)
+      .then((res) => {
+        setOccurrences(res.occurrences);
+        setOccurrencesStatus(res.status);
+        if (res.status === 'network_error') {
+          setOccurrencesError(res.errorMessage || 'تعذر تحميل مواضع هذا الجذر بسبب انقطاع الاتصال');
+        }
+      })
+      .catch(() => {
+        setOccurrences([]);
+        setOccurrencesStatus('network_error');
+        setOccurrencesError('تعذر تحميل مواضع هذا الجذر بسبب انقطاع الاتصال');
+      });
+  }, [morphology]);
 
   const surahMeta = useMemo(() => {
     return ALL_SURAHS[selectedWordTarget.surahNo - 1] || null;
@@ -415,13 +441,15 @@ function WordExplorerPanel({
                   <AlertTriangle className="size-6" />
                 </div>
                 <div className="space-y-1">
-                  <h4 className="text-sm font-bold text-foreground">تعذر تحميل مواضع هذا الجذر</h4>
+                  <h4 className="text-sm font-bold text-foreground">
+                    {occurrencesError || 'تعذر تحميل مواضع هذا الجذر'}
+                  </h4>
                   <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
-                    حدث خطأ في الشبكة أثناء جلب مواضع الجذر. يرجى التحقق من الاتصال والمحاولة مجدداً.
+                    حدث خطأ في الاتصال بالشبكة أثناء جلب بيانات الآيات أو مواضع الجذر. يرجى التحقق من الاتصال والمحاولة مجدداً.
                   </p>
                 </div>
                 <Button
-                  onClick={handleLoadRootOccurrences}
+                  onClick={handleRetryRootOccurrences}
                   variant="outline"
                   size="sm"
                   className="mx-auto gap-2 rounded-xl text-xs font-bold border-destructive/30 hover:bg-destructive/10"
@@ -523,6 +551,7 @@ export function WordExplorerDrawer() {
   const closeWordExplorer = useQuranStore((s) => s.closeWordExplorer);
   const titleId = useId();
   const triggerElementRef = useRef<HTMLElement | null>(null);
+  const drawerContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Capture originating active element on open
   useEffect(() => {
@@ -544,17 +573,76 @@ export function WordExplorerDrawer() {
     }
   }, [closeWordExplorer, selectedWordTarget]);
 
-  // Keyboard shortcut: close on Escape
+  // Focus trapping (Tab, Shift+Tab) and Escape handling
   useEffect(() => {
     if (!isWordExplorerOpen) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         handleClose();
+        return;
+      }
+
+      if (e.key === 'Tab') {
+        const container = drawerContainerRef.current;
+        if (!container) return;
+
+        const focusableSelector =
+          'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [role="button"]:not([aria-disabled="true"]):not([tabindex="-1"])';
+
+        const focusableElements = Array.from(
+          container.querySelectorAll<HTMLElement>(focusableSelector)
+        ).filter((el) => {
+          return (
+            !el.hasAttribute('disabled') &&
+            el.getAttribute('aria-hidden') !== 'true' &&
+            el.tabIndex >= 0
+          );
+        });
+
+        if (focusableElements.length === 0) {
+          e.preventDefault();
+          return;
+        }
+
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement || !container.contains(document.activeElement)) {
+            e.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          if (document.activeElement === lastElement || !container.contains(document.activeElement)) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
       }
     };
+
+    // Contain focus within drawer: prevent focus from leaking to background elements
+    const handleFocusIn = (e: FocusEvent) => {
+      const container = drawerContainerRef.current;
+      if (container && !container.contains(e.target as Node)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const firstFocusable = container.querySelector<HTMLElement>(
+          'button:not([disabled]), [tabindex="0"]'
+        );
+        firstFocusable?.focus();
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener('focusin', handleFocusIn, true);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('focusin', handleFocusIn, true);
+    };
   }, [isWordExplorerOpen, handleClose]);
 
   if (!isWordExplorerOpen || !selectedWordTarget) {
@@ -563,6 +651,7 @@ export function WordExplorerDrawer() {
 
   return (
     <div
+      ref={drawerContainerRef}
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-end animate-in fade-in duration-200"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
