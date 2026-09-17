@@ -125,6 +125,7 @@ export function AyahCard({
 
       {/* Ayah Text */}
       <div
+        data-testid="ayah-text-container"
         className="font-serif leading-loose select-text cursor-pointer hover:text-primary transition-colors text-stone-900 dark:text-stone-100 break-words [overflow-wrap:anywhere]"
         style={{ fontSize: `${fontSize}px`, lineHeight: `${fontSize * 2.2}px` }}
         onClick={onOpenDetail}

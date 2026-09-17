@@ -51,6 +51,7 @@ import { useIdClipboard } from '@/hooks/use-clipboard';
 declare global {
   interface Window {
     __quranStore?: typeof useQuranStore;
+    __NOOR_ENABLE_TEST_STORE__?: boolean;
   }
 }
 
@@ -111,10 +112,15 @@ export function QuranHubView() {
 
   const audio = useQuranAudio({ activeRiwayahReciter });
 
-  // Expose store on window for browser e2e testing and font size adjustments
+  // Expose store on window strictly when test mode is active or in dev/test (isolated from production builds)
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      window.__quranStore = useQuranStore;
+      const isTestContext =
+        process.env.NODE_ENV !== 'production' ||
+        Boolean(window.__NOOR_ENABLE_TEST_STORE__);
+      if (isTestContext) {
+        window.__quranStore = useQuranStore;
+      }
     }
   }, []);
 
@@ -257,6 +263,14 @@ export function QuranHubView() {
           }
         } else {
           useQuranStore.getState().setHighlightedTarget(null);
+        }
+
+        const fontParam = params.get('fontSize') || params.get('font_size');
+        if (fontParam) {
+          const fSize = parseInt(fontParam, 10);
+          if (!isNaN(fSize) && fSize >= 22 && fSize <= 50) {
+            useQuranStore.getState().setFontSize(fSize);
+          }
         }
       } catch {
         /* ignore */
@@ -630,6 +644,7 @@ export function QuranHubView() {
             )}
 
             <div
+              data-testid="continuous-ayah-container"
               className="text-justify font-quran font-medium leading-[2.6] sm:leading-[3.0] text-amber-950 dark:text-amber-50 break-words [overflow-wrap:anywhere]"
               style={{ fontSize: `${fontSize}px` }}
             >
