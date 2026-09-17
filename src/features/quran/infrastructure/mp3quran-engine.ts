@@ -84,7 +84,12 @@ export function isSurahAvailableInRecording(
   activeQiraahId?: string
 ): boolean {
   if (!reciter || !Array.isArray(reciter.surahList)) return false;
-  if (activeQiraahId && reciter.riwayahId && reciter.riwayahId !== activeQiraahId) return false;
+  // In the playback path, reject any recording that lacks riwayahId or does not match the active Riwayah
+  if (activeQiraahId) {
+    if (!reciter.riwayahId || reciter.riwayahId !== activeQiraahId) {
+      return false;
+    }
+  }
   return reciter.surahList.includes(surahNo);
 }
 

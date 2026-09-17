@@ -1,5 +1,8 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import React, { act, useEffect } from 'react';
+import { createRoot, Root } from 'react-dom/client';
 import {
+  ALL_SURAHS,
   QIRAAT_LIST,
   getQiraahPdfUrl,
   isAyahAudioSupportedForQiraah,
@@ -8,23 +11,47 @@ import {
   QURAN_RECITERS,
   WARSH_AYAH_RECITERS,
 } from '../domain';
+import * as mp3Engine from '../infrastructure';
 import {
   isSurahAvailableInRecording,
   type RiwayahReciterEntry,
 } from '../infrastructure';
-import { useQuranStore } from '../model';
+import { useQuranStore, useQuranAudio, useRiwayahReciters } from '../model';
 import { QURANIC_MUS_HAFS } from '@/data/books/quranic-mus-hafs';
 
 describe('Quran Riwayat, Multi-Reciter Bindings & Hafs Decoupling Suite', () => {
+  let container: HTMLDivElement | null = null;
+  let root: Root | null = null;
+
   beforeEach(() => {
+    (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
     useQuranStore.setState({
       activeQiraah: QIRAAT_LIST[0],
+      activeSurah: ALL_SURAHS[0],
       isPlayingAudio: false,
+      isPlayingFullSurah: false,
       currentPlayingAyah: null,
       highlightedTarget: null,
       isWordExplorerOpen: false,
       isSearchModalOpen: false,
     });
+  });
+
+  afterEach(() => {
+    if (root) {
+      act(() => {
+        root?.unmount();
+      });
+    }
+    if (container && container.parentNode) {
+      container.parentNode.removeChild(container);
+    }
+    container = null;
+    root = null;
+    vi.restoreAllMocks();
   });
 
   describe('1. Hafs Decoupling from Shuaba PDF & Canonical Structure', () => {
@@ -275,8 +302,15 @@ describe('Quran Riwayat, Multi-Reciter Bindings & Hafs Decoupling Suite', () => 
       expect(subsequentHafsUrl).toContain('002255.mp3');
     });
 
-    it('preserves user-selected reciter when changing surah and rejects playback if unrecorded without replacing reciter', () => {
-      // Reciter with partial surah coverage (e.g. Ahmad Deeban in Hisham: only surah 1 and 20)
+    it('hook useQuranAudio: preserves user-selected reciter when changing surah and disables playback for unrecorded surah without replacing reciter', async () => {
+      const hisham = QIRAAT_LIST.find((q) => q.id === 'hisham')!;
+      useQuranStore.setState({
+        activeQiraah: hisham,
+        activeSurah: ALL_SURAHS[0], // Surah 1 (Al-Fatiha)
+        isPlayingFullSurah: true,
+      });
+
+      // Reciter with partial surah coverage: only surahs 1 and 20
       const selectedReciter: RiwayahReciterEntry = {
         reciterId: 99,
         reciterName: 'أحمد ديبان',
@@ -288,54 +322,274 @@ describe('Quran Riwayat, Multi-Reciter Bindings & Hafs Decoupling Suite', () => 
         riwayahId: 'hisham',
       };
 
-      // In Surah 1: surah is available
-      expect(isSurahAvailableInRecording(selectedReciter, 1, 'hisham')).toBe(true);
+      const hookResultRef = { current: null as unknown as ReturnType<typeof useQuranAudio> };
+      function TestAudioComponent() {
+        const audio = useQuranAudio({ activeRiwayahReciter: selectedReciter });
+        useEffect(() => {
+          hookResultRef.current = audio;
+        });
+        return React.createElement('div', null, audio.currentAudioUrl || 'none');
+      }
 
-      // Surah changes to Surah 2 (Al-Baqarah).
-      // The reciter remains selected (not replaced with an automatic fallback),
-      // but isSurahAvailableInRecording strictly returns false, disabling playback.
-      expect(isSurahAvailableInRecording(selectedReciter, 2, 'hisham')).toBe(false);
+      await act(async () => {
+        root?.render(React.createElement(TestAudioComponent));
+      });
 
-      // Surah changes to Surah 20 (Ta-Ha) -> available again without swapping reciter
-      expect(isSurahAvailableInRecording(selectedReciter, 20, 'hisham')).toBe(true);
+      // In Surah 1: surah is available, audio URL must be valid
+      expect(hookResultRef.current.currentAudioUrl).toBe('https://server14.mp3quran.net/deban/001.mp3');
+
+      // Surah changes in store to Surah 2 (Al-Baqarah - unrecorded for this reciter)
+      await act(async () => {
+        useQuranStore.getState().setActiveSurah(ALL_SURAHS[1]);
+        useQuranStore.getState().setIsPlayingFullSurah(true);
+      });
+
+      // The selected reciter remains unchanged, but playback is disabled (URL is null)
+      expect(hookResultRef.current.currentAudioUrl).toBeNull();
+
+      // Surah changes to Surah 20 (Ta-Ha - recorded)
+      await act(async () => {
+        useQuranStore.getState().setActiveSurah(ALL_SURAHS[19]);
+        useQuranStore.getState().setIsPlayingFullSurah(true);
+      });
+
+      expect(hookResultRef.current.currentAudioUrl).toBe('https://server14.mp3quran.net/deban/020.mp3');
     });
 
-    it('invalidates previous reciter immediately during Riwayah switch to prevent stale playback during delayed fetch', () => {
-      // 1. User is on Warsh with active reciter
-      let activeRiwayahReciter: RiwayahReciterEntry | null = {
+    it('hook useRiwayahReciters: invalidates previous reciter immediately during actual delayed request, blocking playback until new list arrives', async () => {
+      const warsh = QIRAAT_LIST.find((q) => q.id === 'warsh')!;
+      const shoaba = QIRAAT_LIST.find((q) => q.id === 'shoaba')!;
+
+      useQuranStore.setState({
+        activeQiraah: warsh,
+        activeSurah: ALL_SURAHS[0],
+        isPlayingFullSurah: true,
+      });
+
+      let resolveShoabaPromise!: (value: RiwayahReciterEntry[]) => void;
+      const delayedShoabaPromise = new Promise<RiwayahReciterEntry[]>((resolve) => {
+        resolveShoabaPromise = resolve;
+      });
+
+      vi.spyOn(mp3Engine, 'getRecitersForRiwayah').mockImplementation(async (riwayahId: string) => {
+        if (riwayahId === 'shoaba') {
+          return delayedShoabaPromise;
+        }
+        return [
+          {
+            reciterId: 10,
+            reciterName: 'قارئ ورش',
+            moshafId: 5,
+            moshafName: 'رواية ورش',
+            server: 'https://server.example.com/warsh/',
+            surahTotal: 114,
+            surahList: [1, 2, 3],
+            riwayahId: 'warsh',
+          },
+        ];
+      });
+
+      const recitersHookRef = { current: null as unknown as ReturnType<typeof useRiwayahReciters> };
+      const audioHookRef = { current: null as unknown as ReturnType<typeof useQuranAudio> };
+
+      function TestIntegrationComponent() {
+        const recitersHook = useRiwayahReciters();
+        const audioHook = useQuranAudio({ activeRiwayahReciter: recitersHook.activeRiwayahReciter });
+        useEffect(() => {
+          recitersHookRef.current = recitersHook;
+          audioHookRef.current = audioHook;
+        });
+        return React.createElement(
+          'div',
+          null,
+          React.createElement('span', { 'data-testid': 'url' }, audioHook.currentAudioUrl || 'none')
+        );
+      }
+
+      // Step 1: Initial mount on Warsh
+      await act(async () => {
+        root?.render(React.createElement(TestIntegrationComponent));
+      });
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 10));
+      });
+
+      expect(recitersHookRef.current.activeRiwayahReciter?.riwayahId).toBe('warsh');
+      expect(audioHookRef.current.currentAudioUrl).toBe('https://server.example.com/warsh/001.mp3');
+
+      // Step 2: User switches to Shoaba with delayed response
+      await act(async () => {
+        recitersHookRef.current.handleSelectQiraah(shoaba);
+      });
+
+      // Step 3: During delayed request window, previous reciter MUST be null, list empty, audio URL blocked
+      // Even if full surah playback is attempted during the delay window:
+      await act(async () => {
+        useQuranStore.getState().setIsPlayingFullSurah(true);
+      });
+      expect(recitersHookRef.current.activeRiwayahReciter).toBeNull();
+      expect(recitersHookRef.current.riwayahReciters).toHaveLength(0);
+      expect(recitersHookRef.current.isLoadingReciters).toBe(true);
+      expect(audioHookRef.current.currentAudioUrl).toBeNull();
+
+      // Step 4: Resolve the delayed response with Shoaba reciters
+      await act(async () => {
+        resolveShoabaPromise([
+          {
+            reciterId: 20,
+            reciterName: 'قارئ شعبة',
+            moshafId: 8,
+            moshafName: 'رواية شعبة',
+            server: 'https://server.example.com/shoaba/',
+            surahTotal: 1,
+            surahList: [1],
+            riwayahId: 'shoaba',
+          },
+        ]);
+      });
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 10));
+      });
+
+      // User initiates playback for the new Shoaba surah
+      await act(async () => {
+        useQuranStore.getState().setIsPlayingFullSurah(true);
+      });
+
+      // Step 5: New reciter active and playback works for Shoaba surah 1
+      expect(recitersHookRef.current.activeRiwayahReciter?.riwayahId).toBe('shoaba');
+      expect(recitersHookRef.current.riwayahReciters).toHaveLength(1);
+      expect(recitersHookRef.current.isLoadingReciters).toBe(false);
+      expect(audioHookRef.current.currentAudioUrl).toBe('https://server.example.com/shoaba/001.mp3');
+    });
+
+    it('hook useRiwayahReciters: re-selecting active Hafs twice preserves reciter and playback availability without wiping', async () => {
+      const hafs = QIRAAT_LIST.find((q) => q.id === 'hafs')!;
+      useQuranStore.setState({
+        activeQiraah: hafs,
+        activeSurah: ALL_SURAHS[0],
+        isPlayingFullSurah: true,
+      });
+
+      vi.spyOn(mp3Engine, 'getRecitersForRiwayah').mockResolvedValue([
+        {
+          reciterId: 1,
+          reciterName: 'مشاري العفاسي',
+          moshafId: 1,
+          moshafName: 'حفص عن عاصم',
+          server: 'https://server8.mp3quran.net/afs/',
+          surahTotal: 114,
+          surahList: Array.from({ length: 114 }, (_, i) => i + 1),
+          riwayahId: 'hafs',
+        },
+      ]);
+
+      const recitersHookRef = { current: null as unknown as ReturnType<typeof useRiwayahReciters> };
+      const audioHookRef = { current: null as unknown as ReturnType<typeof useQuranAudio> };
+
+      function TestHafsComponent() {
+        const recitersHook = useRiwayahReciters();
+        const audioHook = useQuranAudio({ activeRiwayahReciter: recitersHook.activeRiwayahReciter });
+        useEffect(() => {
+          recitersHookRef.current = recitersHook;
+          audioHookRef.current = audioHook;
+        });
+        return React.createElement('div', null);
+      }
+
+      await act(async () => {
+        root?.render(React.createElement(TestHafsComponent));
+      });
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 10));
+      });
+
+      // Initial load: reciter and audio available
+      expect(recitersHookRef.current.activeRiwayahReciter?.reciterName).toBe('مشاري العفاسي');
+      expect(recitersHookRef.current.riwayahReciters).toHaveLength(1);
+      expect(audioHookRef.current.currentAudioUrl).toBe('https://server8.mp3quran.net/afs/001.mp3');
+
+      // 1st re-selection of Hafs: MUST NOT wipe reciter or audio
+      await act(async () => {
+        recitersHookRef.current.handleSelectQiraah(hafs);
+      });
+
+      expect(recitersHookRef.current.activeRiwayahReciter).not.toBeNull();
+      expect(recitersHookRef.current.activeRiwayahReciter?.reciterName).toBe('مشاري العفاسي');
+      expect(recitersHookRef.current.riwayahReciters).toHaveLength(1);
+      expect(audioHookRef.current.currentAudioUrl).toBe('https://server8.mp3quran.net/afs/001.mp3');
+
+      // 2nd re-selection of Hafs: STILL preserved and playback available
+      await act(async () => {
+        recitersHookRef.current.handleSelectQiraah(hafs);
+      });
+
+      expect(recitersHookRef.current.activeRiwayahReciter).not.toBeNull();
+      expect(recitersHookRef.current.activeRiwayahReciter?.reciterName).toBe('مشاري العفاسي');
+      expect(recitersHookRef.current.riwayahReciters).toHaveLength(1);
+      expect(audioHookRef.current.currentAudioUrl).toBe('https://server8.mp3quran.net/afs/001.mp3');
+    });
+
+    it('playback path: rejects recording lacking riwayahId or mismatching active Riwayah in both isSurahAvailableInRecording and useQuranAudio', async () => {
+      const hafs = QIRAAT_LIST.find((q) => q.id === 'hafs')!;
+      useQuranStore.setState({
+        activeQiraah: hafs,
+        activeSurah: ALL_SURAHS[0],
+        isPlayingFullSurah: true,
+      });
+
+      // 1. Reciter lacking riwayahId entirely (undefined)
+      const reciterNoRiwayah: RiwayahReciterEntry = {
         reciterId: 10,
-        reciterName: 'قارئ ورش',
-        moshafId: 5,
-        moshafName: 'رواية ورش',
+        reciterName: 'قارئ بدون هوية رواية',
+        moshafId: 1,
+        moshafName: 'مجهول',
         server: 'https://server.example.com/',
         surahTotal: 114,
         surahList: [1, 2, 3],
+      };
+
+      expect(isSurahAvailableInRecording(reciterNoRiwayah, 1, 'hafs')).toBe(false);
+
+      const hookResultRef = { current: null as unknown as ReturnType<typeof useQuranAudio> };
+      function TestAudioComponent({ r }: { r: RiwayahReciterEntry }) {
+        const audio = useQuranAudio({ activeRiwayahReciter: r });
+        useEffect(() => {
+          hookResultRef.current = audio;
+        });
+        return React.createElement('div', null);
+      }
+
+      await act(async () => {
+        root?.render(React.createElement(TestAudioComponent, { r: reciterNoRiwayah }));
+      });
+      expect(hookResultRef.current.currentAudioUrl).toBeNull();
+
+      // 2. Reciter with mismatching riwayahId ('warsh' on active 'hafs')
+      const reciterWarsh: RiwayahReciterEntry = {
+        ...reciterNoRiwayah,
         riwayahId: 'warsh',
       };
 
-      // 2. User switches to Shoaba: immediate invalidation MUST set activeRiwayahReciter to null synchronously
-      activeRiwayahReciter = null;
+      expect(isSurahAvailableInRecording(reciterWarsh, 1, 'hafs')).toBe(false);
 
-      // 3. During delayed fetch window, all playback checks MUST reject
-      expect(isSurahAvailableInRecording(activeRiwayahReciter, 1, 'shoaba')).toBe(false);
-      expect(isSurahAvailableInRecording(activeRiwayahReciter, 2, 'shoaba')).toBe(false);
+      await act(async () => {
+        root?.render(React.createElement(TestAudioComponent, { r: reciterWarsh }));
+      });
+      expect(hookResultRef.current.currentAudioUrl).toBeNull();
 
-      // 4. Simulated delayed fetch completes for Shoaba
-      const fetchedShoabaReciter: RiwayahReciterEntry = {
-        reciterId: 20,
-        reciterName: 'قارئ شعبة',
-        moshafId: 8,
-        moshafName: 'رواية شعبة',
-        server: 'https://server.example.com/shoaba/',
-        surahTotal: 1,
-        surahList: [1],
-        riwayahId: 'shoaba',
+      // 3. Reciter with valid matching riwayahId ('hafs')
+      const reciterHafs: RiwayahReciterEntry = {
+        ...reciterNoRiwayah,
+        riwayahId: 'hafs',
       };
-      activeRiwayahReciter = fetchedShoabaReciter;
 
-      // 5. Now only valid surahs in Shoaba recording pass
-      expect(isSurahAvailableInRecording(activeRiwayahReciter, 1, 'shoaba')).toBe(true);
-      expect(isSurahAvailableInRecording(activeRiwayahReciter, 2, 'shoaba')).toBe(false);
+      expect(isSurahAvailableInRecording(reciterHafs, 1, 'hafs')).toBe(true);
+
+      await act(async () => {
+        root?.render(React.createElement(TestAudioComponent, { r: reciterHafs }));
+      });
+      expect(hookResultRef.current.currentAudioUrl).toBe('https://server.example.com/001.mp3');
     });
   });
 });

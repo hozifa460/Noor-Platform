@@ -41,6 +41,10 @@ export function useQuranAudio({ activeRiwayahReciter }: UseQuranAudioProps) {
   const currentAudioUrl = useMemo(() => {
     if (isPlayingFullSurah) {
       if (!activeRiwayahReciter) return null;
+      // In the playback path, reject any recording that lacks riwayahId or does not match activeQiraah
+      if (!activeRiwayahReciter.riwayahId || activeRiwayahReciter.riwayahId !== activeQiraah.id) {
+        return null;
+      }
       // Strict unified guard: verify current surah exists in reciter's recorded surahList and matches activeQiraah
       if (!isSurahAvailableInRecording(activeRiwayahReciter, activeSurah.number, activeQiraah.id)) {
         return null;

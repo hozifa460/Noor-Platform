@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   useQuranStore,
   useQuranAudio,
+  useRiwayahReciters,
 } from '../model';
 import {
   ALL_SURAHS,
@@ -32,7 +33,6 @@ import {
 import {
   getRecitersForRiwayah,
   isSurahAvailableInRecording,
-  type RiwayahReciterEntry,
 } from '../infrastructure';
 import { PdfViewer } from '@/components/pdf-viewer/PdfViewer';
 import { AyahDetailModal } from './AyahDetailModal';
@@ -90,8 +90,12 @@ export function QuranHubView() {
   const [quickMenuAyah, setQuickMenuAyah] = useState<AyahItem | null>(null);
   const { copiedId: copiedAyah, copy: copyAyah } = useIdClipboard<number>();
 
-  const [riwayahReciters, setRiwayahReciters] = useState<RiwayahReciterEntry[]>([]);
-  const [activeRiwayahReciter, setActiveRiwayahReciter] = useState<RiwayahReciterEntry | null>(null);
+  const {
+    riwayahReciters,
+    setRiwayahReciters,
+    activeRiwayahReciter,
+    setActiveRiwayahReciter,
+  } = useRiwayahReciters();
   const [surahTranslationsMap, setSurahTranslationsMap] = useState<Map<number, string>>(new Map());
   const [loadedTranslationKey, setLoadedTranslationKey] = useState<string | null>(null);
   const currentTranslationKey = `${activeTranslation?.code || 'en-saheeh'}-${activeSurah.number}`;
@@ -133,31 +137,24 @@ export function QuranHubView() {
     };
   }, [showTranslation, viewMode, activeTranslation?.code, activeSurah.number]);
 
-  // Load riwayah reciters safely without stale overwrites; invalidate previous reciter immediately while fetching
-  useEffect(() => {
-    let isCancelled = false;
-    // Invalidate previous recording immediately upon Riwayah change
-    setActiveRiwayahReciter(null);
-    setRiwayahReciters([]);
-
-    getRecitersForRiwayah(activeQiraah.id).then((list) => {
-      if (!isCancelled) {
-        setRiwayahReciters(list);
-        const currentSurahNo = useQuranStore.getState().activeSurah.number;
-        const best =
-          list.find(
-            (r) => Array.isArray(r.surahList) && r.surahList.includes(currentSurahNo)
-          ) || (list.length > 0 ? list[0] : null);
-        setActiveRiwayahReciter(best);
-      }
-    });
-    return () => {
-      isCancelled = true;
-    };
-  }, [activeQiraah.id]);
-
   const handleSelectQiraah = useCallback(
     (q: QiraahMeta) => {
+      if (q.id === activeQiraah.id) {
+        // If re-selecting the currently active Riwayah, do NOT clear existing recordings.
+        // If recordings were cleared/empty for any reason, reload them explicitly.
+        if (riwayahReciters.length === 0 || !activeRiwayahReciter) {
+          getRecitersForRiwayah(q.id).then((list) => {
+            setRiwayahReciters(list);
+            const currentSurahNo = useQuranStore.getState().activeSurah.number;
+            const best =
+              list.find(
+                (r) => Array.isArray(r.surahList) && r.surahList.includes(currentSurahNo)
+              ) || (list.length > 0 ? list[0] : null);
+            setActiveRiwayahReciter(best);
+          });
+        }
+        return;
+      }
       stopAudio();
       audio.setIsPlayingFullSurah(false);
       setActiveRiwayahReciter(null);
@@ -173,17 +170,30 @@ export function QuranHubView() {
         toast.success('تم التبديل إلى مصحف المدينة برواية حفص عن عاصم');
       }
     },
-    [stopAudio, audio, setActiveQiraah, setViewMode, viewMode]
+    [activeQiraah.id, riwayahReciters.length, activeRiwayahReciter, stopAudio, audio, setActiveQiraah, setViewMode, viewMode, setActiveRiwayahReciter, setRiwayahReciters]
   );
 
   const handleSwitchToHafsText = useCallback(
     (targetMode: 'interactive' | 'mushaf-real' = 'interactive') => {
       stopAudio();
       audio.setIsPlayingFullSurah(false);
-      setActiveRiwayahReciter(null);
-      setRiwayahReciters([]);
-      const hafs = QIRAAT_LIST.find((q) => q.id === 'hafs') || QIRAAT_LIST[0];
-      setActiveQiraah(hafs);
+      const isAlreadyHafs = activeQiraah.id === 'hafs';
+      if (!isAlreadyHafs) {
+        setActiveRiwayahReciter(null);
+        setRiwayahReciters([]);
+        const hafs = QIRAAT_LIST.find((q) => q.id === 'hafs') || QIRAAT_LIST[0];
+        setActiveQiraah(hafs);
+      } else if (riwayahReciters.length === 0 || !activeRiwayahReciter) {
+        getRecitersForRiwayah('hafs').then((list) => {
+          setRiwayahReciters(list);
+          const currentSurahNo = useQuranStore.getState().activeSurah.number;
+          const best =
+            list.find(
+              (r) => Array.isArray(r.surahList) && r.surahList.includes(currentSurahNo)
+            ) || (list.length > 0 ? list[0] : null);
+          setActiveRiwayahReciter(best);
+        });
+      }
       const currentReciter = useQuranStore.getState().activeReciter;
       if (!QURAN_RECITERS.some((r) => r.id === currentReciter.id)) {
         setActiveReciter(QURAN_RECITERS[0]);
@@ -192,7 +202,7 @@ export function QuranHubView() {
       setConfirmSwitchToHafsOpen(false);
       toast.success('تم الانتقال إلى مصحف المدينة برواية حفص عن عاصم');
     },
-    [stopAudio, audio, setActiveQiraah, setActiveReciter, setViewMode]
+    [activeQiraah.id, riwayahReciters.length, activeRiwayahReciter, stopAudio, audio, setActiveQiraah, setActiveReciter, setViewMode, setActiveRiwayahReciter, setRiwayahReciters]
   );
 
   const handleModeClick = useCallback(
