@@ -18,7 +18,10 @@ import {
   type QiraahMeta,
   type ReciterMeta,
 } from '../domain';
-import type { RiwayahReciterEntry } from '../infrastructure';
+import {
+  isSurahAvailableInRecording,
+  type RiwayahReciterEntry,
+} from '../infrastructure';
 import { cn } from '@/lib/utils';
 
 interface QuickAyahMenuProps {
@@ -55,6 +58,11 @@ export function QuickAyahMenu({
   onCopyAyah,
 }: QuickAyahMenuProps) {
   if (!ayah) return null;
+
+  const isFullSurahRecorded = Boolean(
+    activeRiwayahReciter &&
+    isSurahAvailableInRecording(activeRiwayahReciter, surah.number, activeQiraah.id)
+  );
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -206,14 +214,26 @@ export function QuickAyahMenu({
           {/* Button 4: Full Surah */}
           <button
             onClick={() => {
+              if (!isFullSurahRecorded) return;
               onPlayFullSurah();
               onClose();
             }}
-            className="flex items-center gap-3 p-3.5 rounded-2xl border border-border bg-muted/40 hover:bg-muted font-bold text-xs text-right transition-all text-foreground"
+            disabled={!isFullSurahRecorded}
+            className={cn(
+              'flex items-center gap-3 p-3.5 rounded-2xl border text-right transition-all font-bold text-xs',
+              isFullSurahRecorded
+                ? 'border-border bg-muted/40 hover:bg-muted text-foreground'
+                : 'border-border/40 bg-muted/20 text-muted-foreground cursor-not-allowed opacity-60'
+            )}
+            title={
+              !isFullSurahRecorded
+                ? `سورة ${surah.nameAr} غير متوفرة في تسجيل ${activeRiwayahReciter?.reciterName || 'هذا القارئ'}`
+                : `تلاوة سورة ${surah.nameAr} كاملة`
+            }
           >
-            <Headphones className="size-5 text-blue-600 shrink-0" />
+            <Headphones className={cn('size-5 shrink-0', isFullSurahRecorded ? 'text-blue-600' : 'text-muted-foreground')} />
             <div>
-              <div>تلاوة السورة كاملة</div>
+              <div>{isFullSurahRecorded ? 'تلاوة السورة كاملة' : 'التسجيل غير متاح'}</div>
               <div className="text-[10px] text-muted-foreground truncate max-w-[120px]">
                 {activeRiwayahReciter?.reciterName || activeReciter.name}
               </div>

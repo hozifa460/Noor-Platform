@@ -6,6 +6,7 @@ export interface RiwayahReciterEntry {
   server: string;
   surahTotal: number;
   surahList: number[];
+  riwayahId?: string;
 }
 
 export interface Mp3Moshaf {
@@ -63,13 +64,33 @@ export async function loadRiwayaatRecitersMap(): Promise<Record<string, RiwayahR
 }
 
 /**
- * Gets the list of reciters who have recorded a specific Riwayah
+ * Gets the list of reciters who have recorded a specific Riwayah, prioritizing complete recordings (114 surahs)
  */
 export async function getRecitersForRiwayah(riwayahId: string): Promise<RiwayahReciterEntry[]> {
   const map = await loadRiwayaatRecitersMap();
   const list = map[riwayahId] || [];
-  // Return actual recordings only; do NOT fallback to Hafs silently
-  return list;
+  // Return actual recordings only; explicitly bind to riwayahId; sort so complete recordings (114 surahs) appear first; do NOT fallback to Hafs silently
+  return [...list]
+    .map((item) => ({ ...item, riwayahId }))
+    .sort((a, b) => (b.surahTotal || 0) - (a.surahTotal || 0));
+}
+
+/**
+ * Checks whether a given surah number is available in the specific recording and matches active Riwayah
+ */
+export function isSurahAvailableInRecording(
+  reciter: RiwayahReciterEntry | null | undefined,
+  surahNo: number,
+  activeQiraahId?: string
+): boolean {
+  if (!reciter || !Array.isArray(reciter.surahList)) return false;
+  // In the playback path, reject any recording that lacks riwayahId or does not match the active Riwayah
+  if (activeQiraahId) {
+    if (!reciter.riwayahId || reciter.riwayahId !== activeQiraahId) {
+      return false;
+    }
+  }
+  return reciter.surahList.includes(surahNo);
 }
 
 /**

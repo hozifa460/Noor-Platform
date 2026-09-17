@@ -7,10 +7,10 @@ export const QURANIC_MUS_HAFS: MediaItem[] = [
     subtitle: 'الرواية الأكثر انتشاراً في العالم الإسلامي',
     sheikhName: 'مجمع الملك فهد لطباعة المصحف الشريف',
     section: 'books',
-    pdfUrl: 'https://huggingface.co/datasets/hozifa1/islamic_books/resolve/main/books/Alqiraat_Quran/quran_shoaba_from_asem.pdf',
+    pdfUrl: '', // المصحف المصور لمجمع الملك فهد قيد التوثيق والتجهيز
     tags: ['مصحف', 'حفص عن عاصم', 'قرآن كريم', 'quran'],
     language: 'ar',
-    description: 'مصحف مجمع الملك فهد برواية حفص عن عاصم الكوفي من طريق الشاطبية، خط عثمان طه دقيق ومتقن.',
+    description: 'مصحف مجمع الملك فهد برواية حفص عن عاصم الكوفي من طريق الشاطبية، خط عثمان طه دقيق ومتقن (المصحف المصور قيد التوثيق والتجهيز، والقراءة المتصلة والتفاعلية مكتملتان في المنصة).',
   },
   {
     id: 'quran-warsh',
@@ -36,14 +36,14 @@ export const QURANIC_MUS_HAFS: MediaItem[] = [
   },
   {
     id: 'quran-aldori-abu-amr',
-    title: 'مصحف القرآن الكريم - رواية الدوري عن الكسائي',
-    subtitle: 'قراءة الكوفة المتواترة',
-    sheikhName: 'الإمام الكسائي برواية الدوري',
+    title: 'مصحف القرآن الكريم - رواية الدوري عن أبي عمرو',
+    subtitle: 'قراءة أهل البصرة المتواترة المشهورة في السودان وشرق إفريقيا',
+    sheikhName: 'الإمام أبو عمرو بن العلاء برواية الدوري',
     section: 'books',
-    pdfUrl: 'https://huggingface.co/datasets/hozifa1/islamic_books/resolve/main/books/Alqiraat_Quran/quran_aldori_from_alkesaei.pdf',
-    tags: ['مصحف', 'الدوري عن الكسائي', 'quran'],
+    pdfUrl: '', // غير متوفر كملف مصور في المستودع الحالي
+    tags: ['مصحف', 'الدوري عن أبي عمرو', 'quran'],
     language: 'ar',
-    description: 'المصحف الكريم برواية حفص بن عمر الدوري عن الكسائي من طريق الشاطبية والتيسير.',
+    description: 'المصحف الكريم برواية حفص بن عمر الدوري عن أبي عمرو البصري مع تمييز أحكام الإدغام الكبير والإمالات.',
   },
   {
     id: 'quran-alsoosi',

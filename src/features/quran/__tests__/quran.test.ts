@@ -53,9 +53,10 @@ describe('Quran Feature Domain — Contract & Business Logic', () => {
       expect(hafs?.featured).toBe(true);
     });
 
-    it('getQiraahPdfUrl resolves correct huggingface pdf endpoint', () => {
-      const url = getQiraahPdfUrl('hafs');
-      expect(url).toContain('quran_shoaba_from_asem.pdf');
+    it('getQiraahPdfUrl returns null for hafs and resolves correct huggingface pdf endpoint for other riwayat', () => {
+      expect(getQiraahPdfUrl('hafs')).toBeNull();
+      expect(getQiraahPdfUrl('shoaba')).toContain('quran_shoaba_from_asem.pdf');
+      expect(getQiraahPdfUrl('warsh')).toContain('quran_warsh.pdf');
     });
   });
 

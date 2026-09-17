@@ -44,8 +44,15 @@ export interface QiraahMeta {
   narrator: string;
   origin: string;
   description: string;
-  pdfUrl: string;
+  pdfUrl: string | null;
   featured?: boolean;
+  group?: 'seven' | 'three_complementary';
+  imam?: string;
+  tariq?: string;
+  hasDigitalText?: boolean;
+  hasAudioSurahs?: boolean;
+  hasVerseAudio?: boolean;
+  pageCount?: number;
 }
 
 export interface ReciterMeta {
