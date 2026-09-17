@@ -343,9 +343,9 @@ export function QuranHubView() {
         data-testid="quran-header-bar"
         className="sticky top-0 z-30 border-b border-border/80 bg-background/95 backdrop-blur-md px-2 sm:px-6 py-2 sm:py-3 w-full max-w-full"
       >
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 sm:gap-2.5 max-w-7xl mx-auto w-full min-w-0">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 sm:gap-2.5 max-w-7xl mx-auto w-full min-w-0 flex-wrap">
           {/* Row 1: Surah Title, Navigation, Qira'ah & Ayah Search */}
-          <div className="flex items-center justify-between gap-1.5 sm:gap-2 w-full md:w-auto min-w-0">
+          <div className="flex items-center justify-between gap-1.5 sm:gap-2 w-full lg:w-auto min-w-0 flex-wrap">
             <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 md:flex-initial">
               {/* Surah Drawer Trigger */}
               <Button
@@ -426,7 +426,7 @@ export function QuranHubView() {
           </div>
 
           {/* Row 2: Mode Switcher, Reciter & Audio Controls */}
-          <div className="flex items-center justify-between md:justify-end gap-1.5 sm:gap-2 w-full md:w-auto min-w-0">
+          <div className="flex items-center justify-between lg:justify-end gap-1.5 sm:gap-2 w-full lg:w-auto min-w-0 flex-wrap">
             {/* View Mode Switcher */}
             <div className="flex items-center bg-muted/60 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl border border-border text-xs font-bold shrink-0">
               <button
@@ -562,7 +562,7 @@ export function QuranHubView() {
       </header>
 
       {/* Main Quran Content Body */}
-      <main className="flex-1 max-w-5xl w-full mx-auto p-2 sm:p-6 space-y-4 sm:space-y-6 min-w-0">
+      <main className="flex-1 max-w-5xl w-full mx-auto p-2 sm:p-6 pb-24 sm:pb-32 lg:pb-12 space-y-4 sm:space-y-6 min-w-0">
         {/* Informative Riwayah Banner: when non-Hafs is selected in digital text mode */}
         {activeQiraah.id !== 'hafs' && viewMode !== 'pdf-page' && (
           <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
