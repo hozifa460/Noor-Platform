@@ -144,6 +144,37 @@ describe('Hadith Scientific Integrity & Attribution Safeguards', () => {
     });
   });
 
+  function getRealHadithRecord(bookId: string, idInBook: number): string {
+    const bookPath = path.join(process.cwd(), 'public', 'data', 'hadith', `${bookId}.json`);
+    if (fs.existsSync(bookPath)) {
+      try {
+        const raw = fs.readFileSync(bookPath, 'utf-8');
+        const data = JSON.parse(raw) as { hadiths?: Array<{ idInBook: number; arabic?: string; hadith?: string }> };
+        const found = data.hadiths?.find((h) => h.idInBook === idInBook);
+        if (found) {
+          const text = found.arabic || found.hadith;
+          if (text) return text;
+        }
+      } catch {
+        // fallback to core index
+      }
+    }
+
+    // Fallback to git-tracked core dataset index (hadiths_core_index.json)
+    const corePath = path.join(process.cwd(), 'public', 'data', 'hadith', 'hadiths_core_index.json');
+    if (fs.existsSync(corePath)) {
+      const raw = fs.readFileSync(corePath, 'utf-8');
+      const core = JSON.parse(raw) as { books: string[]; items: Array<[number, number, number, string]> };
+      const bIdx = core.books.indexOf(bookId);
+      if (bIdx !== -1) {
+        const item = core.items.find((it) => it[0] === bIdx && it[1] === idInBook);
+        if (item && item[3]) return item[3];
+      }
+    }
+
+    throw new Error(`Real record not found in platform dataset for ${bookId}:${idInBook}`);
+  }
+
   describe('5. Sharh Documented Link Guard & Integrity', () => {
     it('disallows similarity thresholds and rejects unlinked sharh', async () => {
       // Even with high word overlap or common tokens, require documented link, else return null
@@ -167,43 +198,32 @@ describe('Hadith Scientific Integrity & Attribution Safeguards', () => {
     });
 
     it('rejects false sharh attribution for the 4 erroneous cases (Muslim 8, 16, 1907 and Tirmidhi 2609)', async () => {
-      // Load real book files from public/data/hadith
-      const muslimRaw = fs.readFileSync(path.join(process.cwd(), 'public', 'data', 'hadith', 'muslim.json'), 'utf-8');
-      const muslimData = JSON.parse(muslimRaw) as { hadiths: Array<{ idInBook: number; arabic?: string; hadith?: string }> };
-
-      const tirmRaw = fs.readFileSync(path.join(process.cwd(), 'public', 'data', 'hadith', 'tirmidhi.json'), 'utf-8');
-      const tirmData = JSON.parse(tirmRaw) as { hadiths: Array<{ idInBook: number; arabic?: string; hadith?: string }> };
-
       // 1. Muslim idInBook: 8 (Talha b. Ubaydullah: الرجل النجدي - خمس صلوات)
       // Must NOT be attributed to Hadith Jibreel (seed '2')!
-      const muslim8 = muslimData.hadiths.find((h) => h.idInBook === 8);
-      expect(muslim8).toBeDefined();
-      expect(muslim8?.arabic).toContain('خَمْسُ صَلَوَاتٍ');
-      const sharhMuslim8 = await findHadithSharh(muslim8?.arabic || '', { bookId: 'muslim', idInBook: 8 });
+      const muslim8Text = getRealHadithRecord('muslim', 8);
+      expect(normalizeArabic(muslim8Text)).toContain(normalizeArabic('خمس صلوات'));
+      const sharhMuslim8 = await findHadithSharh(muslim8Text, { bookId: 'muslim', idInBook: 8 });
       expect(sharhMuslim8).toBeNull();
 
       // 2. Muslim idInBook: 16 (Nu\'man b. Qawqal: أرأيت إذا صليت المكتوبة)
       // Must NOT be attributed to Buniyal Islam (seed '3')!
-      const muslim16 = muslimData.hadiths.find((h) => h.idInBook === 16);
-      expect(muslim16).toBeDefined();
-      expect(muslim16?.arabic).toContain('الْمَكْتُوبَةَ');
-      const sharhMuslim16 = await findHadithSharh(muslim16?.arabic || '', { bookId: 'muslim', idInBook: 16 });
+      const muslim16Text = getRealHadithRecord('muslim', 16);
+      expect(normalizeArabic(muslim16Text)).toContain(normalizeArabic('المكتوبة'));
+      const sharhMuslim16 = await findHadithSharh(muslim16Text, { bookId: 'muslim', idInBook: 16 });
       expect(sharhMuslim16).toBeNull();
 
       // 3. Muslim idInBook: 1907 (Umm Hisham: سورة ق على المنبر)
       // Must NOT be attributed to Innamal A\'mal (seed '1')!
-      const muslim1907 = muslimData.hadiths.find((h) => h.idInBook === 1907);
-      expect(muslim1907).toBeDefined();
-      expect(muslim1907?.arabic).toContain('الْقُرْآنِ الْمَجِيدِ');
-      const sharhMuslim1907 = await findHadithSharh(muslim1907?.arabic || '', { bookId: 'muslim', idInBook: 1907 });
+      const muslim1907Text = getRealHadithRecord('muslim', 1907);
+      expect(normalizeArabic(muslim1907Text)).toContain(normalizeArabic('القرآن المجيد'));
+      const sharhMuslim1907 = await findHadithSharh(muslim1907Text, { bookId: 'muslim', idInBook: 1907 });
       expect(sharhMuslim1907).toBeNull();
 
       // 4. Tirmidhi idInBook: 2609 (Abu Hurairah: أهل الجنة جرد مرد)
       // Must NOT be attributed to Buniyal Islam (seed '3')!
-      const tirm2609 = tirmData.hadiths.find((h) => h.idInBook === 2609);
-      expect(tirm2609).toBeDefined();
-      expect(tirm2609?.arabic).toContain('جُرْدٌ مُرْدٌ');
-      const sharhTirm2609 = await findHadithSharh(tirm2609?.arabic || '', { bookId: 'tirmidhi', idInBook: 2609 });
+      const tirm2609Text = getRealHadithRecord('tirmidhi', 2609);
+      expect(normalizeArabic(tirm2609Text)).toContain(normalizeArabic('جرد مرد'));
+      const sharhTirm2609 = await findHadithSharh(tirm2609Text, { bookId: 'tirmidhi', idInBook: 2609 });
       expect(sharhTirm2609).toBeNull();
     });
 
@@ -221,16 +241,8 @@ describe('Hadith Scientific Integrity & Attribution Safeguards', () => {
         const [bookId, idInBookStr] = key.split(':');
         const idInBook = Number(idInBookStr);
 
-        // Load real book file from platform dataset
-        const bookPath = path.join(process.cwd(), 'public', 'data', 'hadith', `${bookId}.json`);
-        expect(fs.existsSync(bookPath)).toBe(true);
-
-        const bookRaw = fs.readFileSync(bookPath, 'utf-8');
-        const bookData = JSON.parse(bookRaw) as { hadiths: Array<{ idInBook: number; arabic?: string; hadith?: string }> };
-        const record = bookData.hadiths.find((h) => h.idInBook === idInBook);
-        expect(record).toBeDefined();
-
-        const recordText = record?.arabic || record?.hadith || '';
+        // Load real book record from platform dataset (individual file or git-tracked core dataset)
+        const recordText = getRealHadithRecord(bookId, idInBook);
         expect(recordText.length).toBeGreaterThan(20);
 
         // Verify that findHadithSharh resolves this real record to the correct documented seed sharh
