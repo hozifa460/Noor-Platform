@@ -591,5 +591,270 @@ describe('Quran Riwayat, Multi-Reciter Bindings & Hafs Decoupling Suite', () => 
       });
       expect(hookResultRef.current.currentAudioUrl).toBe('https://server.example.com/001.mp3');
     });
+
+    it('two delayed requests: reload Hafs then switch to Shoaba; Shoaba arrives first then Hafs -> keeps Shoaba reciter and playback', async () => {
+      const hafs = QIRAAT_LIST.find((q) => q.id === 'hafs')!;
+      const shoaba = QIRAAT_LIST.find((q) => q.id === 'shoaba')!;
+
+      useQuranStore.setState({
+        activeQiraah: hafs,
+        activeSurah: ALL_SURAHS[0],
+        isPlayingFullSurah: true,
+      });
+
+      const initialHafsReciter: RiwayahReciterEntry = {
+        reciterId: 1,
+        reciterName: 'حفص أولي',
+        moshafId: 1,
+        moshafName: 'حفص',
+        server: 'https://server.example.com/hafs-init/',
+        surahTotal: 114,
+        surahList: [1],
+        riwayahId: 'hafs',
+      };
+
+      const reloadedHafsReciter: RiwayahReciterEntry = {
+        reciterId: 2,
+        reciterName: 'حفص معاد تحميله',
+        moshafId: 1,
+        moshafName: 'حفص',
+        server: 'https://server.example.com/hafs-reloaded/',
+        surahTotal: 114,
+        surahList: [1],
+        riwayahId: 'hafs',
+      };
+
+      const shoabaReciter: RiwayahReciterEntry = {
+        reciterId: 20,
+        reciterName: 'قارئ شعبة',
+        moshafId: 8,
+        moshafName: 'شعبة',
+        server: 'https://server.example.com/shoaba/',
+        surahTotal: 114,
+        surahList: [1],
+        riwayahId: 'shoaba',
+      };
+
+      let isReloadingHafs = false;
+      let resolveHafsReloadPromise!: (value: RiwayahReciterEntry[]) => void;
+      let resolveShoabaPromise!: (value: RiwayahReciterEntry[]) => void;
+
+      vi.spyOn(mp3Engine, 'getRecitersForRiwayah').mockImplementation(async (riwayahId: string) => {
+        if (riwayahId === 'shoaba') {
+          return new Promise<RiwayahReciterEntry[]>((resolve) => {
+            resolveShoabaPromise = resolve;
+          });
+        }
+        if (riwayahId === 'hafs' && isReloadingHafs) {
+          return new Promise<RiwayahReciterEntry[]>((resolve) => {
+            resolveHafsReloadPromise = resolve;
+          });
+        }
+        return [initialHafsReciter];
+      });
+
+      const recitersHookRef = { current: null as unknown as ReturnType<typeof useRiwayahReciters> };
+      const audioHookRef = { current: null as unknown as ReturnType<typeof useQuranAudio> };
+
+      function TestComponent() {
+        const recitersHook = useRiwayahReciters();
+        const audioHook = useQuranAudio({ activeRiwayahReciter: recitersHook.activeRiwayahReciter });
+        useEffect(() => {
+          recitersHookRef.current = recitersHook;
+          audioHookRef.current = audioHook;
+        });
+        return React.createElement('div', null);
+      }
+
+      await act(async () => {
+        root?.render(React.createElement(TestComponent));
+      });
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 10));
+      });
+
+      expect(recitersHookRef.current.activeRiwayahReciter?.riwayahId).toBe('hafs');
+
+      // 1. Initiate reload of Hafs
+      isReloadingHafs = true;
+      await act(async () => {
+        recitersHookRef.current.reloadReciters(true);
+      });
+
+      // 2. Immediately switch to Shoaba
+      await act(async () => {
+        recitersHookRef.current.selectQiraah(shoaba);
+      });
+
+      // Both requests in-flight; Shoaba is active
+      expect(recitersHookRef.current.activeRiwayahReciter).toBeNull();
+      expect(recitersHookRef.current.isLoadingReciters).toBe(true);
+
+      // 3. Shoaba arrives FIRST
+      await act(async () => {
+        resolveShoabaPromise([shoabaReciter]);
+      });
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 10));
+      });
+
+      await act(async () => {
+        useQuranStore.getState().setIsPlayingFullSurah(true);
+      });
+
+      expect(recitersHookRef.current.activeRiwayahReciter?.riwayahId).toBe('shoaba');
+      expect(recitersHookRef.current.activeRiwayahReciter?.reciterName).toBe('قارئ شعبة');
+      expect(recitersHookRef.current.riwayahReciters).toEqual([shoabaReciter]);
+      expect(recitersHookRef.current.isLoadingReciters).toBe(false);
+      expect(audioHookRef.current.currentAudioUrl).toBe('https://server.example.com/shoaba/001.mp3');
+
+      // 4. Hafs arrives SECOND (late / stale response)
+      await act(async () => {
+        resolveHafsReloadPromise([reloadedHafsReciter]);
+      });
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 10));
+      });
+
+      // Hafs response must be completely ignored; Shoaba remains intact and active
+      expect(recitersHookRef.current.activeRiwayahReciter?.riwayahId).toBe('shoaba');
+      expect(recitersHookRef.current.activeRiwayahReciter?.reciterName).toBe('قارئ شعبة');
+      expect(recitersHookRef.current.riwayahReciters).toEqual([shoabaReciter]);
+      expect(recitersHookRef.current.isLoadingReciters).toBe(false);
+      expect(audioHookRef.current.currentAudioUrl).toBe('https://server.example.com/shoaba/001.mp3');
+    });
+
+    it('two delayed requests: reload Hafs then switch to Shoaba; Hafs arrives first (stale) then Shoaba -> ignores stale Hafs and applies Shoaba', async () => {
+      const hafs = QIRAAT_LIST.find((q) => q.id === 'hafs')!;
+      const shoaba = QIRAAT_LIST.find((q) => q.id === 'shoaba')!;
+
+      useQuranStore.setState({
+        activeQiraah: hafs,
+        activeSurah: ALL_SURAHS[0],
+        isPlayingFullSurah: true,
+      });
+
+      const initialHafsReciter: RiwayahReciterEntry = {
+        reciterId: 1,
+        reciterName: 'حفص أولي',
+        moshafId: 1,
+        moshafName: 'حفص',
+        server: 'https://server.example.com/hafs-init/',
+        surahTotal: 114,
+        surahList: [1],
+        riwayahId: 'hafs',
+      };
+
+      const reloadedHafsReciter: RiwayahReciterEntry = {
+        reciterId: 2,
+        reciterName: 'حفص معاد تحميله',
+        moshafId: 1,
+        moshafName: 'حفص',
+        server: 'https://server.example.com/hafs-reloaded/',
+        surahTotal: 114,
+        surahList: [1],
+        riwayahId: 'hafs',
+      };
+
+      const shoabaReciter: RiwayahReciterEntry = {
+        reciterId: 20,
+        reciterName: 'قارئ شعبة',
+        moshafId: 8,
+        moshafName: 'شعبة',
+        server: 'https://server.example.com/shoaba/',
+        surahTotal: 114,
+        surahList: [1],
+        riwayahId: 'shoaba',
+      };
+
+      let isReloadingHafs = false;
+      let resolveHafsReloadPromise!: (value: RiwayahReciterEntry[]) => void;
+      let resolveShoabaPromise!: (value: RiwayahReciterEntry[]) => void;
+
+      vi.spyOn(mp3Engine, 'getRecitersForRiwayah').mockImplementation(async (riwayahId: string) => {
+        if (riwayahId === 'shoaba') {
+          return new Promise<RiwayahReciterEntry[]>((resolve) => {
+            resolveShoabaPromise = resolve;
+          });
+        }
+        if (riwayahId === 'hafs' && isReloadingHafs) {
+          return new Promise<RiwayahReciterEntry[]>((resolve) => {
+            resolveHafsReloadPromise = resolve;
+          });
+        }
+        return [initialHafsReciter];
+      });
+
+      const recitersHookRef = { current: null as unknown as ReturnType<typeof useRiwayahReciters> };
+      const audioHookRef = { current: null as unknown as ReturnType<typeof useQuranAudio> };
+
+      function TestComponent() {
+        const recitersHook = useRiwayahReciters();
+        const audioHook = useQuranAudio({ activeRiwayahReciter: recitersHook.activeRiwayahReciter });
+        useEffect(() => {
+          recitersHookRef.current = recitersHook;
+          audioHookRef.current = audioHook;
+        });
+        return React.createElement('div', null);
+      }
+
+      await act(async () => {
+        root?.render(React.createElement(TestComponent));
+      });
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 10));
+      });
+
+      expect(recitersHookRef.current.activeRiwayahReciter?.riwayahId).toBe('hafs');
+
+      // 1. Initiate reload of Hafs
+      isReloadingHafs = true;
+      await act(async () => {
+        recitersHookRef.current.reloadReciters(true);
+      });
+
+      // 2. Immediately switch to Shoaba
+      await act(async () => {
+        recitersHookRef.current.selectQiraah(shoaba);
+      });
+
+      // Both requests in-flight; Shoaba is active
+      expect(recitersHookRef.current.activeRiwayahReciter).toBeNull();
+      expect(recitersHookRef.current.isLoadingReciters).toBe(true);
+      expect(audioHookRef.current.currentAudioUrl).toBeNull();
+
+      // 3. Hafs arrives FIRST (stale response)
+      await act(async () => {
+        resolveHafsReloadPromise([reloadedHafsReciter]);
+      });
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 10));
+      });
+
+      // Stale Hafs must NOT overwrite state or stop loading
+      expect(recitersHookRef.current.activeRiwayahReciter).toBeNull();
+      expect(recitersHookRef.current.riwayahReciters).toHaveLength(0);
+      expect(recitersHookRef.current.isLoadingReciters).toBe(true);
+      expect(audioHookRef.current.currentAudioUrl).toBeNull();
+
+      // 4. Shoaba arrives SECOND (valid latest response)
+      await act(async () => {
+        resolveShoabaPromise([shoabaReciter]);
+      });
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 10));
+      });
+
+      await act(async () => {
+        useQuranStore.getState().setIsPlayingFullSurah(true);
+      });
+
+      // Shoaba is successfully applied and playback available
+      expect(recitersHookRef.current.activeRiwayahReciter?.riwayahId).toBe('shoaba');
+      expect(recitersHookRef.current.activeRiwayahReciter?.reciterName).toBe('قارئ شعبة');
+      expect(recitersHookRef.current.riwayahReciters).toEqual([shoabaReciter]);
+      expect(recitersHookRef.current.isLoadingReciters).toBe(false);
+      expect(audioHookRef.current.currentAudioUrl).toBe('https://server.example.com/shoaba/001.mp3');
+    });
   });
 });
