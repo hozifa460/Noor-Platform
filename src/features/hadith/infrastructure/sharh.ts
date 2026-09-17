@@ -229,8 +229,11 @@ export async function findHadithSharh(
     const normHadeeth = normalizeArabic(itemMatn);
 
     if (normalizedMatn.length >= 20 && normHadeeth.length >= 20) {
-      if (normHadeeth === normalizedMatn) {
-        return item; // Verbatim strictly identical matn match
+      if (
+        normHadeeth === normalizedMatn ||
+        (!context?.bookId && normalizedMatn.length >= 30 && normHadeeth.startsWith(normalizedMatn))
+      ) {
+        return item; // Verbatim strictly identical or authentic seed prefix match
       }
     }
   }
