@@ -132,6 +132,39 @@ describe('Quran Reciter Verified Catalog ID Mapping & Multi-Recording Suite', ()
       expect(match2?.moshafId).toBe(320);
     });
 
+    it('QuickAyahMenu onSelectActiveReciter handler in QuranHubView preserves Muhammad Ayyoub moshaf 320 instead of reverting to 109', () => {
+      // User currently has Ayyoub Special (moshaf 320) selected as full surah reciter
+      let activeRiwayahReciter: RiwayahReciterEntry | null = ayyoubSpecial;
+      let activeReciter = QURAN_RECITERS.find((r) => r.id === 'alafasy')!;
+      const riwayahReciters = [ayyoubMurattal, ayyoubSpecial];
+
+      // Exact handler from QuranHubView.tsx:
+      // onSelectActiveReciter={(r) => {
+      //   setActiveReciter(r);
+      //   const matchingFull = findMatchingFullSurahReciter(r, riwayahReciters, activeRiwayahReciter);
+      //   if (matchingFull) {
+      //     setActiveRiwayahReciter(matchingFull);
+      //   }
+      // }}
+      const handleSelectActiveReciter = (r: typeof activeReciter) => {
+        activeReciter = r;
+        const matchingFull = findMatchingFullSurahReciter(r, riwayahReciters, activeRiwayahReciter);
+        if (matchingFull) {
+          activeRiwayahReciter = matchingFull;
+        }
+      };
+
+      // User selects Muhammad Ayyoub verse reciter via QuickAyahMenu
+      handleSelectActiveReciter(ayyoubVerse);
+
+      // Verify verse reciter switched
+      expect(activeReciter.id).toBe('ayyoub');
+      // Crucial verification: preserves moshaf 320 and does NOT revert to default 109
+      expect(activeRiwayahReciter).not.toBeNull();
+      expect(activeRiwayahReciter?.reciterId).toBe(109);
+      expect(activeRiwayahReciter?.moshafId).toBe(320);
+    });
+
     it('refuses ambiguous synchronization when multiple candidates exist but documented default is absent and no selection exists', () => {
       // List contains only Special (320) which is NOT the canonical default (109)
       // Without previous selection, it refuses ambiguous assumption and returns null

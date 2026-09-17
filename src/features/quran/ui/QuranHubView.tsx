@@ -870,7 +870,7 @@ export function QuranHubView() {
         activeReciter={activeReciter}
         onSelectActiveReciter={(r) => {
           setActiveReciter(r);
-          const matchingFull = findMatchingFullSurahReciter(r, riwayahReciters);
+          const matchingFull = findMatchingFullSurahReciter(r, riwayahReciters, activeRiwayahReciter);
           if (matchingFull) {
             setActiveRiwayahReciter(matchingFull);
           }
