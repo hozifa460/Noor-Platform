@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Sparkles, Bot, X, BookOpen, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils';
 
 export function FloatingAIButton() {
   const [isOpen, setIsOpen] = useState(false);
+  const [hasCollision, setHasCollision] = useState(false);
+  const buttonRef = useRef<HTMLDivElement>(null);
 
   const isQuranAudioActive = useQuranStore(
     (s) => s.isPlayingAudio || s.isPlayingFullSurah || s.currentPlayingAyah !== null
@@ -17,35 +19,86 @@ export function FloatingAIButton() {
   const isMediaPlayerActive = usePlayerStore((s) => Boolean(s.currentItem));
   const isAudioActive = isQuranAudioActive || isMediaPlayerActive;
 
+  // Strict collision detection against Quran header buttons and audio bars
+  useEffect(() => {
+    const checkCollision = () => {
+      if (typeof window === 'undefined') return;
+
+      if (buttonRef.current) {
+        const aiRect = buttonRef.current.getBoundingClientRect();
+        if (aiRect.width > 0 && aiRect.height > 0) {
+          const targets = document.querySelectorAll<HTMLElement>(
+            '[data-testid="quran-header-bar"] button, [data-testid="quran-audio-bar"] button, [data-testid="quran-audio-bar"], [data-testid="media-player"]'
+          );
+
+          let collides = false;
+          for (const target of targets) {
+            const tRect = target.getBoundingClientRect();
+            if (tRect.width === 0 || tRect.height === 0) continue;
+
+            const intersects = !(
+              aiRect.right <= tRect.left ||
+              aiRect.left >= tRect.right ||
+              aiRect.bottom <= tRect.top ||
+              aiRect.top >= tRect.bottom
+            );
+
+            if (intersects) {
+              collides = true;
+              break;
+            }
+          }
+          setHasCollision(collides);
+        }
+      }
+    };
+
+    checkCollision();
+    window.addEventListener('resize', checkCollision);
+    window.addEventListener('scroll', checkCollision, { passive: true });
+    const timer = setTimeout(checkCollision, 250);
+
+    return () => {
+      window.removeEventListener('resize', checkCollision);
+      window.removeEventListener('scroll', checkCollision);
+      clearTimeout(timer);
+    };
+  }, [isAudioActive]);
+
+  // Completely hidden during audio playback or if direct collision with buttons is detected
+  if (isAudioActive || hasCollision) {
+    return null;
+  }
+
   return (
     <>
       {/* ─── Floating Button ────────────────────────────────────────── */}
       <div
+        ref={buttonRef}
         data-testid="floating-ai-button"
-        className={cn(
-          'fixed left-4 sm:left-6 z-50 animate-in fade-in slide-in-from-bottom-5 duration-300',
-          isAudioActive ? 'hidden lg:block lg:bottom-6' : 'bottom-20 lg:bottom-6'
-        )}
+        className="fixed bottom-20 lg:bottom-1.5 left-3 sm:left-4 lg:left-2 z-50 animate-in fade-in slide-in-from-bottom-5 duration-300"
       >
         <button
           onClick={() => setIsOpen(true)}
           className={cn(
-            'group relative flex items-center gap-2.5 px-4 py-3 rounded-full shadow-2xl transition-all duration-300',
+            'group relative flex items-center rounded-full shadow-2xl transition-all duration-300',
             'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white',
             'hover:from-emerald-500 hover:to-teal-500 hover:shadow-emerald-900/40 hover:scale-105 active:scale-95',
-            'border border-emerald-400/30 ring-4 ring-emerald-500/20'
+            'border border-emerald-400/30 ring-4 ring-emerald-500/20',
+            'p-2 sm:p-2.5 max-w-[46px] sm:max-w-[48px] hover:max-w-xs overflow-hidden'
           )}
           aria-label="مساعد الذكاء الاصطناعي"
+          title="مساعد نور الذكي (باحث فقهي وإسلامي)"
         >
           {/* Pulsing ambient glow */}
           <span className="absolute -inset-0.5 rounded-full bg-gradient-to-r from-emerald-400 to-teal-400 opacity-40 blur-sm group-hover:opacity-75 transition-opacity animate-pulse" />
 
-          <div className="relative flex items-center justify-center size-8 rounded-full bg-white/20 backdrop-blur-sm shadow-inner">
-            <Bot className="size-5 text-white animate-bounce group-hover:animate-none" />
-            <Sparkles className="size-3 text-amber-300 absolute -top-1 -right-1 animate-spin" />
+          <div className="relative flex items-center justify-center size-7 sm:size-8 rounded-full bg-white/20 backdrop-blur-sm shadow-inner shrink-0">
+            <Bot className="size-4 sm:size-5 text-white animate-bounce group-hover:animate-none" />
+            <Sparkles className="size-2.5 sm:size-3 text-amber-300 absolute -top-1 -right-1 animate-spin" />
           </div>
 
-          <div className="relative text-right hidden sm:block">
+          <div className="relative text-right hidden sm:block whitespace-nowrap pl-2 pr-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-bold leading-tight">مساعد نور الذكي</span>
               <Badge className="bg-amber-400 text-stone-950 hover:bg-amber-300 text-[9px] font-extrabold px-1.5 py-0 rounded-full h-4">
@@ -54,9 +107,6 @@ export function FloatingAIButton() {
             </div>
             <p className="text-[10px] text-emerald-100/90 font-medium">باحث فقهي وإسلامي</p>
           </div>
-
-          {/* Small badge for mobile */}
-          <span className="relative sm:hidden text-[11px] font-bold">الذكاء الاصطناعي</span>
         </button>
       </div>
 

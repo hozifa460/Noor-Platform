@@ -461,31 +461,56 @@ async function run() {
           }
         }
 
+        // Strict non-intersection verification between FloatingAIButton and Quran buttons
+        const aiButton = document.querySelector('[data-testid="floating-ai-button"]');
+        let aiButtonIntersectsQuran = false;
+        if (aiButton) {
+          const aiRect = aiButton.getBoundingClientRect();
+          const aiVisible = aiRect.width > 0 && aiRect.height > 0 && window.getComputedStyle(aiButton).display !== 'none';
+          if (aiVisible) {
+            for (const b of buttons) {
+              const bRect = b.getBoundingClientRect();
+              if (bRect.width === 0 || bRect.height === 0) continue;
+              const intersects = !(
+                aiRect.right <= bRect.left + 1 ||
+                aiRect.left >= bRect.right - 1 ||
+                aiRect.bottom <= bRect.top + 1 ||
+                aiRect.top >= bRect.bottom - 1
+              );
+              if (intersects) {
+                aiButtonIntersectsQuran = true;
+                break;
+              }
+            }
+          }
+        }
+
         return {
           pageScrollWidth: scrollW,
           pageClientWidth: clientW,
           horizontalOverflowPx: Math.max(0, scrollW - clientW),
           headerContained: Boolean(hRect && hRect.left >= -1),
-          textComplete: allVisible && hasReadableShortName && !anyIntersection,
+          textComplete: allVisible && hasReadableShortName && !anyIntersection && !aiButtonIntersectsQuran,
           qiraahWidth: Math.round(qiraahRect?.width || 0),
           qiraahText,
           buttonsNoIntersection: !anyIntersection,
-          notes: `Desktop 200% Zoom: Qiraah button width=${Math.round(qiraahRect?.width || 0)}px, text="${qiraahText}", overlap=${anyIntersection}`
+          aiButtonNoOverlapWithQuran: !aiButtonIntersectsQuran,
+          notes: `تكبير محتوى الصفحة باستخدام CSS zoom بنسبة 200%: عرض زر الرواية=${Math.round(qiraahRect?.width || 0)}px، النص="${qiraahText}"، تقاطع الأزرار=${anyIntersection}، تقاطع زر المساعد مع القرآن=${aiButtonIntersectsQuran}`
         };
       });
 
       await saveScreenshot(page, 'preview_08_desktop_zoom200.png');
       results.push({
         id: 'desktop-zoom200',
-        name: 'Desktop View with 200% Page Zoom',
-        category: 'Desktop Zoom',
+        name: 'تكبير محتوى الصفحة باستخدام CSS zoom بنسبة 200%',
+        category: 'تكبير محتوى الصفحة باستخدام CSS zoom بنسبة 200%',
         deviceType: 'simulation',
         engine: 'Chromium / Blink بمحاكاة الأجهزة',
         viewport: { width: 1280, height: 800 },
         dpr: 2.0,
         orientation: 'landscape',
         screenshotFile: 'preview_08_desktop_zoom200.png',
-        passed: metrics.textComplete,
+        passed: metrics.textComplete && metrics.aiButtonNoOverlapWithQuran,
         metrics
       });
       await context.close();
@@ -656,7 +681,7 @@ async function run() {
       const playBtn = page.locator('[data-testid="recitation-play-trigger"]');
       await playBtn.click();
       await page.waitForSelector('[data-testid="quran-audio-bar"]', { timeout: 10000 });
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(1000);
 
       const metrics = await page.evaluate(() => {
         const bar = document.querySelector('[data-testid="quran-audio-bar"]');
@@ -672,15 +697,32 @@ async function run() {
           bRect.right <= winW + 1
         );
 
+        // Verify FloatingAIButton does NOT overlap with the audio bar on desktop
+        const aiButton = document.querySelector('[data-testid="floating-ai-button"]');
+        let aiButtonOverlaps = false;
+        if (aiButton) {
+          const aiRect = aiButton.getBoundingClientRect();
+          const aiVisible = aiRect.width > 0 && aiRect.height > 0 && window.getComputedStyle(aiButton).display !== 'none';
+          if (aiVisible && bRect) {
+            aiButtonOverlaps = !(
+              aiRect.right <= bRect.left ||
+              aiRect.left >= bRect.right ||
+              aiRect.bottom <= bRect.top ||
+              aiRect.top >= bRect.bottom
+            );
+          }
+        }
+
         return {
           pageScrollWidth: document.documentElement.scrollWidth,
           pageClientWidth: document.documentElement.clientWidth,
           horizontalOverflowPx: 0,
           headerContained: true,
-          textComplete: true,
+          textComplete: !aiButtonOverlaps,
           audioBarVisible: Boolean(bar),
           audioBarBottomDocked: isDocked,
-          notes: `Desktop Audio Bar docked at bottom: top=${Math.round(bRect?.top || 0)}px, bottom=${Math.round(bRect?.bottom || 0)}px, windowH=${winH}px`
+          aiButtonNoOverlap: !aiButtonOverlaps,
+          notes: `Desktop Audio Bar docked at bottom: top=${Math.round(bRect?.top || 0)}px, bottom=${Math.round(bRect?.bottom || 0)}px, windowH=${winH}px, aiOverlap=${aiButtonOverlaps}`
         };
       });
 
@@ -695,7 +737,7 @@ async function run() {
         dpr: 1.0,
         orientation: 'landscape',
         screenshotFile: 'preview_12_audio_bar_desktop.png',
-        passed: Boolean(metrics.audioBarVisible && metrics.audioBarBottomDocked),
+        passed: Boolean(metrics.audioBarVisible && metrics.audioBarBottomDocked && metrics.aiButtonNoOverlap),
         metrics
       });
 
