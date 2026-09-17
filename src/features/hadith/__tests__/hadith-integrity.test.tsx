@@ -117,22 +117,28 @@ describe('Hadith Scientific Integrity & Attribution Safeguards', () => {
   describe('4. Divergent Numbering & Translation Guard', () => {
     it('guards books without proven concordance from unverified translation lookup', async () => {
       expect(getBookTranslationSupport('muslim')).toBe('concordance_required');
+      expect(getBookTranslationSupport('bukhari')).toBe('concordance_required'); // Bukhari suspended due to 7277 vs 7563 divergence
       expect(getBookTranslationSupport('abudawud')).toBe('concordance_required');
       expect(getBookTranslationSupport('tirmidhi')).toBe('concordance_required');
       expect(isBookTranslationAvailable('muslim')).toBe(false);
+      expect(isBookTranslationAvailable('bukhari')).toBe(false);
       expect(isBookTranslationAvailable('abudawud')).toBe(false);
 
       const translation = await fetchHadithTranslation('muslim', 1, 'eng');
       expect(translation).toBeNull();
+      const bukhariTranslation = await fetchHadithTranslation('bukhari', 7277, 'eng');
+      expect(bukhariTranslation).toBeNull();
     });
 
-    it('allows only verified concordant books with proven 1:1 alignment', () => {
-      expect(getBookTranslationSupport('bukhari')).toBe('verified');
-      expect(getBookTranslationSupport('nawawi40')).toBe('verified');
-      expect(getBookTranslationSupport('qudsi40')).toBe('verified');
-      expect(getBookTranslationSupport('shahwaliullah40')).toBe('verified');
-      expect(isBookTranslationAvailable('bukhari')).toBe(true);
-      expect(isBookTranslationAvailable('nawawi40')).toBe(true);
+    it('allows only verified concordant collections with 100% proven 1:1 alignment and verified languages', () => {
+      expect(getBookTranslationSupport('nawawi40', 'eng')).toBe('verified');
+      expect(getBookTranslationSupport('qudsi40', 'eng')).toBe('verified');
+      expect(getBookTranslationSupport('shahwaliullah40', 'eng')).toBe('verified');
+      expect(isBookTranslationAvailable('nawawi40', 'eng')).toBe(true);
+
+      // Unverified languages are guarded as concordance_required
+      expect(getBookTranslationSupport('nawawi40', 'fra')).toBe('concordance_required');
+      expect(isBookTranslationAvailable('nawawi40', 'fra')).toBe(false);
     });
   });
 
@@ -144,14 +150,27 @@ describe('Hadith Scientific Integrity & Attribution Safeguards', () => {
       expect(match).toBeNull();
     });
 
-    it('returns sharh when there is a documented verbatim correspondence', async () => {
-      // Verbatim hadith from documented seed
-      const verbatimMatn = 'إنما الأعمال بالنيات وإنما لكل امرئ ما نوى فمن كانت هجرته إلى الله ورسوله';
-      const match = await findHadithSharh(verbatimMatn);
-      expect(match).toBeDefined();
-      expect(match?.id).toMatch(/^(1|66511)$/);
-      expect(normalizeArabic(match?.hadeeth || '')).toContain('الاعمال بالنيات');
-      expect(match?.explanation).toBeTruthy();
+    it('rejects generic text containment when there is no documented link or exact match', async () => {
+      // Generic containment of a phrase should not link
+      const genericContainment = 'سمعنا في المسجد كلاما فيه إنما الأعمال بالنيات والحمد لله رب العالمين';
+      const match = await findHadithSharh(genericContainment);
+      expect(match).toBeNull();
+    });
+
+    it('returns sharh when there is an explicit documented link or exact verbatim correspondence', async () => {
+      // 1. Explicit documented link via context
+      const byContext = await findHadithSharh('', { bookId: 'bukhari', idInBook: 1 });
+      expect(byContext).toBeDefined();
+      expect(byContext?.id).toBe('1');
+      expect(byContext?.explanation).toBeTruthy();
+
+      // 2. Strict verbatim matn
+      const verbatimMatn = 'إنما الأعمال بالنيات وإنما لكل امرئ ما نوى فمن كانت هجرته إلى الله ورسوله فهجرته إلى الله ورسوله ومن كانت هجرته لدنيا يصيبها أو امرأة ينكحها فهجرته إلى ما هاجر إليه';
+      const byText = await findHadithSharh(verbatimMatn);
+      expect(byText).toBeDefined();
+      expect(byText?.id).toMatch(/^(1|66511)$/);
+      expect(normalizeArabic(byText?.hadeeth || '')).toContain('الاعمال بالنيات');
+      expect(byText?.explanation).toBeTruthy();
     });
   });
 
@@ -272,10 +291,18 @@ describe('Hadith Scientific Integrity & Attribution Safeguards', () => {
       expect(result.matchedFake).toBeNull();
     });
 
-    it('returns fake when narration matches catalog of fabricated hadiths', async () => {
+    it('returns fake when narration matches catalog of fabricated hadiths (even when offline)', async () => {
       const result = await checkHadithAuthenticity('رجب شهر الله');
       expect(result.status).toBe('fake');
       expect(result.matchedFake).toBeDefined();
+      expect(result.matchedFake?.title).toContain('رجب');
+      expect(result.authenticMatches.length).toBe(0);
+    });
+
+    it('does not falsely classify scattered token matches as found_in_corpus', async () => {
+      // Query with words scattered across long hadiths but not forming a real phrase
+      const result = await checkHadithAuthenticity('رجب صيام فرض مكة المدينة');
+      expect(result.status).not.toBe('found_in_corpus');
     });
   });
 });

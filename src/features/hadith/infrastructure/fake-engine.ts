@@ -47,6 +47,49 @@ export interface AuthenticityCheckResult {
 
 let fakeHadithsCache: FakeHadithItem[] | null = null;
 
+export const BUILTIN_SEED_FAKES: FakeHadithItem[] = [
+  {
+    id: 1,
+    title: 'حديث «صوموا تصحوا»',
+    fakeText: 'صوموا تصحوا',
+    degree: 'ضعيف',
+    scholarRuling: 'ضعفه الإمام العراقي في تخريج الإحياء، والنووي في المجموع، والشيخ الألباني في السلسلة الضعيفة (253). ومعناه الطبي قد يكون صحيحاً في الجملة لكن نسبته للنبي ﷺ لا تصح.',
+    source: 'السلسلة الضعيفة للألباني (253)، تلخيص الحبير لابن حجر',
+    category: 'fasting_ramadan',
+    authenticAlternative: 'عن أبي هريرة رضي الله عنه قال: قال رسول الله ﷺ: «قال الله: كل عمل ابن آدم له إلا الصيام فإنه لي وأنا أجزي به» (متفق عليه).'
+  },
+  {
+    id: 2,
+    title: 'حديث «رجب شهر الله، وشعبان شهري، ورمضان شهر أمتي»',
+    fakeText: 'رجب شهر الله، وشعبان شهري، ورمضان شهر أمتي',
+    degree: 'موضوع (مكذوب)',
+    scholarRuling: 'حكم عليه أئمة الحديث بالوضع، قال ابن حجر في تبيين العجب: لم يرد في فضل شهر رجب ولا في صيامه حديث صحيح يصلح للحجة. وذكره السيوطي وابن الجوزي في الموضوعات.',
+    source: 'تبيين العجب لابن حجر، تذكرة الموضوعات للمقدسي',
+    category: 'fasting_ramadan',
+    authenticAlternative: 'ثبت في الصحيحين عن أبي بكرة رضي الله عنه أن النبي ﷺ قال: «السنة اثنا عشر شهراً منها أربعة حرم: ثلاثة متواليات: ذو القعدة وذو الحجة والمحرم، ورجب مضر».'
+  },
+  {
+    id: 3,
+    title: 'دعاء «اللهم بارك لنا في رجب وشعبان وبلغنا رمضان»',
+    fakeText: 'اللهم بارك لنا في رجب وشعبان وبلغنا رمضان',
+    degree: 'ضعيف',
+    scholarRuling: 'ضعفه الحافظ ابن حجر في تبيين العجب، والنووي في الأذكار، والشيخ الألباني في ضعيف الجامع (4395). ويجوز الدعاء ببلوغ رمضان بصيغ عامة دون اعتقاد ثبوت هذا الحديث بخصوصه.',
+    source: 'ضعيف الجامع الصغير (4395)، ميزان الاعتدال للذهبي',
+    category: 'fasting_ramadan',
+    authenticAlternative: 'كان السلف الصالح يدعون الله ستة أشهر أن يبلغهم رمضان، ثم يدعونه ستة أشهر أن يتقبله منهم.'
+  },
+  {
+    id: 4,
+    title: 'حديث «رمضان أوله رحمة، وأوسطه مغفرة، وآخره عتق من النار»',
+    fakeText: 'رمضان أوله رحمة، وأوسطه مغفرة، وآخره عتق من النار',
+    degree: 'منكر وضعيف جداً',
+    scholarRuling: 'رواه ابن خزيمة وقال: إن صح الخبر. وضعفه الشيخ الألباني في السلسلة الضعيفة (1569). فرمضان كله رحمة ومغفرة وعتق من النار كل ليلة، وليس مقسماً أعشاراً.',
+    source: 'السلسلة الضعيفة للألباني (1569)، ذخيرة الحفاظ لابن طاهر',
+    category: 'fasting_ramadan',
+    authenticAlternative: 'عن أبي هريرة رضي الله عنه أن النبي ﷺ قال: «ولله عتقاء من النار وذلك كل ليلة» (صحيح الترمذي وصحيح ابن ماجه).'
+  }
+];
+
 /**
  * Loads the fake hadiths catalog (local JSON file, ~22 KB, instant load)
  */
@@ -54,7 +97,8 @@ export async function loadFakeHadiths(): Promise<FakeHadithItem[]> {
   if (fakeHadithsCache) return fakeHadithsCache;
 
   // 1. Node local FS check (SSR / tests / build)
-  if (typeof window === 'undefined') {
+  const isNode = typeof process !== 'undefined' && Boolean(process.versions?.node);
+  if (typeof window === 'undefined' || isNode) {
     try {
       const fs = await import('fs');
       const path = await import('path');
@@ -97,7 +141,8 @@ export async function loadFakeHadiths(): Promise<FakeHadithItem[]> {
     /* fallback */
   }
 
-  return [];
+  // 4. Built-in seed fallback (guaranteed never empty)
+  return BUILTIN_SEED_FAKES;
 }
 
 /**
@@ -190,12 +235,27 @@ export async function checkHadithAuthenticity(query: string): Promise<Authentici
   try {
     const sunnahResults = await searchAcrossAllBooks(q);
     if (sunnahResults && sunnahResults.length > 0) {
-      return {
-        query: q,
-        matchedFake: null,
-        authenticMatches: sunnahResults.slice(0, 5),
-        status: 'found_in_corpus',
-      };
+      // Require genuine text/phrase match, NOT merely disjoint tokens scattered across a long hadith
+      const validMatches = sunnahResults.filter((item) => {
+        const itemTextNorm = normalizeArabic(item.hadith.arabic || '');
+        if (itemTextNorm.includes(normQuery)) return true;
+        const words = normQuery.split(/\s+/).filter((w) => w.length >= 2);
+        if (words.length >= 2) {
+          const phrase2 = words.slice(0, 2).join(' ');
+          const phrase3 = words.slice(0, 3).join(' ');
+          return itemTextNorm.includes(phrase3) || itemTextNorm.includes(phrase2);
+        }
+        return false;
+      });
+
+      if (validMatches.length > 0) {
+        return {
+          query: q,
+          matchedFake: null,
+          authenticMatches: validMatches.slice(0, 5),
+          status: 'found_in_corpus',
+        };
+      }
     }
   } catch {
     /* proceed */

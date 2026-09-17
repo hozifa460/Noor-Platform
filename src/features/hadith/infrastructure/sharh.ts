@@ -63,7 +63,8 @@ export async function loadHadeethEncSharh(): Promise<HadeethEncSharhItem[]> {
   }
 
   // 2. Local Node check
-  if (typeof window === 'undefined') {
+  const isNode = typeof process !== 'undefined' && Boolean(process.versions?.node);
+  if (typeof window === 'undefined' || isNode) {
     try {
       const fs = await import('fs');
       const path = await import('path');
@@ -128,46 +129,71 @@ export async function loadHadeethEncSharh(): Promise<HadeethEncSharhItem[]> {
 }
 
 /**
- * Fast and accurate matching of Hadith explanation by isolating pure Matn and text similarity
+ * جدول الربط الصريح الموثق بين معرف الحديث في الديوان ومعرف الشرح في HadeethEnc.
+ * يمنع أي ربط تلقائي أو احتواء نصي عام غير موثق.
  */
-export async function findHadithSharh(hadithText: string): Promise<HadeethEncSharhItem | null> {
-  const allSharh = await loadHadeethEncSharh();
-  if (!allSharh || allSharh.length === 0) return null;
+export const DOCUMENTED_SHARH_LINKS: Record<string, string> = {
+  // صحيح البخاري
+  'bukhari:1': '1', // إنما الأعمال بالنيات
+  'bukhari:8': '3', // بني الإسلام على خمس
+  // صحيح مسلم
+  'muslim:1': '2', // حديث جبريل
+  'muslim:8': '2', // حديث جبريل
+  'muslim:16': '3', // بني الإسلام على خمس
+  'muslim:1907': '1', // إنما الأعمال بالنيات
+  // الأربعون النووية
+  'nawawi40:1': '1', // إنما الأعمال بالنيات
+  'nawawi40:2': '2', // حديث جبريل
+  'nawawi40:3': '3', // بني الإسلام على خمس
+  // جامع الترمذي
+  'tirmidhi:2609': '3', // بني الإسلام على خمس
+};
 
-  // 1. Isolate the pure Matn: strip the isnad completely!
+export interface SharhLookupContext {
+  bookId?: string;
+  idInBook?: number;
+}
+
+/**
+ * Fast and accurate matching of Hadith explanation by explicit documented linkage
+ * or strict identical verbatim matn.
+ * Generic text containment (includes) is strictly disallowed to prevent false attribution.
+ */
+export async function findHadithSharh(
+  hadithText: string,
+  context?: SharhLookupContext
+): Promise<HadeethEncSharhItem | null> {
+  const allSharh = await loadHadeethEncSharh();
+  const pool = allSharh && allSharh.length > 0 ? allSharh : BUILTIN_SEED_SHARH;
+  if (!pool || pool.length === 0) return null;
+
+  // 1. Check explicit documented link first (bookId:idInBook)
+  if (context?.bookId && typeof context.idInBook === 'number') {
+    const key = `${context.bookId}:${context.idInBook}`;
+    const linkedSharhId = DOCUMENTED_SHARH_LINKS[key];
+    if (linkedSharhId) {
+      const fromSeed = BUILTIN_SEED_SHARH.find((s) => s.id === linkedSharhId);
+      if (fromSeed) return fromSeed;
+      const fromAll = allSharh?.find((s) => s.id === linkedSharhId || String(s.id) === linkedSharhId);
+      if (fromAll) return fromAll;
+    }
+  }
+
+  // 2. Strict verbatim identical Matn match (stripped of isnad)
   const cleanMatn = extractCleanMatn(hadithText);
   const targetText = cleanMatn && cleanMatn.length >= 8 ? cleanMatn : hadithText;
   const normalizedMatn = normalizeArabic(targetText);
   if (!normalizedMatn || normalizedMatn.length < 8) return null;
 
-  // 2. Extract meaningful tokens from the Matn ONLY (excluding common stop words)
-  const tokens = normalizedMatn
-    .split(/\s+/)
-    .filter((w) => w.length >= 3 && !COMMON_STOP_WORDS.has(w));
-  if (tokens.length === 0) return null;
-
-  // 3. Candidate retrieval using inverted index on matn tokens
-  const candidateSet = new Set<HadeethEncSharhItem>();
-  if (sharhInvertedIndex) {
-    for (const t of tokens.slice(0, 10)) {
-      const matches = sharhInvertedIndex.get(t);
-      if (matches) {
-        for (const m of matches) candidateSet.add(m);
-      }
-    }
-  }
-
-  const pool = candidateSet.size > 0 ? Array.from(candidateSet) : allSharh;
-
   for (const item of pool) {
-    const normHadeeth = normalizeArabic(item.hadeeth || '');
+    const itemMatn = extractCleanMatn(item.hadeeth) || item.hadeeth || '';
+    const normHadeeth = normalizeArabic(itemMatn);
 
-    // Strict Scholarly Verification: Only accept documented exact/verbatim matn correspondence.
-    // Similarity heuristics (even >= 85%) are strictly disallowed to prevent falsely attributing
-    // a sharh of one hadith to another similar but distinct narration.
-    if (normalizedMatn.length >= 25 && normHadeeth.length >= 25) {
-      if (normHadeeth === normalizedMatn || normHadeeth.includes(normalizedMatn) || normalizedMatn.includes(normHadeeth)) {
-        return item; // Verified documented verbatim match
+    // Scholarly Verification: Only accept strict verbatim identical matn.
+    // Generic text containment (includes) is strictly removed.
+    if (normalizedMatn.length >= 20 && normHadeeth.length >= 20) {
+      if (normHadeeth === normalizedMatn) {
+        return item; // Verbatim identical matn match
       }
     }
   }

@@ -50,126 +50,186 @@ export type TranslationSupportStatus = 'verified' | 'concordance_required' | 'un
 export interface ConcordanceEvidenceItem {
   bookId: string;
   bookNameAr: string;
+  localFile: string;
   localEditionSystem: string;
+  localTotalRecords: number;
   remoteApiEdition: string;
+  remoteTotalRecords?: number;
   status: TranslationSupportStatus;
+  verifiedLanguages: readonly string[];
+  verifiedScope: string;
   concordanceProof: string;
 }
 
 /**
  * دليل مطابقة النسخ والترقيمات (Concordance Evidence Catalog):
- * يوثق التحقق التجريبي من مطابقة أرقام الأحاديث بين النسخة المحلية ومستودع الترجمات (sunnahset / Hadith_API).
+ * يوثق التحقق التجريبي الدقيق من مطابقة أرقام الأحاديث بين النسخة المحلية ومستودع الترجمات (Hadith_API).
  * القاعدة العلمية الصارمة: ما لم تثبت مطابقته التامة 1:1 لا يُصنف verified بل يُصنف concordance_required.
+ * لا يُعمم فحص عينات جزئية على كامل الكتاب، ولا تُجاز لغات لم يتم فحص سجلاتها فعلياً.
  */
 export const CONCORDANCE_EVIDENCE_CATALOG: Record<string, ConcordanceEvidenceItem> = {
-  bukhari: {
-    bookId: 'bukhari',
-    bookNameAr: 'صحيح البخاري',
-    localEditionSystem: 'ترقيم فتح الباري / الترقيم العالمي للشاملة (In-Book Reference)',
-    remoteApiEdition: 'eng-bukhari',
-    status: 'verified',
-    concordanceProof:
-      'مطابقة تامة 1:1 مؤكدة تجريبياً في مواضع متعددة (حديث 1: الأعمال بالنيات، حديث 100: إن الله لا يقبض العلم، حديث 500: الاستنجاء، حديث 1000: صلاة السفر).',
-  },
   nawawi40: {
     bookId: 'nawawi40',
     bookNameAr: 'الأربعون النووية',
+    localFile: 'public/data/hadith/nawawi40.json',
     localEditionSystem: 'ترقيم المتن المعياري للأحاديث الـ 42',
+    localTotalRecords: 42,
     remoteApiEdition: 'eng-nawawi',
+    remoteTotalRecords: 42,
     status: 'verified',
+    verifiedLanguages: ['eng'],
+    verifiedScope: 'الأحاديث من 1 إلى 42 كاملة بنسبة 100% (حصراً باللغة الإنجليزية)',
     concordanceProof:
-      'مطابقة تامة 1:1 مؤكدة لجميع الأحاديث من 1 إلى 42 نصاً وترجمة.',
+      'فحص ومقارنة شملت جميع الأحاديث الـ 42 سجلاً بسجل من 1 إلى 42 بين nawawi40.json ومستودع eng-nawawi، وثبت التطابق التام 1:1 في كافة السجلات (حديث 1: الأعمال بالنيات، حديث 42: يا ابن آدم إنك ما دعوتني ورجوتني). التحقق محصور في اللغة الإنجليزية eng-nawawi ولا يُعمم على لغات أخرى غير مفحوصة أو مفقودة.',
   },
   qudsi40: {
     bookId: 'qudsi40',
     bookNameAr: 'الأحاديث القدسية الأربعون',
+    localFile: 'public/data/hadith/qudsi40.json',
     localEditionSystem: 'ترقيم متن الأحاديث القدسية المعتمد (1 إلى 40)',
+    localTotalRecords: 40,
     remoteApiEdition: 'eng-qudsi',
+    remoteTotalRecords: 40,
     status: 'verified',
+    verifiedLanguages: ['eng'],
+    verifiedScope: 'الأحاديث من 1 إلى 40 كاملة بنسبة 100% (حصراً باللغة الإنجليزية)',
     concordanceProof:
-      'مطابقة تامة 1:1 مؤكدة لجميع الأحاديث من 1 إلى 40 نصاً وترجمة.',
+      'فحص ومقارنة شملت جميع الأحاديث الأربعين كاملة سجلاً بسجل بين qudsi40.json ومستودع eng-qudsi، وثبت التطابق التام 1:1 في كافة السجلات. التحقق محصور في الإنجليزية eng-qudsi.',
   },
   shahwaliullah40: {
     bookId: 'shahwaliullah40',
     bookNameAr: 'الأربعون الدهلوية',
+    localFile: 'public/data/hadith/shahwaliullah40.json',
     localEditionSystem: 'ترقيم الأربعين المسندة للشاه ولي الله الدهلوي (1 إلى 40)',
+    localTotalRecords: 40,
     remoteApiEdition: 'eng-dehlawi',
+    remoteTotalRecords: 40,
     status: 'verified',
+    verifiedLanguages: ['eng'],
+    verifiedScope: 'الأحاديث من 1 إلى 40 كاملة بنسبة 100% (حصراً باللغة الإنجليزية)',
     concordanceProof:
-      'مطابقة تامة 1:1 مؤكدة (حديث 1: ليس الخبر كالمعاينة، حديث 2: الحرب خدعة، حديث 3: المسلم مرآة المسلم).',
+      'فحص ومقارنة شملت جميع الأحاديث الأربعين كاملة سجلاً بسجل بين shahwaliullah40.json ومستودع eng-dehlawi، وثبت التطابق التام 1:1 في كافة السجلات. التحقق محصور في الإنجليزية eng-dehlawi.',
+  },
+  bukhari: {
+    bookId: 'bukhari',
+    bookNameAr: 'صحيح البخاري',
+    localFile: 'public/data/hadith/bukhari.json',
+    localEditionSystem: 'ترقيم فتح الباري للشاملة (ينتهي عند 7277)',
+    localTotalRecords: 7277,
+    remoteApiEdition: 'eng-bukhari',
+    remoteTotalRecords: 7563,
+    status: 'concordance_required',
+    verifiedLanguages: [],
+    verifiedScope: 'معلق بالكامل؛ لا يجوز تعميم فحص عينات البداية على كامل الكتاب ولا على لغات لم تُفحص',
+    concordanceProof:
+      'فحص السجلات الفعلية يثبت فارقاً قدره 286 حديثاً بين النسختين (7277 محلياً مقابل 7563 في المستودع)؛ فالحديث الأخير في النسخة المحلية (رقم 7277) هو حديث: «كلمتان حبيبتان إلى الرحمن...»، بينما في المستودع البعيد الحديث 7277 هو: «Narrated Abdullah: The best talk is Allah Book»، وحديث «كلمتان» يقع في الرقم 7563. التطابق في عينة البداية لا يصح تعميمه على كامل الكتاب، وعليه عُلّق الربط مؤقتاً لحين اعتماد جدول مطابقة ثنائي.',
   },
   muslim: {
     bookId: 'muslim',
     bookNameAr: 'صحيح مسلم',
-    localEditionSystem: 'ترقيم محمد فؤاد عبد الباقي (1 إلى 3033)',
+    localFile: 'public/data/hadith/muslim.json',
+    localEditionSystem: 'ترقيم الشاملة المسلسل لكافة الأسانيد والمتابعات (ينتهي عند 7459)',
+    localTotalRecords: 7459,
     remoteApiEdition: 'eng-muslim',
+    remoteTotalRecords: 3033,
     status: 'concordance_required',
+    verifiedLanguages: [],
+    verifiedScope: 'معلق بالكامل؛ تباين جذري في دلالة المعرف المفرد',
     concordanceProof:
-      'انفصال تام في الترقيم بالرقم المفرد؛ مثال: حديث 100 محلياً في عبد الباقي (لا يدخل الجنة إلا نفس مسلمة)، يقابله في المستودع حديث طلحة في وفد نجد. يتطلب جدول مطابقة نصي ثنائي.',
+      'فحص السجلات الفعلية يثبت تبايناً جذرياً في دلالة المعرف المفرد؛ فالحديث رقم 100 في muslim.json متنه: «غلظ القلوب والجفاء في المشرق والإيمان في أهل الحجاز» (كتاب الإيمان، حديث جابر)، بينما الحديث 100 في المستودع eng-muslim هو حديث طلحة بن عبيد الله في الأعرابي السائل عن شرائع الإسلام. الربط بالرقم المفرد يؤدي إلى نسبة ترجمة متن لمتن مغاير وعُلّق بالكامل.',
   },
   abudawud: {
     bookId: 'abudawud',
     bookNameAr: 'سنن أبي داود',
-    localEditionSystem: 'ترقيم عزت عبيد الدعاس / دار السلام',
+    localFile: 'public/data/hadith/abudawud.json',
+    localEditionSystem: 'ترقيم سنن أبي داود للشاملة',
+    localTotalRecords: 5276,
     remoteApiEdition: 'eng-abudawud',
+    remoteTotalRecords: 5274,
     status: 'concordance_required',
+    verifiedLanguages: [],
+    verifiedScope: 'معلق بالكامل',
     concordanceProof:
-      'تباين في الترقيم؛ مثال: حديث 100 محلياً (التور من الصفر)، يقابله في المستودع حديث مسح الرأس. يتطلب جدول مطابقة ثنائي.',
+      'فحص السجلات الفعلية يثبت فارقاً في الإجمالي (5276 محلياً مقابل 5274 في المستودع). ورغم تطابق الحديث 100 في الوضوء من التور، فإن تباين ترقيم المراسيل وأبواب السنن عبر الأجزاء يمنع تعميم الفحص، وعُلّق الربط مؤقتاً.',
   },
   tirmidhi: {
     bookId: 'tirmidhi',
     bookNameAr: 'جامع الترمذي',
-    localEditionSystem: 'ترقيم أحمد شاكر / كمال الحوت',
+    localFile: 'public/data/hadith/tirmidhi.json',
+    localEditionSystem: 'ترقيم جامع الترمذي للشاملة',
+    localTotalRecords: 3956,
     remoteApiEdition: 'eng-tirmidhi',
+    remoteTotalRecords: 3956,
     status: 'concordance_required',
+    verifiedLanguages: [],
+    verifiedScope: 'معلق بالكامل',
     concordanceProof:
-      'تباين في ترقيم الأبواب والمكررات والأحاديث؛ يتطلب جدول مطابقة ثنائي.',
+      'فحص تباين الطبعات (طبعة أحمد شاكر مقابل تحفة الأشراف وطبعة دار الغرب)؛ يتطلب جدول مطابقة معتمداً قبل إتاحة الترجمة.',
   },
   nasai: {
     bookId: 'nasai',
     bookNameAr: 'سنن النسائي (المجتبى)',
-    localEditionSystem: 'ترقيم عبد الفتاح أبو غدة',
+    localFile: 'public/data/hadith/nasai.json',
+    localEditionSystem: 'ترقيم سنن النسائي (المجتبى)',
+    localTotalRecords: 5758,
     remoteApiEdition: 'eng-nasai',
+    remoteTotalRecords: 5758,
     status: 'concordance_required',
+    verifiedLanguages: [],
+    verifiedScope: 'معلق بالكامل',
     concordanceProof:
-      'تباين في الترقيم بين طبعة أبي غدة وترقيم المستودع؛ يتطلب جدول مطابقة ثنائي.',
+      'تباين في دمج وفصل طرق الأحاديث وأرقام زوائد السنن؛ عُلّق الربط مؤقتاً.',
   },
   ibnmajah: {
     bookId: 'ibnmajah',
     bookNameAr: 'سنن ابن ماجه',
-    localEditionSystem: 'ترقيم محمد فؤاد عبد الباقي',
+    localFile: 'public/data/hadith/ibnmajah.json',
+    localEditionSystem: 'ترقيم سنن ابن ماجه للشاملة',
+    localTotalRecords: 4341,
     remoteApiEdition: 'eng-ibnmajah',
+    remoteTotalRecords: 4341,
     status: 'concordance_required',
+    verifiedLanguages: [],
+    verifiedScope: 'معلق بالكامل',
     concordanceProof:
-      'تباين تدريجي في ترقيم أبواب المقدمة والمكررات؛ يتطلب جدول مطابقة ثنائي.',
+      'تباين ترقيم أحاديث المقدمة وأبواب الزهد والجنائز بين الطبعات؛ عُلّق الربط مؤقتاً.',
   },
   malik: {
     bookId: 'malik',
     bookNameAr: 'موطأ الإمام مالك',
-    localEditionSystem: 'ترقيم رواية يحيى الليثي المصححة',
+    localFile: 'public/data/hadith/malik.json',
+    localEditionSystem: 'ترقيم موطأ مالك (رواية يحيى الليثي)',
+    localTotalRecords: 1858,
     remoteApiEdition: 'eng-malik',
     status: 'concordance_required',
+    verifiedLanguages: [],
+    verifiedScope: 'معلق بالكامل',
     concordanceProof:
-      'اختلاف ترقيم الروايات (يحيى الليثي مقابل الشيباني وأبي مصعب)؛ يتطلب جدول مطابقة ثنائي.',
+      'اختلاف روايات الموطأ (رواية يحيى الليثي مقابل الشيباني وأبي مصعب الزهري)؛ عُلّق الربط مؤقتاً.',
   },
 };
 
 /**
- * Books where edition numbering is strictly proven and verified 1:1 with remote translation editions.
- * Books not in this list require an explicit concordance table to prevent mismatched text attributions.
+ * خريطة الكتب واللغات المفحوصة والمثبتة بنسبة 1:1 بدقة كاملة.
+ * لا يجوز فتح الترجمة لكتاب كامل اعتماداً على عينة جزئية، ولا للغات لم يتم التحقق منها.
  */
-export const VERIFIED_CONCORDANT_BOOKS: readonly string[] = [
-  'bukhari',
-  'nawawi40',
-  'qudsi40',
-  'shahwaliullah40',
-];
+export const VERIFIED_CONCORDANCE_MAP: Record<string, readonly string[]> = {
+  nawawi40: ['eng'],
+  qudsi40: ['eng'],
+  shahwaliullah40: ['eng'],
+};
 
-export function getBookTranslationSupport(bookId: string): TranslationSupportStatus {
+export const VERIFIED_CONCORDANT_BOOKS: readonly string[] = Object.keys(VERIFIED_CONCORDANCE_MAP);
+
+export function getBookTranslationSupport(bookId: string, langCode?: string): TranslationSupportStatus {
   if (!BOOK_API_CODE_MAP[bookId]) {
     return 'unsupported';
   }
-  if (!VERIFIED_CONCORDANT_BOOKS.includes(bookId)) {
+  const supportedLangs = VERIFIED_CONCORDANCE_MAP[bookId];
+  if (!supportedLangs) {
+    return 'concordance_required';
+  }
+  if (langCode && !supportedLangs.includes(langCode)) {
     return 'concordance_required';
   }
   return 'verified';
@@ -178,8 +238,8 @@ export function getBookTranslationSupport(bookId: string): TranslationSupportSta
 /**
  * Checks if translations are available for a given book.
  */
-export function isBookTranslationAvailable(bookId: string): boolean {
-  return getBookTranslationSupport(bookId) === 'verified';
+export function isBookTranslationAvailable(bookId: string, langCode?: string): boolean {
+  return getBookTranslationSupport(bookId, langCode) === 'verified';
 }
 
 /**
@@ -190,8 +250,8 @@ export async function fetchHadithTranslation(
   hadithNumber: number,
   langCode: string
 ): Promise<HadithTranslationResult | null> {
-  // Prevent unverified translation attribution if book has divergent numbering
-  if (getBookTranslationSupport(bookId) !== 'verified') {
+  // Prevent unverified translation attribution if book or requested language has divergent/unverified numbering
+  if (getBookTranslationSupport(bookId, langCode) !== 'verified') {
     return null;
   }
 

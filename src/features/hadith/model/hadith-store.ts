@@ -170,9 +170,12 @@ export const useHadithStore = create<HadithState>((set, get) => ({
       /* fallback to available snippet */
     }
 
-    // 2. Fetch Sharh & Explanations from HadeethEnc
+    // 2. Fetch Sharh & Explanations from HadeethEnc using documented links or exact verbatim matn
     try {
-      const sharh = await findHadithSharh(resolvedHadith.arabic);
+      const sharh = await findHadithSharh(resolvedHadith.arabic, {
+        bookId: targetBook?.id,
+        idInBook: resolvedHadith.idInBook,
+      });
       set({ hadithSharh: sharh, loadingSharh: false });
     } catch {
       set({ loadingSharh: false });
