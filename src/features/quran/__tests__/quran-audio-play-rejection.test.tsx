@@ -76,7 +76,7 @@ describe('Quran Audio Playback Rejection & Stale Request Isolation Suite', () =>
 
     function TestAudio() {
       const audio = useQuranAudio({ activeRiwayahReciter: mockReciter });
-      return <audio ref={audio.audioRef} />;
+      return React.createElement('audio', { ref: audio.audioRef });
     }
 
     await act(async () => {
@@ -109,7 +109,7 @@ describe('Quran Audio Playback Rejection & Stale Request Isolation Suite', () =>
 
     function TestAudio() {
       const audio = useQuranAudio({ activeRiwayahReciter: mockReciter });
-      return <audio ref={audio.audioRef} />;
+      return React.createElement('audio', { ref: audio.audioRef });
     }
 
     await act(async () => {
@@ -159,7 +159,7 @@ describe('Quran Audio Playback Rejection & Stale Request Isolation Suite', () =>
 
     function TestAudio() {
       const audio = useQuranAudio({ activeRiwayahReciter: mockReciter });
-      return <audio ref={audio.audioRef} />;
+      return React.createElement('audio', { ref: audio.audioRef });
     }
 
     await act(async () => {
@@ -219,7 +219,7 @@ describe('Quran Audio Playback Rejection & Stale Request Isolation Suite', () =>
 
     function TestAudio() {
       const audio = useQuranAudio({ activeRiwayahReciter: mockReciter });
-      return <audio ref={audio.audioRef} />;
+      return React.createElement('audio', { ref: audio.audioRef });
     }
 
     await act(async () => {
