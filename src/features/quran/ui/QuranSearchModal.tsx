@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useCallback } from 'react';
-import { Search, X, AlertCircle, ArrowLeft, Loader2, Sparkles, BookOpen } from 'lucide-react';
+import { Search, X, AlertCircle, ArrowLeft, Loader2, Sparkles, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 import { useQuranStore } from '../model';
 import {
   searchQuranAyahs,
@@ -113,6 +114,10 @@ export function QuranSearchModal() {
       // Unified validity check: never select stale results while query changed or search in-flight
       if (isLoading || trimmed !== executedQuery) {
         return;
+      }
+      const currentQiraah = useQuranStore.getState().activeQiraah;
+      if (currentQiraah.id !== 'hafs') {
+        toast.info(`تم الانتقال إلى سورة ${item.surahNameAr} في نص حفص التفاعلي`);
       }
       navigateToAyah(item.surahNumber, item.ayahNumber);
     },
@@ -263,9 +268,9 @@ export function QuranSearchModal() {
 
           {/* Hafs Scope Notice & Reference Alert */}
           <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-1.5 text-muted-foreground font-semibold">
-              <BookOpen className="size-3.5 text-primary" />
-              <span>البحث حالياً في نص حفص عن عاصم</span>
+            <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-300 font-semibold text-[11px] leading-relaxed">
+              <Info className="size-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>البحث المفهرس معتمد على نص حفص عن عاصم (العد الكوفي)؛ واختيار أي نتيجة ينقلك مباشرة لنص حفص التفاعلي.</span>
             </div>
 
             {results.length > 0 && !isLoading && (

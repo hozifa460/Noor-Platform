@@ -35,7 +35,15 @@ export function useQuranAudio({ activeRiwayahReciter }: UseQuranAudioProps) {
   }, [registerAudioElement]);
 
   const currentAudioUrl = useMemo(() => {
-    if (isPlayingFullSurah && activeRiwayahReciter) {
+    if (isPlayingFullSurah) {
+      if (!activeRiwayahReciter) return null;
+      // Strict guard: verify current surah exists in reciter's recorded surahList
+      if (
+        Array.isArray(activeRiwayahReciter.surahList) &&
+        !activeRiwayahReciter.surahList.includes(activeSurah.number)
+      ) {
+        return null;
+      }
       return getMp3QuranSurahUrl(activeRiwayahReciter.server, activeSurah.number);
     }
     if (!currentPlayingAyah || !surahData || !isAyahAudioSupportedForQiraah(activeQiraah.id)) {

@@ -230,10 +230,12 @@ export const useQuranStore = create<QuranState>((set, get) => ({
     // 1. Ensure audio is stopped (do not auto-play audio)
     get().stopAudio();
 
-    // 2. Set active surah and interactive view mode
+    // 2. Set active surah, switch activeQiraah explicitly to Hafs, and set interactive view mode
     const surahMeta = ALL_SURAHS.find((s) => s.number === surahNumber);
+    const hafsQiraah = QIRAAT_LIST.find((q) => q.id === 'hafs') || QIRAAT_LIST[0];
     if (surahMeta) {
       set({
+        activeQiraah: hafsQiraah,
         activeSurah: surahMeta,
         viewMode: 'interactive',
         highlightedAyah: ayahNumber,
@@ -404,7 +406,7 @@ export const useQuranStore = create<QuranState>((set, get) => ({
       subtitle: activeQiraah.origin,
       sheikhName: activeQiraah.narrator,
       section: 'books',
-      pdfUrl: activeQiraah.pdfUrl,
+      pdfUrl: activeQiraah.pdfUrl ?? undefined,
       tags: ['مصحف', 'قرآن كريم', activeQiraah.name],
       description: activeQiraah.description,
     };

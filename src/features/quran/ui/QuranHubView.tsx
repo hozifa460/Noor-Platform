@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -8,6 +8,11 @@ import {
   Play,
   Pause,
   Search,
+  BookOpen,
+  ChevronDown,
+  AlertCircle,
+  Info,
+  FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,15 +26,18 @@ import {
   getAyahRecitersForQiraah,
   isAyahAudioSupportedForQiraah,
   type AyahItem,
+  type QiraahMeta,
 } from '../domain';
 import {
   getRecitersForRiwayah,
+  isSurahAvailableInRecording,
   type RiwayahReciterEntry,
 } from '../infrastructure';
 import { PdfViewer } from '@/components/pdf-viewer/PdfViewer';
 import { AyahDetailModal } from './AyahDetailModal';
 import { SurahDrawer } from './SurahDrawer';
 import { ReciterModal } from './ReciterModal';
+import { QiraahModal } from './QiraahModal';
 import { QuranSearchModal } from './QuranSearchModal';
 import { WordExplorerDrawer } from './WordExplorerDrawer';
 import { QuranAudioBar } from './QuranAudioBar';
@@ -72,7 +80,10 @@ export function QuranHubView() {
   const selectedWordTarget = useQuranStore((s) => s.selectedWordTarget);
 
   const [surahDrawerOpen, setSurahDrawerOpen] = useState(false);
+  const [qiraahModalOpen, setQiraahModalOpen] = useState(false);
   const [recitersModalOpen, setRecitersModalOpen] = useState(false);
+  const [confirmSwitchToHafsOpen, setConfirmSwitchToHafsOpen] = useState(false);
+  const [pendingTargetMode, setPendingTargetMode] = useState<'interactive' | 'mushaf-real'>('interactive');
   const [surahSearch, setSurahSearch] = useState('');
   const [reciterSearch, setReciterSearch] = useState('');
   const [selectedAyahForModal, setSelectedAyahForModal] = useState<AyahItem | null>(null);
@@ -122,19 +133,70 @@ export function QuranHubView() {
     };
   }, [showTranslation, viewMode, activeTranslation?.code, activeSurah.number]);
 
-  // Load riwayah reciters safely without stale overwrites
+  // Load riwayah reciters safely without stale overwrites; prioritize ones with active surah recorded
   useEffect(() => {
     let isCancelled = false;
     getRecitersForRiwayah(activeQiraah.id).then((list) => {
       if (!isCancelled) {
         setRiwayahReciters(list);
-        setActiveRiwayahReciter(list.length > 0 ? list[0] : null);
+        const best =
+          list.find(
+            (r) => Array.isArray(r.surahList) && r.surahList.includes(activeSurah.number)
+          ) || (list.length > 0 ? list[0] : null);
+        setActiveRiwayahReciter(best);
       }
     });
     return () => {
       isCancelled = true;
     };
-  }, [activeQiraah.id]);
+  }, [activeQiraah.id, activeSurah.number]);
+
+  const handleSelectQiraah = useCallback(
+    (q: QiraahMeta) => {
+      stopAudio();
+      audio.setIsPlayingFullSurah(false);
+      setActiveQiraah(q);
+      if (q.id !== 'hafs') {
+        setViewMode('pdf-page');
+        toast.success(`تم التبديل إلى: ${q.name}`);
+      } else {
+        if (viewMode === 'pdf-page') {
+          setViewMode('mushaf-real');
+        }
+        toast.success('تم التبديل إلى مصحف المدينة برواية حفص عن عاصم');
+      }
+    },
+    [stopAudio, audio, setActiveQiraah, setViewMode, viewMode]
+  );
+
+  const handleSwitchToHafsText = useCallback(
+    (targetMode: 'interactive' | 'mushaf-real' = 'interactive') => {
+      stopAudio();
+      audio.setIsPlayingFullSurah(false);
+      const hafs = QIRAAT_LIST.find((q) => q.id === 'hafs') || QIRAAT_LIST[0];
+      setActiveQiraah(hafs);
+      setViewMode(targetMode);
+      setConfirmSwitchToHafsOpen(false);
+      toast.success('تم الانتقال إلى مصحف المدينة برواية حفص عن عاصم');
+    },
+    [stopAudio, audio, setActiveQiraah, setViewMode]
+  );
+
+  const handleModeClick = useCallback(
+    (mode: 'mushaf-real' | 'interactive' | 'pdf-page') => {
+      if (mode === 'pdf-page') {
+        setViewMode('pdf-page');
+        return;
+      }
+      if (activeQiraah.id !== 'hafs') {
+        setPendingTargetMode(mode);
+        setConfirmSwitchToHafsOpen(true);
+      } else {
+        setViewMode(mode);
+      }
+    },
+    [activeQiraah.id, setViewMode]
+  );
 
   // Global keydown listener for Ctrl+K / Cmd+K to open search modal
   useEffect(() => {
@@ -268,28 +330,18 @@ export function QuranHubView() {
               </Badge>
             </Button>
 
-            {/* Qira'ah / Narration Switcher */}
-            <div className="flex items-center gap-1.5">
-              <select
-                value={activeQiraah.id}
-                onChange={(e) => {
-                  const q = QIRAAT_LIST.find((x) => x.id === e.target.value);
-                  if (q) {
-                    stopAudio();
-                    audio.setIsPlayingFullSurah(false);
-                    setActiveQiraah(q);
-                    toast.success(`تم التبديل إلى: ${q.name}`);
-                  }
-                }}
-                className="h-10 px-2.5 rounded-2xl bg-card border border-border text-xs font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary max-w-[150px] sm:max-w-[210px] truncate shadow-sm"
-              >
-                {QIRAAT_LIST.map((q) => (
-                  <option key={q.id} value={q.id}>
-                    📖 {q.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Qira'ah / Narration Trigger Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setQiraahModalOpen(true)}
+              className="gap-2 font-bold text-xs sm:text-sm rounded-2xl bg-card hover:bg-muted border-border shadow-sm h-10 px-3 sm:px-4 max-w-[180px] sm:max-w-[240px] truncate"
+              title="اختيار الرواية أو القراءة"
+            >
+              <BookOpen className="size-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span className="truncate font-bold">{activeQiraah.name}</span>
+              <ChevronDown className="size-3.5 text-muted-foreground shrink-0 opacity-70" />
+            </Button>
 
             {/* Quran Ayah Search Trigger */}
             <Button
@@ -312,7 +364,7 @@ export function QuranHubView() {
             {/* View Mode Switcher */}
             <div className="flex items-center bg-muted/60 p-1 rounded-2xl border border-border text-xs font-bold">
               <button
-                onClick={() => setViewMode('mushaf-real')}
+                onClick={() => handleModeClick('mushaf-real')}
                 className={cn(
                   'px-2.5 py-1.5 rounded-xl transition-all',
                   viewMode === 'mushaf-real'
@@ -325,7 +377,7 @@ export function QuranHubView() {
               </button>
 
               <button
-                onClick={() => setViewMode('interactive')}
+                onClick={() => handleModeClick('interactive')}
                 className={cn(
                   'px-2.5 py-1.5 rounded-xl transition-all',
                   viewMode === 'interactive'
@@ -338,7 +390,7 @@ export function QuranHubView() {
               </button>
 
               <button
-                onClick={() => setViewMode('pdf-page')}
+                onClick={() => handleModeClick('pdf-page')}
                 className={cn(
                   'px-2.5 py-1.5 rounded-xl transition-all',
                   viewMode === 'pdf-page'
@@ -352,47 +404,71 @@ export function QuranHubView() {
             </div>
 
             {/* Recitation Trigger (Full Surah Stream) */}
-            <Button
-              size="sm"
-              variant={audio.isPlayingFullSurah ? 'default' : 'outline'}
-              onClick={() => {
-                if (audio.isPlayingFullSurah) {
-                  stopAudio();
-                  audio.setIsPlayingFullSurah(false);
-                } else {
-                  stopAudio();
-                  audio.setIsPlayingFullSurah(true);
-                  const reciterTitle = activeRiwayahReciter?.reciterName || activeReciter.name;
-                  toast.success(
-                    `جاري تلاوة سورة ${activeSurah.nameAr} بصوت ${reciterTitle}`
-                  );
-                }
-              }}
-              className={cn(
-                'rounded-2xl text-xs gap-1.5 h-10 px-3 font-bold shadow-sm',
-                audio.isPlayingFullSurah && 'bg-emerald-600 hover:bg-emerald-700 text-white'
-              )}
-            >
-              {audio.isPlayingFullSurah ? (
-                <Pause className="size-3.5" />
-              ) : (
-                <Play className="size-3.5 fill-current" />
-              )}
-              <span className="hidden sm:inline">
-                {audio.isPlayingFullSurah ? 'إيقاف السورة' : 'تلاوة السورة'}
-              </span>
-            </Button>
+            {(() => {
+              const isSurahRecorded = Boolean(
+                activeRiwayahReciter && isSurahAvailableInRecording(activeRiwayahReciter, activeSurah.number)
+              );
+              return (
+                <Button
+                  size="sm"
+                  variant={audio.isPlayingFullSurah ? 'default' : 'outline'}
+                  disabled={!activeRiwayahReciter || !isSurahRecorded}
+                  onClick={() => {
+                    if (audio.isPlayingFullSurah) {
+                      stopAudio();
+                      audio.setIsPlayingFullSurah(false);
+                    } else {
+                      if (!isSurahRecorded) {
+                        toast.error(
+                          `سورة ${activeSurah.nameAr} غير متوفرة في تسجيل ${activeRiwayahReciter?.reciterName || 'هذا القارئ'}`
+                        );
+                        return;
+                      }
+                      stopAudio();
+                      audio.setIsPlayingFullSurah(true);
+                      const reciterTitle = activeRiwayahReciter?.reciterName || activeReciter.name;
+                      toast.success(
+                        `جاري تلاوة سورة ${activeSurah.nameAr} بصوت ${reciterTitle}`
+                      );
+                    }
+                  }}
+                  className={cn(
+                    'rounded-2xl text-xs gap-1.5 h-10 px-3 font-bold shadow-sm',
+                    audio.isPlayingFullSurah && 'bg-emerald-600 hover:bg-emerald-700 text-white',
+                    (!activeRiwayahReciter || !isSurahRecorded) && 'opacity-60 cursor-not-allowed'
+                  )}
+                  title={
+                    !isSurahRecorded
+                      ? `سورة ${activeSurah.nameAr} غير متوفرة لهذا القارئ`
+                      : audio.isPlayingFullSurah
+                      ? 'إيقاف السورة'
+                      : 'تلاوة السورة'
+                  }
+                >
+                  {audio.isPlayingFullSurah ? (
+                    <Pause className="size-3.5" />
+                  ) : (
+                    <Play className="size-3.5 fill-current" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {!isSurahRecorded ? 'التسجيل غير متاح' : audio.isPlayingFullSurah ? 'إيقاف السورة' : 'تلاوة السورة'}
+                  </span>
+                </Button>
+              );
+            })()}
 
             {/* Reciters Modal Button */}
             <Button
               size="sm"
               variant="outline"
               onClick={() => setRecitersModalOpen(true)}
-              className="rounded-2xl text-xs gap-1.5 h-10 px-2.5 sm:px-3 font-bold shadow-sm bg-card hover:bg-muted"
-              title="مكتبة القراء الكبرى"
+              className="rounded-2xl text-xs gap-1.5 h-10 px-2.5 sm:px-3 font-bold shadow-sm bg-card hover:bg-muted max-w-[140px] sm:max-w-[190px] truncate"
+              title="اختيار القارئ"
             >
-              <Headphones className="size-3.5 text-primary" />
-              <span className="hidden md:inline">240+ قارئ</span>
+              <Headphones className="size-3.5 text-primary shrink-0" />
+              <span className="truncate font-bold">
+                {activeRiwayahReciter?.reciterName || 'اختيار القارئ'}
+              </span>
             </Button>
 
             {/* Surah Navigation (Prev / Next) */}
@@ -430,21 +506,26 @@ export function QuranHubView() {
           <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
             <div className="space-y-0.5">
               <div className="font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                <Info className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
                 <span>تنبيه الرواية:</span>
                 <span>النص الرقمي المعروض مضبوط برواية حفص عن عاصم</span>
               </div>
               <div className="text-muted-foreground text-[11px]">
-                للاطلاع على مصحف ({activeQiraah.name}) كاملاً برسمه وضبطه، يمكنك الانتقال إلى المصحف المصور.
+                {activeQiraah.pdfUrl
+                  ? `للاطلاع على مصحف (${activeQiraah.name}) كاملاً برسمه وضبطه، يمكنك الانتقال إلى المصحف المصور المعتمد.`
+                  : `المصحف المصور برواية (${activeQiraah.name}) قيد التجهيز والتدقيق من مجمع الملك فهد.`}
               </div>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setViewMode('pdf-page')}
-              className="rounded-xl text-xs font-bold shrink-0 border-amber-500/40 text-amber-900 dark:text-amber-200 hover:bg-amber-500/20"
-            >
-              عرض المصحف المصور
-            </Button>
+            {activeQiraah.pdfUrl && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setViewMode('pdf-page')}
+                className="rounded-xl text-xs font-bold shrink-0 border-amber-500/40 text-amber-900 dark:text-amber-200 hover:bg-amber-500/20"
+              >
+                عرض المصحف المصور
+              </Button>
+            )}
           </div>
         )}
 
@@ -567,7 +648,7 @@ export function QuranHubView() {
                     selectedWordTarget?.surahNo === activeSurah.number &&
                     selectedWordTarget?.ayahNo === ayah.ayahNo
                       ? selectedWordTarget.wordIndex
-                      : null
+                        : null
                   }
                 />
               );
@@ -577,13 +658,71 @@ export function QuranHubView() {
 
         {/* 3. Original PDF Mushaf Viewer Mode */}
         {!loadingSurah && viewMode === 'pdf-page' && (
-          <div className="rounded-3xl border border-border overflow-hidden bg-card shadow-2xl p-2 sm:p-4">
-            <PdfViewer
-              url={activeQiraah.pdfUrl}
-              title={activeQiraah.name}
-              bookSlug={`quran-${activeQiraah.id}`}
-            />
-          </div>
+          activeQiraah.pdfUrl ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-card border border-border text-xs">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-[11px] font-bold">
+                    {activeQiraah.name}
+                  </Badge>
+                  <span className="text-muted-foreground text-[11px] hidden sm:inline">
+                    مصحف مصور رقمي موثق (604 صفحات)
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSwitchToHafsText('interactive')}
+                  className="rounded-xl text-xs font-bold gap-1.5 h-8 hover:bg-primary hover:text-primary-foreground transition-all"
+                >
+                  <FileText className="size-3.5" />
+                  <span>الانتقال إلى نص حفص التفاعلي</span>
+                </Button>
+              </div>
+              <div className="rounded-3xl border border-border overflow-hidden bg-card shadow-2xl p-2 sm:p-4">
+                <PdfViewer
+                  url={activeQiraah.pdfUrl}
+                  title={activeQiraah.name}
+                  bookSlug={`quran-${activeQiraah.id}`}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="py-16 text-center space-y-4 max-w-lg mx-auto p-8 rounded-3xl bg-card border border-border shadow-xl">
+              <div className="size-14 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 grid place-items-center mx-auto text-2xl font-bold">
+                <BookOpen className="size-7" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="font-bold text-lg text-foreground">
+                  المصحف المصور برواية {activeQiraah.name}
+                </h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  جاري إعداد وتدقيق النسخة المصورة عالية الجودة الصادرة عن مجمع الملك فهد لطباعة المصحف الشريف لضمان أعلى درجات الدقة والأصالة.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  يمكنك الاستفادة الكاملة من القراءة المتصلة أو الآيات التفاعلية مع التفسير والبحث.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => handleSwitchToHafsText('mushaf-real')}
+                  className="rounded-xl font-bold text-xs"
+                >
+                  القراءة المتصلة
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSwitchToHafsText('interactive')}
+                  className="rounded-xl font-bold text-xs"
+                >
+                  الآيات التفاعلية
+                </Button>
+              </div>
+            </div>
+          )
         )}
       </main>
 
@@ -616,6 +755,8 @@ export function QuranHubView() {
         searchQuery={reciterSearch}
         onSearchChange={setReciterSearch}
         qiraahName={activeQiraah.name}
+        currentSurahNo={activeSurah.number}
+        currentSurahName={activeSurah.nameAr}
       />
 
       {/* Quick Ayah Menu Popup */}
@@ -732,6 +873,48 @@ export function QuranHubView() {
 
       {/* Word Morphology & Root Explorer Drawer («استكشف الكلمة») */}
       <WordExplorerDrawer />
+
+      {/* Qira'ah & Narration Selection Modal */}
+      <QiraahModal
+        open={qiraahModalOpen}
+        onClose={() => setQiraahModalOpen(false)}
+        activeQiraah={activeQiraah}
+        onSelectQiraah={handleSelectQiraah}
+      />
+
+      {/* Confirmation Dialog when switching to Digital Text from non-Hafs Riwayah */}
+      {confirmSwitchToHafsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-2xl bg-card border border-border p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-amber-600 dark:text-amber-400">
+              <AlertCircle className="size-6 shrink-0" />
+              <h3 className="font-bold text-base text-foreground">الانتقال إلى نص مصحف المدينة (حفص)</h3>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              النص الرقمي التفاعلي والقراءة المتصلة في المنصة مضبوطان حالياً برواية حفص عن عاصم.
+              الانتقال إلى هذا النمط سيقوم بضبط الرواية النشطة على «حفص عن عاصم» وإيقاف أي تلاوة جارية.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirmSwitchToHafsOpen(false)}
+                className="rounded-xl text-xs"
+              >
+                إلغاء
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => handleSwitchToHafsText(pendingTargetMode)}
+                className="rounded-xl text-xs font-bold bg-primary text-primary-foreground"
+              >
+                تأكيد الانتقال إلى نص حفص
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

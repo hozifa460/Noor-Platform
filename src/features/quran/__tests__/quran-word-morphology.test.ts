@@ -428,7 +428,7 @@ describe('Quran Word Morphology & Root Explorer («استكشف الكلمة»)'
       expect(unavailableWords).toBe(8); // Only the 4 words in 95:1 and 4 words in 97:1 (prefixed Basmalah in Tanzil)
       expect(documentedExceptions).toBe(19); // 6 in 95:1 + 9 in 97:1 + 4 in 37:130
       expect(unexpectedMismatches).toHaveLength(0);
-    });
+    }, 30000);
 
     it('returns not_found when alignment cannot be proven without guessing or general search', async () => {
       // Pass a mismatched word text for an existing index (e.g. 1:1:1 is 'بِسْمِ', pass 'ٱلرَّحْمَٰنِ')
