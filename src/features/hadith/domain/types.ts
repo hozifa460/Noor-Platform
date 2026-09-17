@@ -136,7 +136,7 @@ export interface ParsedIsnad {
 }
 
 export interface GradeFilterOption {
-  id: 'all' | 'muttafaqun' | 'sahih' | 'hasan' | 'daif' | 'mawdu';
+  id: 'all' | 'muttafaqun' | 'sahih' | 'hasan' | 'daif' | 'mawdu' | 'unspecified';
   name: string;
   dotColor?: string;
   activeClass?: string;

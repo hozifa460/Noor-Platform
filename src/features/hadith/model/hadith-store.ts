@@ -25,7 +25,7 @@ export interface HadithState {
   selectedChapterId: number | 'all';
   searchQuery: string;
   categoryFilter: string;
-  gradeFilter: 'all' | 'muttafaqun' | 'sahih' | 'hasan' | 'daif' | 'mawdu';
+  gradeFilter: 'all' | 'muttafaqun' | 'sahih' | 'hasan' | 'daif' | 'mawdu' | 'unspecified';
   searchMode: 'in-book' | 'global';
   loadingBook: boolean;
   searchingGlobal: boolean;
@@ -46,7 +46,7 @@ export interface HadithState {
   setSelectedChapterId: (chapterId: number | 'all') => void;
   setSearchQuery: (q: string) => void;
   setCategoryFilter: (cat: string) => void;
-  setGradeFilter: (grade: 'all' | 'muttafaqun' | 'sahih' | 'hasan' | 'daif' | 'mawdu') => void;
+  setGradeFilter: (grade: 'all' | 'muttafaqun' | 'sahih' | 'hasan' | 'daif' | 'mawdu' | 'unspecified') => void;
   setSearchMode: (mode: 'in-book' | 'global') => void;
   openHadithDetail: (
     hadith: HadithItem,
@@ -170,9 +170,12 @@ export const useHadithStore = create<HadithState>((set, get) => ({
       /* fallback to available snippet */
     }
 
-    // 2. Fetch Sharh & Explanations from HadeethEnc
+    // 2. Fetch Sharh & Explanations from HadeethEnc using documented links or exact verbatim matn
     try {
-      const sharh = await findHadithSharh(resolvedHadith.arabic);
+      const sharh = await findHadithSharh(resolvedHadith.arabic, {
+        bookId: targetBook?.id,
+        idInBook: resolvedHadith.idInBook,
+      });
       set({ hadithSharh: sharh, loadingSharh: false });
     } catch {
       set({ loadingSharh: false });

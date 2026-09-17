@@ -27,6 +27,7 @@ export type {
   FakeHadithCategoryMeta,
   FakeHadithItem,
   AuthenticityCheckResult,
+  TranslationSupportStatus,
 } from './infrastructure';
 
 export {
@@ -56,6 +57,7 @@ export {
   searchAcrossAllBooks,
   loadSunanGrades,
   getHadithGrade,
+  normalizeGradeText,
   isMuttafaqunAlayh,
   parseHadithIsnad,
   findNarratorBio,
@@ -69,11 +71,18 @@ export {
   checkHadithAuthenticity,
   SUPPORTED_TRANSLATION_LANGUAGES,
   isBookTranslationAvailable,
+  getBookTranslationSupport,
+  VERIFIED_CONCORDANT_BOOKS,
+  VERIFIED_CONCORDANCE_MAP,
+  CONCORDANCE_EVIDENCE_CATALOG,
+  DOCUMENTED_SHARH_LINKS,
   fetchHadithTranslation,
   getCachedHadithBook,
   setCachedHadithBook,
   BUILTIN_SEED_SHARH,
 } from './infrastructure';
+
+export type { ConcordanceEvidenceItem, DocumentedSharhTarget } from './infrastructure';
 
 // Model Layer
 export {

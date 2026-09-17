@@ -63,7 +63,7 @@ export function HadithDetailModal({
   const [isMaximized, setIsMaximized] = useState(false);
   const [fontSize, setFontSize] = useState<number>(18);
 
-  const gradeInfo = getHadithGrade(book.id, hadith.idInBook, sharh?.grade);
+  const gradeInfo = getHadithGrade(book.id, hadith.idInBook);
   const tts = useTextToSpeech();
 
   // Keyboard shortcut to close on Escape
@@ -133,6 +133,10 @@ export function HadithDetailModal({
                       ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
                       : gradeInfo.grade === 'حسن'
                       ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300'
+                      : gradeInfo.grade === 'ضعيف'
+                      ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
+                      : gradeInfo.grade === 'غير محدد'
+                      ? 'bg-muted text-muted-foreground border border-border/60'
                       : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
                   )}
                 >

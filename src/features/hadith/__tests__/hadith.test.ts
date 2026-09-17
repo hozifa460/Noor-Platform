@@ -54,6 +54,7 @@ describe('Hadith Feature Domain — Contract & Business Logic', () => {
       expect(gradeIds).toContain('hasan');
       expect(gradeIds).toContain('daif');
       expect(gradeIds).toContain('mawdu');
+      expect(gradeIds).toContain('unspecified');
     });
   });
 
@@ -76,9 +77,12 @@ describe('Hadith Feature Domain — Contract & Business Logic', () => {
   });
 
   describe('Grading Helpers', () => {
-    it('correctly identifies Muttafaqun Alayh status', () => {
-      expect(isMuttafaqunAlayh('bukhari', 1)).toBe(true);
-      expect(isMuttafaqunAlayh('muslim', 1)).toBe(true);
+    it('correctly identifies Muttafaqun Alayh status with textual evidence', () => {
+      // Must not falsely claim Muttafaqun Alayh by mere presence in Bukhari or Muslim alone
+      expect(isMuttafaqunAlayh('bukhari', 1)).toBe(false);
+      expect(isMuttafaqunAlayh('muslim', 1)).toBe(false);
+      expect(isMuttafaqunAlayh('bukhari', 1, 'أخرجه الشيخان ومتفق عليه')).toBe(true);
+      expect(isMuttafaqunAlayh('muslim', 1, 'رواه البخاري ومسلم')).toBe(true);
       expect(isMuttafaqunAlayh('nawawi40', 1, 'متفق عليه')).toBe(true);
       expect(isMuttafaqunAlayh('abudawud', 1, 'حديث حسن')).toBe(false);
     });

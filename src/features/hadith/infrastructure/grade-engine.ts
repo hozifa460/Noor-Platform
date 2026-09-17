@@ -4,14 +4,15 @@
  */
 
 export interface HadithGradeInfo {
-  grade: 'صحيح' | 'حسن' | 'ضعيف' | 'موضوع' | 'مقبول';
+  grade: 'صحيح' | 'حسن' | 'ضعيف' | 'موضوع' | 'مقبول' | 'غير محدد';
   rawGrade?: string;
   scholar?: string;
   source?: string;
+  badgeColor?: 'emerald' | 'sky' | 'amber' | 'rose' | 'gray';
 }
 
 interface GradeEntry {
-  g: 'صحيح' | 'حسن' | 'ضعيف' | 'موضوع' | 'مقبول';
+  g: 'صحيح' | 'حسن' | 'ضعيف' | 'موضوع' | 'مقبول' | 'غير محدد';
   r: string;
   s: string;
 }
@@ -20,6 +21,64 @@ const gradeCache = new Map<string, HadithGradeInfo>();
 const sunanGradesCache = new Map<string, Record<number, GradeEntry>>();
 
 const SUNAN_BOOK_IDS = new Set(['tirmidhi', 'abudawud', 'nasai', 'ibnmajah']);
+
+/**
+ * Normalizes any grade text into canonical scholarly taxonomy.
+ * Safely maps unclassified, typos, or missing grades to 'غير محدد' instead of falsely assuming 'مقبول'.
+ */
+export function normalizeGradeText(
+  raw?: string | null
+): 'صحيح' | 'حسن' | 'ضعيف' | 'موضوع' | 'مقبول' | 'غير محدد' {
+  if (!raw) return 'غير محدد';
+
+  const cleaned = raw
+    .toLowerCase()
+    .replace(/[\u2018\u2019\u201B`']/g, "'")
+    .replace(/da[, ]+if/g, "da'if");
+
+  // 1. Fabricated / Batil
+  if (
+    raw.includes('موضوع') ||
+    raw.includes('باطل') ||
+    cleaned.includes('mawdu') ||
+    cleaned.includes('batil')
+  ) {
+    return 'موضوع';
+  }
+
+  // 2. Weak & Terminology categories (Daif, Munkar, Shadh)
+  // NOTE: 'مقطوع' (Maqtu') is an isnad attribution classification (statement/action of a Tabi'i), NOT a health grade!
+  // A Maqtu' narration can be Sahih, Hasan, Da'if, or unspecified, depending on its chain.
+  if (
+    raw.includes('ضعيف') ||
+    raw.includes('منكر') ||
+    raw.includes('شاذ') ||
+    cleaned.includes("da'if") ||
+    cleaned.includes('daif') ||
+    cleaned.includes('munkar') ||
+    cleaned.includes('shadh')
+  ) {
+    return 'ضعيف';
+  }
+
+  // 3. Sahih
+  if (raw.includes('صحيح') || cleaned.includes('sahih')) {
+    return 'صحيح';
+  }
+
+  // 4. Hasan
+  if (raw.includes('حسن') || cleaned.includes('hasan')) {
+    return 'حسن';
+  }
+
+  // 5. Maqbul (only if explicitly classified by scholar)
+  if (raw.includes('مقبول') || cleaned.includes('maqbul')) {
+    return 'مقبول';
+  }
+
+  // 6. Safe default when no explicit verified ruling is known
+  return 'غير محدد';
+}
 
 /**
  * Loads and caches Sunan grade map from local storage / CDN.
@@ -75,19 +134,21 @@ export function getHadithGrade(
   let result: HadithGradeInfo;
 
   // 1. Sahihayn (Bukhari & Muslim) are universally agreed to be Sahih
-  if (bookId === 'bukhari' || bookId === 'muslim') {
+  if (bookId === 'bukhari') {
     result = {
       grade: 'صحيح',
-      rawGrade: 'صحيح متفق عليه أو مخرج في الصحيح',
-      scholar: 'إجماع الأمة على صحة أحاديث الصحيحين',
-      source: bookId === 'bukhari' ? 'صحيح البخاري' : 'صحيح مسلم',
+      rawGrade: 'صحيح مخرج في صحيح البخاري',
+      scholar: 'الإمام البخاري (إجماع الأمة على صحة أصوله)',
+      source: 'صحيح البخاري',
+      badgeColor: 'emerald',
     };
-  } else if (bookId === 'nawawi40' || bookId === 'riyad_assalihin') {
+  } else if (bookId === 'muslim') {
     result = {
       grade: 'صحيح',
-      rawGrade: 'صحيح أو حسن ثابت',
-      scholar: 'الإمام النووي',
-      source: bookId === 'nawawi40' ? 'الأربعون النووية' : 'رياض الصالحين',
+      rawGrade: 'صحيح مخرج في الصحيح',
+      scholar: 'الإمام مسلم (إجماع الأمة على صحة أصوله)',
+      source: 'صحيح مسلم',
+      badgeColor: 'emerald',
     };
   } else {
     // 2. Check Sunan grade map if loaded in memory or on Node
@@ -111,31 +172,48 @@ export function getHadithGrade(
 
     const verified = bookGrades?.[hadithNumber];
     if (verified) {
+      const normalized = normalizeGradeText(verified.r || verified.g);
       result = {
-        grade: verified.g,
+        grade: normalized,
         rawGrade: verified.r,
         scholar: verified.s,
         source: 'موسوعة أحكام وتخريج السنن',
+        badgeColor:
+          normalized === 'صحيح'
+            ? 'emerald'
+            : normalized === 'حسن'
+            ? 'sky'
+            : normalized === 'ضعيف'
+            ? 'amber'
+            : normalized === 'موضوع'
+            ? 'rose'
+            : 'gray',
       };
     } else if (explicitGrade) {
-      let normalizedGrade: 'صحيح' | 'حسن' | 'ضعيف' | 'موضوع' | 'مقبول' = 'مقبول';
-      if (explicitGrade.includes('صحيح')) normalizedGrade = 'صحيح';
-      else if (explicitGrade.includes('حسن')) normalizedGrade = 'حسن';
-      else if (explicitGrade.includes('ضعيف')) normalizedGrade = 'ضعيف';
-      else if (explicitGrade.includes('موضوع') || explicitGrade.includes('باطل')) normalizedGrade = 'موضوع';
-
+      const normalized = normalizeGradeText(explicitGrade);
       result = {
-        grade: normalizedGrade,
+        grade: normalized,
         rawGrade: explicitGrade,
-        scholar: 'أئمة الحديث والمحققون',
-        source: 'موسوعة أحكام الحديث',
+        scholar: 'حكم مسند مع المتن',
+        source: 'موسوعة الحديث الشريف',
+        badgeColor:
+          normalized === 'صحيح'
+            ? 'emerald'
+            : normalized === 'حسن'
+            ? 'sky'
+            : normalized === 'ضعيف'
+            ? 'amber'
+            : normalized === 'موضوع'
+            ? 'rose'
+            : 'gray',
       };
     } else {
       result = {
-        grade: 'مقبول',
-        rawGrade: 'مسند ومخرج في كتب السنة',
-        scholar: 'أئمة الحديث',
-        source: 'دواوين السنة النبوية',
+        grade: 'غير محدد',
+        rawGrade: undefined,
+        scholar: undefined,
+        source: 'لم نقف على حكم مسند في هذه النسخة',
+        badgeColor: 'gray',
       };
     }
   }
@@ -145,18 +223,16 @@ export function getHadithGrade(
 }
 
 /**
- * Checks if a hadith is Muttafaqun Alayh (متفق عليه - narrated by Bukhari and Muslim)
- * or explicitly marked as agreed upon in classical hadith sources.
+ * Checks if a hadith is Muttafaqun Alayh (متفق عليه - narrated by Bukhari and Muslim).
+ * Requires explicit textual or metadata verification. Merely appearing in Bukhari or Muslim alone
+ * does NOT automatically imply agreement of both Imams.
  */
 export function isMuttafaqunAlayh(
-  bookId: string,
+  _bookId: string,
   _hadithNumber: number,
   text?: string,
   rawGrade?: string
 ): boolean {
-  if (bookId === 'bukhari' || bookId === 'muslim') {
-    return true;
-  }
   if (
     rawGrade &&
     (rawGrade.includes('متفق عليه') ||
@@ -169,10 +245,10 @@ export function isMuttafaqunAlayh(
     text &&
     (text.includes('متفق عليه') ||
       text.includes('رواه البخاري ومسلم') ||
-      text.includes('أخرجه البخاري ومسلم'))
+      text.includes('أخرجه البخاري ومسلم') ||
+      text.includes('أخرجه الشيخان'))
   ) {
     return true;
   }
   return false;
 }
-

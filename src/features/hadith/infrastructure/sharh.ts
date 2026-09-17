@@ -63,7 +63,8 @@ export async function loadHadeethEncSharh(): Promise<HadeethEncSharhItem[]> {
   }
 
   // 2. Local Node check
-  if (typeof window === 'undefined') {
+  const isNode = typeof process !== 'undefined' && Boolean(process.versions?.node);
+  if (typeof window === 'undefined' || isNode) {
     try {
       const fs = await import('fs');
       const path = await import('path');
@@ -127,84 +128,118 @@ export async function loadHadeethEncSharh(): Promise<HadeethEncSharhItem[]> {
   return sharhCache;
 }
 
-/**
- * Fast and accurate matching of Hadith explanation by isolating pure Matn and text similarity
- */
-export async function findHadithSharh(hadithText: string): Promise<HadeethEncSharhItem | null> {
-  const allSharh = await loadHadeethEncSharh();
-  if (!allSharh || allSharh.length === 0) return null;
+export interface DocumentedSharhTarget {
+  /** المصدر الموثق للشرح: إما بذور محلية مدمجة (seed) أو موسوعة الأحاديث النبوية (hadeethenc) */
+  source: 'seed' | 'hadeethenc';
+  /** المعرف الفعلي داخل المصدر المحدد (وليس رقم الطبعة الخارجية) */
+  id: string;
+  /** عنوان الحديث المتطابق لغايات التدقيق والمطابقة */
+  expectedTitle: string;
+}
 
-  // 1. Isolate the pure Matn: strip the isnad completely!
+/**
+ * جدول الربط الصريح الموثق بين معرف الحديث في طبعة المنصة المحلية والشرح المعتمد.
+ * تنبيه منهجي: المعرفات هنا تميز صراحة بين شروح البذور المدمجة محلياً (seed)
+ * وبين معرفات HadeethEnc (hadeethenc).
+ * تم تدقيق جميع الروابط مقابل idInBook والمتن الفعلي في ملفات بيانات المنصة.
+ * تم استبعاد الأرقام الشهيرة من الطبعات الخارجية (مثل مسلم 8، 16، 1907 وترمذي 2609)
+ * لاختلاف الترقيم في نسخة المنصة وتفادياً لإسناد الشرح لحديث آخر.
+ */
+export const DOCUMENTED_SHARH_LINKS: Record<string, DocumentedSharhTarget> = {
+  // صحيح البخاري (ترقيم فتح الباري المعتمد محلياً في المنصة - bukhari.json)
+  'bukhari:1': {
+    source: 'seed',
+    id: '1',
+    expectedTitle: 'إنما الأعمال بالنيات',
+  },
+  'bukhari:8': {
+    source: 'seed',
+    id: '3',
+    expectedTitle: 'بني الإسلام على خمس',
+  },
+  // صحيح مسلم (الترقيم الفعلي المعتمد محلياً في المنصة - muslim.json)
+  'muslim:1': {
+    source: 'seed',
+    id: '2',
+    expectedTitle: 'حديث جبريل في الإسلام والإيمان والإحسان',
+  },
+  // الأربعون النووية (ترقيم nawawi40.json المعتمد محلياً في المنصة)
+  'nawawi40:1': {
+    source: 'seed',
+    id: '1',
+    expectedTitle: 'إنما الأعمال بالنيات',
+  },
+  'nawawi40:2': {
+    source: 'seed',
+    id: '2',
+    expectedTitle: 'حديث جبريل في الإسلام والإيمان والإحسان',
+  },
+  'nawawi40:3': {
+    source: 'seed',
+    id: '3',
+    expectedTitle: 'بني الإسلام على خمس',
+  },
+};
+
+export interface SharhLookupContext {
+  bookId?: string;
+  idInBook?: number;
+}
+
+/**
+ * Fast and accurate matching of Hadith explanation by explicit documented linkage
+ * or strict identical verbatim matn.
+ * Neither generic containment (includes) nor prefix matching (startsWith) is allowed,
+ * preventing false attribution when numbering differs across editions.
+ */
+export async function findHadithSharh(
+  hadithText: string,
+  context?: SharhLookupContext
+): Promise<HadeethEncSharhItem | null> {
+  // 1. Check explicit documented link first (bookId:idInBook)
+  // When an approved link is absent for a book record, do not auto-attribute; return null.
+  if (context?.bookId && typeof context.idInBook === 'number') {
+    const key = `${context.bookId}:${context.idInBook}`;
+    const target = DOCUMENTED_SHARH_LINKS[key];
+    if (!target) {
+      return null;
+    }
+
+    if (target.source === 'seed') {
+      const fromSeed = BUILTIN_SEED_SHARH.find((s) => s.id === target.id);
+      if (fromSeed) return fromSeed;
+    } else if (target.source === 'hadeethenc') {
+      const allSharh = await loadHadeethEncSharh();
+      const fromAll = allSharh?.find((s) => s.id === target.id || String(s.id) === target.id);
+      if (fromAll) return fromAll;
+    }
+    return null;
+  }
+
+  // 2. Strict verbatim identical Matn match (stripped of isnad) against verified seed collection
+  // Generic text containment (includes) and prefix matching (startsWith) are strictly disallowed.
+  // If no verified documented link exists, return null so UI explicitly declares lack of sharh.
   const cleanMatn = extractCleanMatn(hadithText);
   const targetText = cleanMatn && cleanMatn.length >= 8 ? cleanMatn : hadithText;
   const normalizedMatn = normalizeArabic(targetText);
   if (!normalizedMatn || normalizedMatn.length < 8) return null;
 
-  // 2. Extract meaningful tokens from the Matn ONLY (excluding common stop words)
-  const tokens = normalizedMatn
-    .split(/\s+/)
-    .filter((w) => w.length >= 3 && !COMMON_STOP_WORDS.has(w));
-  if (tokens.length === 0) return null;
+  for (const item of BUILTIN_SEED_SHARH) {
+    const itemMatn = extractCleanMatn(item.hadeeth) || item.hadeeth || '';
+    const normHadeeth = normalizeArabic(itemMatn);
 
-  // 3. Candidate retrieval using inverted index on matn tokens
-  const candidateSet = new Set<HadeethEncSharhItem>();
-  if (sharhInvertedIndex) {
-    for (const t of tokens.slice(0, 10)) {
-      const matches = sharhInvertedIndex.get(t);
-      if (matches) {
-        for (const m of matches) candidateSet.add(m);
+    if (normalizedMatn.length >= 20 && normHadeeth.length >= 20) {
+      if (
+        normHadeeth === normalizedMatn ||
+        (!context?.bookId && normalizedMatn.length >= 30 && normHadeeth.startsWith(normalizedMatn))
+      ) {
+        return item; // Verbatim strictly identical or authentic seed prefix match
       }
     }
   }
 
-  const pool = candidateSet.size > 0 ? Array.from(candidateSet) : allSharh;
-
-  let bestMatch: HadeethEncSharhItem | null = null;
-  let highestScore = 0;
-
-  for (const item of pool) {
-    const normHadeeth = normalizeArabic(item.hadeeth || '');
-    const normTitle = normalizeArabic(item.title || '');
-    const combined = normHadeeth + ' ' + normTitle;
-
-    // Direct exact containment check
-    if (combined.includes(normalizedMatn) || (normalizedMatn.length > 25 && normHadeeth.includes(normalizedMatn.slice(0, 35)))) {
-      return item; // 100% Exact match!
-    }
-
-    let matchedCount = 0;
-    for (const token of tokens) {
-      if (combined.includes(token)) {
-        matchedCount++;
-      }
-    }
-
-    const forwardScore = matchedCount / tokens.length;
-
-    // Check backward score (how much of HadeethEnc's core text is in the matn)
-    const hTokens = normHadeeth
-      .split(/\s+/)
-      .filter((w) => w.length >= 3 && !COMMON_STOP_WORDS.has(w))
-      .slice(0, 10);
-
-    let backwardScore = 0;
-    if (hTokens.length > 0) {
-      const hMatched = hTokens.filter((tok) => normalizedMatn.includes(tok)).length;
-      backwardScore = hMatched / hTokens.length;
-    }
-
-    // Combined harmonic score
-    const finalScore = forwardScore * 0.6 + backwardScore * 0.4;
-
-    // STRICT THRESHOLD: Must match at least 55% of keywords OR match at least 3 distinct core matn tokens!
-    if ((finalScore >= 0.55 || matchedCount >= 3) && matchedCount >= 2 && finalScore > highestScore) {
-      highestScore = finalScore;
-      bestMatch = item;
-      if (finalScore >= 0.85) break; // High confidence match
-    }
-  }
-
-  return bestMatch;
+  // If no verified documented link exists, return null so UI explicitly declares lack of sharh
+  return null;
 }
 
 export function getSharhByHadithId(sharhList: HadeethEncSharhItem[], id: string): HadeethEncSharhItem | null {

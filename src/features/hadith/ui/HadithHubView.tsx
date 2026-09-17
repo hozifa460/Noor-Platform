@@ -99,6 +99,7 @@ export function HadithHubView() {
       if (gradeFilter === 'hasan') return g === 'حسن';
       if (gradeFilter === 'daif') return g === 'ضعيف';
       if (gradeFilter === 'mawdu') return g === 'موضوع';
+      if (gradeFilter === 'unspecified') return g === 'غير محدد';
       return true;
     });
   }, [bookData, searchQuery, selectedChapterId, searchMode, gradeFilter, activeBook.id]);
@@ -125,6 +126,8 @@ export function HadithHubView() {
           if (g !== 'ضعيف') return false;
         } else if (gradeFilter === 'mawdu') {
           if (g !== 'موضوع') return false;
+        } else if (gradeFilter === 'unspecified') {
+          if (g !== 'غير محدد') return false;
         }
       }
       return true;
