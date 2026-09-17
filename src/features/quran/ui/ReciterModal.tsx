@@ -367,7 +367,7 @@ export function ReciterModal({
                     return (
                       <button
                         key={`${r.reciterId}-${r.moshafId}`}
-                        data-testid={`reciter-surah-${r.reciterId}`}
+                        data-testid={`reciter-surah-${r.reciterId}-${r.moshafId}`}
                         onClick={() => handleSelectFullSurah(r)}
                         className={cn(
                           'flex flex-col justify-between p-3 rounded-xl border text-right transition-all cursor-pointer space-y-2',

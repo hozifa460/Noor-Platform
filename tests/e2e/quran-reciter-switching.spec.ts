@@ -312,4 +312,70 @@ test.describe('Noor Platform — Quran Reciter Switching & Audio Sync Suite', ()
     const reciterRequestsAfterNav = postNavAudioRequests.filter((url) => url.includes('majd_onazi'));
     expect(reciterRequestsAfterNav.length).toBe(0);
   });
+
+  test('Selecting Muhammad Ayyoub recording 320 in QuranHubView and then picking his verse reciter in QuickAyahMenu preserves recording 320 (fails if 3rd arg is removed)', async ({
+    page,
+  }) => {
+    // 1. Open Reciter Modal and select Muhammad Ayyoub recording 320 (تلاوة مميزة)
+    const reciterTrigger = page.locator('[data-testid="reciter-trigger"]');
+    await expect(reciterTrigger).toBeVisible();
+    await reciterTrigger.click();
+
+    const modal = page.locator('[role="dialog"]');
+    await expect(modal).toBeVisible();
+
+    await page.locator('[data-testid="tab-surah-reciters"]').click();
+    const searchInput = modal.locator('input[placeholder*="ابحث"]');
+    await searchInput.fill('محمد أيوب');
+    await page.waitForTimeout(300);
+
+    // Locate recording 320 button
+    const ayyoub320Btn = modal.locator('[data-testid="reciter-surah-109-320"]');
+    await expect(ayyoub320Btn).toBeVisible();
+    await ayyoub320Btn.click();
+    await expect(modal).not.toBeVisible();
+
+    // Verify initial selection is recording 320
+    const initialMoshafId = await page.evaluate(
+      () => window.__NOOR_ACTIVE_RIWAYAH_RECITER__?.moshafId
+    );
+    expect(initialMoshafId).toBe(320);
+
+    // 2. Ensure continuous Mus-haf reading mode is active (where QuickAyahMenu operates)
+    const mushafRealBtn = page.locator('[data-testid="mode-mushaf-real"]');
+    await mushafRealBtn.click();
+    await page.waitForSelector('[data-testid="continuous-ayah-container"]', { timeout: 10000 });
+
+    // 3. Open QuickAyahMenu by clicking on the first ayah in continuous reader
+    const firstAyah = page.locator('[data-testid="continuous-ayah-container"] > span').first();
+    await expect(firstAyah).toBeVisible();
+    await firstAyah.click();
+
+    // 4. In QuickAyahMenu, select Muhammad Ayyoub from the verse reciters dropdown
+    const quickMenuSelect = page.locator('[data-testid="quick-menu-reciter-select"]');
+    await expect(quickMenuSelect).toBeVisible();
+    await quickMenuSelect.selectOption('ayyoub');
+
+    // 5. CRITICAL VERIFICATION:
+    // Through the actual QuranHubView wiring, activeRiwayahReciter MUST RETAIN recording 320
+    // If the 3rd argument in QuranHubView.tsx is omitted, findMatchingFullSurahReciter would revert to default 109!
+    await expect.poll(async () => {
+      return await page.evaluate(() => window.__NOOR_ACTIVE_RIWAYAH_RECITER__?.moshafId);
+    }, { timeout: 5000 }).toBe(320);
+
+    // Close QuickAyahMenu to uncover top player controls
+    const closeQuickMenuBtn = page.locator('[data-testid="quick-menu-close-btn"]');
+    await closeQuickMenuBtn.click();
+    await expect(page.locator('[data-testid="quick-menu-reciter-select"]')).not.toBeVisible();
+
+    // Also verify via full surah playback: audio src must point to ayyub_special (320), NOT ayyub (109)
+    const playTrigger = page.locator('[data-testid="recitation-play-trigger"]');
+    await playTrigger.click();
+
+    await expect(async () => {
+      const src = await page.evaluate(() => document.querySelector('audio')?.src || '');
+      expect(src).toContain('ayyoub2');
+      expect(src).not.toContain('/ayyub/001.mp3');
+    }).toPass({ timeout: 10000 });
+  });
 });

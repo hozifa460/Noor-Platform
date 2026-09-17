@@ -32,15 +32,16 @@ describe('QuickAyahMenu Integration & Reciter Selection Suite', () => {
     surahList: [1, 2, 3],
   };
 
-  it('selecting Muhammad Ayyoub in QuickAyahMenu preserves moshaf 320 instead of reverting to 109', async () => {
+  it('QuickAyahMenu component with local handler callback: selecting Muhammad Ayyoub preserves moshaf 320 instead of reverting to 109', async () => {
     (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-    // Simulate state: user had Ayyoub Special (320) selected as full surah reciter, and Alafasy as active verse reciter
+    // Note: This tests the isolated QuickAyahMenu component passed a local handler callback.
+    // Full wiring inside QuranHubView is verified by the end-to-end browser test.
     let activeRiwayahReciter: RiwayahReciterEntry | null = ayyoubSpecial;
     let activeReciter: ReciterMeta = QURAN_RECITERS.find((r) => r.id === 'alafasy')!;
     const riwayahReciters = [ayyoubMurattal, ayyoubSpecial];
 
-    // The exact handler passed to QuickAyahMenu in QuranHubView.tsx
+    // Local handler replicating QuranHubView callback:
     const handleSelectActiveReciter = (r: ReciterMeta) => {
       activeReciter = r;
       const matchingFull = findMatchingFullSurahReciter(r, riwayahReciters, activeRiwayahReciter);

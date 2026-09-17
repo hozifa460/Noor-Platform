@@ -35,6 +35,7 @@ import {
 } from '../domain';
 import {
   isSurahAvailableInRecording,
+  type RiwayahReciterEntry,
 } from '../infrastructure';
 import { PdfViewer } from '@/components/pdf-viewer/PdfViewer';
 import { AyahDetailModal } from './AyahDetailModal';
@@ -54,6 +55,7 @@ declare global {
   interface Window {
     __quranStore?: typeof useQuranStore;
     __NOOR_ENABLE_TEST_STORE__?: boolean;
+    __NOOR_ACTIVE_RIWAYAH_RECITER__?: RiwayahReciterEntry | null;
   }
 }
 
@@ -142,9 +144,10 @@ export function QuranHubView() {
         Boolean(window.__NOOR_ENABLE_TEST_STORE__);
       if (isTestContext) {
         window.__quranStore = useQuranStore;
+        window.__NOOR_ACTIVE_RIWAYAH_RECITER__ = activeRiwayahReciter;
       }
     }
-  }, []);
+  }, [activeRiwayahReciter]);
 
   // Load surah only if not already loaded in memory to prevent duplicate requests
   useEffect(() => {

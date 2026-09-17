@@ -132,13 +132,13 @@ describe('Quran Reciter Verified Catalog ID Mapping & Multi-Recording Suite', ()
       expect(match2?.moshafId).toBe(320);
     });
 
-    it('QuickAyahMenu onSelectActiveReciter handler in QuranHubView preserves Muhammad Ayyoub moshaf 320 instead of reverting to 109', () => {
-      // User currently has Ayyoub Special (moshaf 320) selected as full surah reciter
+    it('QuickAyahMenu local handler callback: preserves Muhammad Ayyoub moshaf 320 instead of reverting to 109 when passing activeRiwayahReciter as third argument', () => {
+      // Unit test verifying the isolated onSelectActiveReciter callback logic locally with an explicit simulated handler:
       let activeRiwayahReciter: RiwayahReciterEntry | null = ayyoubSpecial;
       let activeReciter = QURAN_RECITERS.find((r) => r.id === 'alafasy')!;
       const riwayahReciters = [ayyoubMurattal, ayyoubSpecial];
 
-      // Exact handler from QuranHubView.tsx:
+      // Simulated local handler replicating QuranHubView callback:
       // onSelectActiveReciter={(r) => {
       //   setActiveReciter(r);
       //   const matchingFull = findMatchingFullSurahReciter(r, riwayahReciters, activeRiwayahReciter);
