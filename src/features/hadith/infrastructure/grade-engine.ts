@@ -138,7 +138,7 @@ export function getHadithGrade(
     result = {
       grade: 'صحيح',
       rawGrade: 'صحيح مخرج في صحيح البخاري',
-      scholar: 'الإمام البخاري وأجمع علماء الأمة على صحة أصوله',
+      scholar: 'الإمام البخاري (إجماع الأمة على صحة أصوله)',
       source: 'صحيح البخاري',
       badgeColor: 'emerald',
     };
@@ -146,7 +146,7 @@ export function getHadithGrade(
     result = {
       grade: 'صحيح',
       rawGrade: 'صحيح مخرج في الصحيح',
-      scholar: 'الإمام مسلم وأجمع علماء الأمة على صحة أصوله',
+      scholar: 'الإمام مسلم (إجماع الأمة على صحة أصوله)',
       source: 'صحيح مسلم',
       badgeColor: 'emerald',
     };

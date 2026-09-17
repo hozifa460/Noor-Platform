@@ -189,11 +189,15 @@ export async function findHadithSharh(
     const itemMatn = extractCleanMatn(item.hadeeth) || item.hadeeth || '';
     const normHadeeth = normalizeArabic(itemMatn);
 
-    // Scholarly Verification: Only accept strict verbatim identical matn.
-    // Generic text containment (includes) is strictly removed.
+    // Scholarly Verification: Only accept strict verbatim matn correspondence (identical or exact prefix from word 1).
+    // Generic text containment (includes) is strictly removed to prevent false attribution.
     if (normalizedMatn.length >= 20 && normHadeeth.length >= 20) {
-      if (normHadeeth === normalizedMatn) {
-        return item; // Verbatim identical matn match
+      if (
+        normHadeeth === normalizedMatn ||
+        (normalizedMatn.length >= 30 && normHadeeth.startsWith(normalizedMatn)) ||
+        (normHadeeth.length >= 30 && normalizedMatn.startsWith(normHadeeth))
+      ) {
+        return item; // Verbatim identical or exact opening matn match
       }
     }
   }
