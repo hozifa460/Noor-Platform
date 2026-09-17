@@ -54,7 +54,10 @@ export function QuranAudioBar({
   onToggleFullSurah,
 }: QuranAudioBarProps) {
   return (
-    <div className="sticky bottom-0 z-40 bg-card/95 backdrop-blur-md border-t border-border p-3 sm:p-4 shadow-xl">
+    <div
+      data-testid="quran-audio-bar"
+      className="sticky bottom-14 lg:bottom-0 z-40 bg-card/95 backdrop-blur-md border-t border-border p-2.5 sm:p-4 shadow-xl w-full max-w-full min-w-0"
+    >
       <div className="max-w-5xl mx-auto space-y-2">
         {/* Progress bar */}
         <div className="flex items-center gap-3 text-xs font-mono text-muted-foreground">
@@ -82,7 +85,7 @@ export function QuranAudioBar({
               variant="outline"
               size="sm"
               onClick={onOpenReciterModal}
-              className="h-8 rounded-xl text-xs gap-1.5 border-border/80 truncate max-w-[180px] sm:max-w-[240px]"
+              className="h-8 rounded-xl text-xs gap-1.5 border-border/80 truncate max-w-[135px] sm:max-w-[240px] shrink-0"
             >
               <Headphones className="size-3.5 text-primary shrink-0" />
               <span className="truncate">{reciterName}</span>

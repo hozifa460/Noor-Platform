@@ -41,6 +41,7 @@ export interface SurahMeta {
 export interface QiraahMeta {
   id: string;
   name: string;
+  shortName?: string;
   narrator: string;
   origin: string;
   description: string;

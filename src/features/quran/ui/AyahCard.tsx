@@ -48,7 +48,7 @@ export function AyahCard({
     <div
       id={`ayah-${ayah.ayahNo}`}
       className={cn(
-        'group relative p-4 sm:p-6 rounded-2xl border transition-all duration-300 text-right',
+        'group relative p-3.5 sm:p-6 rounded-2xl border transition-all duration-300 text-right w-full max-w-full min-w-0',
         isPlaying
           ? 'bg-primary/5 border-primary/60 shadow-lg ring-2 ring-primary/20 -translate-y-0.5'
           : 'bg-card border-border/80 hover:border-primary/40 hover:shadow-sm',
@@ -125,7 +125,8 @@ export function AyahCard({
 
       {/* Ayah Text */}
       <div
-        className="font-serif leading-loose select-text cursor-pointer hover:text-primary transition-colors text-stone-900 dark:text-stone-100"
+        data-testid="ayah-text-container"
+        className="font-serif leading-loose select-text cursor-pointer hover:text-primary transition-colors text-stone-900 dark:text-stone-100 break-words [overflow-wrap:anywhere]"
         style={{ fontSize: `${fontSize}px`, lineHeight: `${fontSize * 2.2}px` }}
         onClick={onOpenDetail}
       >
@@ -196,7 +197,7 @@ export function AyahCard({
         <div
           dir={translationDirection}
           className={cn(
-            'mt-3 pt-3 border-t border-border/50 text-xs sm:text-sm text-muted-foreground font-sans leading-relaxed',
+            'mt-3 pt-3 border-t border-border/50 text-xs sm:text-sm text-muted-foreground font-sans leading-relaxed break-words [overflow-wrap:anywhere]',
             translationDirection === 'rtl' ? 'text-right' : 'text-left'
           )}
         >
