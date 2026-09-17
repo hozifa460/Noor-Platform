@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { describe, it, expect } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -12,6 +14,7 @@ import {
   fetchHadithTranslation,
   parseMicroIndexPayload,
   findHadithSharh,
+  DOCUMENTED_SHARH_LINKS,
   checkHadithAuthenticity,
   type HadithBookMeta,
   type HadithItem,
@@ -141,9 +144,9 @@ describe('Hadith Scientific Integrity & Attribution Safeguards', () => {
     });
   });
 
-  describe('5. Sharh Documented Link Guard', () => {
+  describe('5. Sharh Documented Link Guard & Integrity', () => {
     it('disallows similarity thresholds and rejects unlinked sharh', async () => {
-      // Even with 85% word overlap or common tokens, require documented link, else return null
+      // Even with high word overlap or common tokens, require documented link, else return null
       const unlinkedHadith = 'حدثنا فلان قال رأيت رجلا يصلي في بستانه بالمدينة ومعه كتاب يقرأ فيه بالبركة';
       const match = await findHadithSharh(unlinkedHadith);
       expect(match).toBeNull();
@@ -156,6 +159,97 @@ describe('Hadith Scientific Integrity & Attribution Safeguards', () => {
       expect(match).toBeNull();
     });
 
+    it('rejects prefix matching (startsWith) without documented link or verbatim match', async () => {
+      // Opening with the same words but diverging or incomplete should not return sharh
+      const divergentPrefix = 'عن عمر بن الخطاب رضي الله عنه قال سمعت رسول الله صلى الله عليه وسلم يقول إنما الأعمال بالنيات ثم سكت ولم يكمل الحديث';
+      const match = await findHadithSharh(divergentPrefix);
+      expect(match).toBeNull();
+    });
+
+    it('rejects false sharh attribution for the 4 erroneous cases (Muslim 8, 16, 1907 and Tirmidhi 2609)', async () => {
+      // Load real book files from public/data/hadith
+      const muslimRaw = fs.readFileSync(path.join(process.cwd(), 'public', 'data', 'hadith', 'muslim.json'), 'utf-8');
+      const muslimData = JSON.parse(muslimRaw) as { hadiths: Array<{ idInBook: number; arabic?: string; hadith?: string }> };
+
+      const tirmRaw = fs.readFileSync(path.join(process.cwd(), 'public', 'data', 'hadith', 'tirmidhi.json'), 'utf-8');
+      const tirmData = JSON.parse(tirmRaw) as { hadiths: Array<{ idInBook: number; arabic?: string; hadith?: string }> };
+
+      // 1. Muslim idInBook: 8 (Talha b. Ubaydullah: الرجل النجدي - خمس صلوات)
+      // Must NOT be attributed to Hadith Jibreel (seed '2')!
+      const muslim8 = muslimData.hadiths.find((h) => h.idInBook === 8);
+      expect(muslim8).toBeDefined();
+      expect(muslim8?.arabic).toContain('خَمْسُ صَلَوَاتٍ');
+      const sharhMuslim8 = await findHadithSharh(muslim8?.arabic || '', { bookId: 'muslim', idInBook: 8 });
+      expect(sharhMuslim8).toBeNull();
+
+      // 2. Muslim idInBook: 16 (Nu\'man b. Qawqal: أرأيت إذا صليت المكتوبة)
+      // Must NOT be attributed to Buniyal Islam (seed '3')!
+      const muslim16 = muslimData.hadiths.find((h) => h.idInBook === 16);
+      expect(muslim16).toBeDefined();
+      expect(muslim16?.arabic).toContain('الْمَكْتُوبَةَ');
+      const sharhMuslim16 = await findHadithSharh(muslim16?.arabic || '', { bookId: 'muslim', idInBook: 16 });
+      expect(sharhMuslim16).toBeNull();
+
+      // 3. Muslim idInBook: 1907 (Umm Hisham: سورة ق على المنبر)
+      // Must NOT be attributed to Innamal A\'mal (seed '1')!
+      const muslim1907 = muslimData.hadiths.find((h) => h.idInBook === 1907);
+      expect(muslim1907).toBeDefined();
+      expect(muslim1907?.arabic).toContain('الْقُرْآنِ الْمَجِيدِ');
+      const sharhMuslim1907 = await findHadithSharh(muslim1907?.arabic || '', { bookId: 'muslim', idInBook: 1907 });
+      expect(sharhMuslim1907).toBeNull();
+
+      // 4. Tirmidhi idInBook: 2609 (Abu Hurairah: أهل الجنة جرد مرد)
+      // Must NOT be attributed to Buniyal Islam (seed '3')!
+      const tirm2609 = tirmData.hadiths.find((h) => h.idInBook === 2609);
+      expect(tirm2609).toBeDefined();
+      expect(tirm2609?.arabic).toContain('جُرْدٌ مُرْدٌ');
+      const sharhTirm2609 = await findHadithSharh(tirm2609?.arabic || '', { bookId: 'tirmidhi', idInBook: 2609 });
+      expect(sharhTirm2609).toBeNull();
+    });
+
+    it('verifies all remaining documented links against real book records and distinguishes seed source', async () => {
+      // Ensure the table contains verified entries and distinguishes seed vs hadeethenc
+      const entries = Object.entries(DOCUMENTED_SHARH_LINKS);
+      expect(entries.length).toBe(6);
+
+      for (const [key, target] of entries) {
+        // Distinguish local seed sharh source
+        expect(target.source).toBe('seed');
+        expect(['1', '2', '3']).toContain(target.id);
+        expect(target.expectedTitle).toBeTruthy();
+
+        const [bookId, idInBookStr] = key.split(':');
+        const idInBook = Number(idInBookStr);
+
+        // Load real book file from platform dataset
+        const bookPath = path.join(process.cwd(), 'public', 'data', 'hadith', `${bookId}.json`);
+        expect(fs.existsSync(bookPath)).toBe(true);
+
+        const bookRaw = fs.readFileSync(bookPath, 'utf-8');
+        const bookData = JSON.parse(bookRaw) as { hadiths: Array<{ idInBook: number; arabic?: string; hadith?: string }> };
+        const record = bookData.hadiths.find((h) => h.idInBook === idInBook);
+        expect(record).toBeDefined();
+
+        const recordText = record?.arabic || record?.hadith || '';
+        expect(recordText.length).toBeGreaterThan(20);
+
+        // Verify that findHadithSharh resolves this real record to the correct documented seed sharh
+        const matchedSharh = await findHadithSharh(recordText, { bookId, idInBook });
+        expect(matchedSharh).toBeDefined();
+        expect(matchedSharh?.id).toBe(target.id);
+        expect(matchedSharh?.explanation).toBeTruthy();
+
+        // Verify matn relevance
+        const normTitle = normalizeArabic(target.expectedTitle);
+        const normSharhTitle = normalizeArabic(matchedSharh?.title || '');
+        const normHadith = normalizeArabic(recordText);
+        expect(
+          normSharhTitle.includes(normTitle) ||
+          normHadith.includes(normTitle)
+        ).toBe(true);
+      }
+    });
+
     it('returns sharh when there is an explicit documented link or exact verbatim correspondence', async () => {
       // 1. Explicit documented link via context
       const byContext = await findHadithSharh('', { bookId: 'bukhari', idInBook: 1 });
@@ -163,12 +257,11 @@ describe('Hadith Scientific Integrity & Attribution Safeguards', () => {
       expect(byContext?.id).toBe('1');
       expect(byContext?.explanation).toBeTruthy();
 
-      // 2. Strict verbatim matn
-      const verbatimMatn = 'إنما الأعمال بالنيات وإنما لكل امرئ ما نوى فمن كانت هجرته إلى الله ورسوله فهجرته إلى الله ورسوله ومن كانت هجرته لدنيا يصيبها أو امرأة ينكحها فهجرته إلى ما هاجر إليه';
+      // 2. Strict verbatim matn (exact character for character)
+      const verbatimMatn = 'سمعت رسول الله صلى الله عليه وسلم يقول: «إنما الأعمال بالنيات، وإنما لكل امرئ ما نوى، فمن كانت هجرته إلى الله ورسوله فهجرته إلى الله ورسوله، ومن كانت هجرته لدنيا يصيبها أو امرأة ينكحها فهجرته إلى ما هاجر إليه».';
       const byText = await findHadithSharh(verbatimMatn);
       expect(byText).toBeDefined();
-      expect(byText?.id).toMatch(/^(1|66511)$/);
-      expect(normalizeArabic(byText?.hadeeth || '')).toContain('الاعمال بالنيات');
+      expect(byText?.id).toBe('1');
       expect(byText?.explanation).toBeTruthy();
     });
   });

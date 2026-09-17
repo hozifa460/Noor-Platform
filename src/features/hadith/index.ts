@@ -82,7 +82,7 @@ export {
   BUILTIN_SEED_SHARH,
 } from './infrastructure';
 
-export type { ConcordanceEvidenceItem } from './infrastructure';
+export type { ConcordanceEvidenceItem, DocumentedSharhTarget } from './infrastructure';
 
 // Model Layer
 export {

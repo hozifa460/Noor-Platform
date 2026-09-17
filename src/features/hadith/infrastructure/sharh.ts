@@ -128,25 +128,57 @@ export async function loadHadeethEncSharh(): Promise<HadeethEncSharhItem[]> {
   return sharhCache;
 }
 
+export interface DocumentedSharhTarget {
+  /** المصدر الموثق للشرح: إما بذور محلية مدمجة (seed) أو موسوعة الأحاديث النبوية (hadeethenc) */
+  source: 'seed' | 'hadeethenc';
+  /** المعرف الفعلي داخل المصدر المحدد (وليس رقم الطبعة الخارجية) */
+  id: string;
+  /** عنوان الحديث المتطابق لغايات التدقيق والمطابقة */
+  expectedTitle: string;
+}
+
 /**
- * جدول الربط الصريح الموثق بين معرف الحديث في الديوان ومعرف الشرح في HadeethEnc.
- * يمنع أي ربط تلقائي أو احتواء نصي عام غير موثق.
+ * جدول الربط الصريح الموثق بين معرف الحديث في طبعة المنصة المحلية والشرح المعتمد.
+ * تنبيه منهجي: المعرفات هنا تميز صراحة بين شروح البذور المدمجة محلياً (seed)
+ * وبين معرفات HadeethEnc (hadeethenc).
+ * تم تدقيق جميع الروابط مقابل idInBook والمتن الفعلي في ملفات بيانات المنصة.
+ * تم استبعاد الأرقام الشهيرة من الطبعات الخارجية (مثل مسلم 8، 16، 1907 وترمذي 2609)
+ * لاختلاف الترقيم في نسخة المنصة وتفادياً لإسناد الشرح لحديث آخر.
  */
-export const DOCUMENTED_SHARH_LINKS: Record<string, string> = {
-  // صحيح البخاري
-  'bukhari:1': '1', // إنما الأعمال بالنيات
-  'bukhari:8': '3', // بني الإسلام على خمس
-  // صحيح مسلم
-  'muslim:1': '2', // حديث جبريل
-  'muslim:8': '2', // حديث جبريل
-  'muslim:16': '3', // بني الإسلام على خمس
-  'muslim:1907': '1', // إنما الأعمال بالنيات
-  // الأربعون النووية
-  'nawawi40:1': '1', // إنما الأعمال بالنيات
-  'nawawi40:2': '2', // حديث جبريل
-  'nawawi40:3': '3', // بني الإسلام على خمس
-  // جامع الترمذي
-  'tirmidhi:2609': '3', // بني الإسلام على خمس
+export const DOCUMENTED_SHARH_LINKS: Record<string, DocumentedSharhTarget> = {
+  // صحيح البخاري (ترقيم فتح الباري المعتمد محلياً في المنصة - bukhari.json)
+  'bukhari:1': {
+    source: 'seed',
+    id: '1',
+    expectedTitle: 'إنما الأعمال بالنيات',
+  },
+  'bukhari:8': {
+    source: 'seed',
+    id: '3',
+    expectedTitle: 'بني الإسلام على خمس',
+  },
+  // صحيح مسلم (الترقيم الفعلي المعتمد محلياً في المنصة - muslim.json)
+  'muslim:1': {
+    source: 'seed',
+    id: '2',
+    expectedTitle: 'حديث جبريل في الإسلام والإيمان والإحسان',
+  },
+  // الأربعون النووية (ترقيم nawawi40.json المعتمد محلياً في المنصة)
+  'nawawi40:1': {
+    source: 'seed',
+    id: '1',
+    expectedTitle: 'إنما الأعمال بالنيات',
+  },
+  'nawawi40:2': {
+    source: 'seed',
+    id: '2',
+    expectedTitle: 'حديث جبريل في الإسلام والإيمان والإحسان',
+  },
+  'nawawi40:3': {
+    source: 'seed',
+    id: '3',
+    expectedTitle: 'بني الإسلام على خمس',
+  },
 };
 
 export interface SharhLookupContext {
@@ -157,47 +189,48 @@ export interface SharhLookupContext {
 /**
  * Fast and accurate matching of Hadith explanation by explicit documented linkage
  * or strict identical verbatim matn.
- * Generic text containment (includes) is strictly disallowed to prevent false attribution.
+ * Neither generic containment (includes) nor prefix matching (startsWith) is allowed,
+ * preventing false attribution when numbering differs across editions.
  */
 export async function findHadithSharh(
   hadithText: string,
   context?: SharhLookupContext
 ): Promise<HadeethEncSharhItem | null> {
-  const allSharh = await loadHadeethEncSharh();
-  const pool = allSharh && allSharh.length > 0 ? allSharh : BUILTIN_SEED_SHARH;
-  if (!pool || pool.length === 0) return null;
-
   // 1. Check explicit documented link first (bookId:idInBook)
+  // When an approved link is absent for a book record, do not auto-attribute; return null.
   if (context?.bookId && typeof context.idInBook === 'number') {
     const key = `${context.bookId}:${context.idInBook}`;
-    const linkedSharhId = DOCUMENTED_SHARH_LINKS[key];
-    if (linkedSharhId) {
-      const fromSeed = BUILTIN_SEED_SHARH.find((s) => s.id === linkedSharhId);
+    const target = DOCUMENTED_SHARH_LINKS[key];
+    if (!target) {
+      return null;
+    }
+
+    if (target.source === 'seed') {
+      const fromSeed = BUILTIN_SEED_SHARH.find((s) => s.id === target.id);
       if (fromSeed) return fromSeed;
-      const fromAll = allSharh?.find((s) => s.id === linkedSharhId || String(s.id) === linkedSharhId);
+    } else if (target.source === 'hadeethenc') {
+      const allSharh = await loadHadeethEncSharh();
+      const fromAll = allSharh?.find((s) => s.id === target.id || String(s.id) === target.id);
       if (fromAll) return fromAll;
     }
+    return null;
   }
 
-  // 2. Strict verbatim identical Matn match (stripped of isnad)
+  // 2. Strict verbatim identical Matn match (stripped of isnad) against verified seed collection
+  // Generic text containment (includes) and prefix matching (startsWith) are strictly disallowed.
+  // If no verified documented link exists, return null so UI explicitly declares lack of sharh.
   const cleanMatn = extractCleanMatn(hadithText);
   const targetText = cleanMatn && cleanMatn.length >= 8 ? cleanMatn : hadithText;
   const normalizedMatn = normalizeArabic(targetText);
   if (!normalizedMatn || normalizedMatn.length < 8) return null;
 
-  for (const item of pool) {
+  for (const item of BUILTIN_SEED_SHARH) {
     const itemMatn = extractCleanMatn(item.hadeeth) || item.hadeeth || '';
     const normHadeeth = normalizeArabic(itemMatn);
 
-    // Scholarly Verification: Only accept strict verbatim matn correspondence (identical or exact prefix from word 1).
-    // Generic text containment (includes) is strictly removed to prevent false attribution.
     if (normalizedMatn.length >= 20 && normHadeeth.length >= 20) {
-      if (
-        normHadeeth === normalizedMatn ||
-        (normalizedMatn.length >= 30 && normHadeeth.startsWith(normalizedMatn)) ||
-        (normHadeeth.length >= 30 && normalizedMatn.startsWith(normHadeeth))
-      ) {
-        return item; // Verbatim identical or exact opening matn match
+      if (normHadeeth === normalizedMatn) {
+        return item; // Verbatim strictly identical matn match
       }
     }
   }
