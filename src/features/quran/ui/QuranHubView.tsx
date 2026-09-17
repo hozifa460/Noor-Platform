@@ -26,6 +26,7 @@ import {
   QIRAAT_LIST,
   getAyahRecitersForQiraah,
   isAyahAudioSupportedForQiraah,
+  getQiraahShortName,
   QURAN_RECITERS,
   type AyahItem,
   type QiraahMeta,
@@ -46,6 +47,12 @@ import { QuickAyahMenu } from './QuickAyahMenu';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useIdClipboard } from '@/hooks/use-clipboard';
+
+declare global {
+  interface Window {
+    __quranStore?: typeof useQuranStore;
+  }
+}
 
 export function QuranHubView() {
   const activeQiraah = useQuranStore((s) => s.activeQiraah);
@@ -103,6 +110,13 @@ export function QuranHubView() {
     loadedTranslationKey === currentTranslationKey;
 
   const audio = useQuranAudio({ activeRiwayahReciter });
+
+  // Expose store on window for browser e2e testing and font size adjustments
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__quranStore = useQuranStore;
+    }
+  }, []);
 
   // Load surah only if not already loaded in memory to prevent duplicate requests
   useEffect(() => {
@@ -311,8 +325,10 @@ export function QuranHubView() {
       />
 
       {/* Main Top Navigation Header */}
-      {/* Main Top Navigation Header */}
-      <header className="sticky top-0 z-30 border-b border-border/80 bg-background/95 backdrop-blur-md px-2 sm:px-6 py-2 sm:py-3 w-full max-w-full">
+      <header
+        data-testid="quran-header-bar"
+        className="sticky top-0 z-30 border-b border-border/80 bg-background/95 backdrop-blur-md px-2 sm:px-6 py-2 sm:py-3 w-full max-w-full"
+      >
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 sm:gap-2.5 max-w-7xl mx-auto w-full min-w-0">
           {/* Row 1: Surah Title, Navigation, Qira'ah & Ayah Search */}
           <div className="flex items-center justify-between gap-1.5 sm:gap-2 w-full md:w-auto min-w-0">
@@ -321,13 +337,15 @@ export function QuranHubView() {
               <Button
                 variant="outline"
                 size="sm"
+                data-testid="surah-trigger"
                 onClick={() => setSurahDrawerOpen(true)}
-                className="gap-1.5 sm:gap-2 font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl bg-card hover:bg-muted border-border shadow-sm h-8 sm:h-10 px-2 sm:px-3.5 shrink-0 max-w-[125px] sm:max-w-none"
+                className="gap-1 sm:gap-2 font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl bg-card hover:bg-muted border-border shadow-sm h-8 sm:h-10 px-1.5 sm:px-3.5 shrink min-w-0 max-w-[95px] sm:max-w-none"
               >
                 <div className="size-5 sm:size-6 rounded-lg sm:rounded-xl bg-primary/10 grid place-items-center text-primary font-bold text-[10px] sm:text-xs shrink-0">
                   {activeSurah.number}
                 </div>
-                <span className="font-bold truncate text-xs sm:text-sm">سورة {activeSurah.nameAr}</span>
+                <span className="font-bold truncate text-xs sm:hidden">{activeSurah.nameAr}</span>
+                <span className="font-bold truncate text-xs sm:text-sm hidden sm:inline">سورة {activeSurah.nameAr}</span>
                 <Badge variant="secondary" className="text-[10px] hidden sm:inline-flex">
                   {activeSurah.numberOfAyahs} آية
                 </Badge>
@@ -338,23 +356,25 @@ export function QuranHubView() {
                 <Button
                   size="icon"
                   variant="outline"
+                  data-testid="surah-next-btn"
                   onClick={nextSurah}
                   disabled={activeSurah.number >= 114}
-                  className="size-8 sm:size-10 rounded-xl sm:rounded-2xl"
+                  className="size-7 sm:size-10 rounded-xl sm:rounded-2xl shrink-0"
                   title="السورة التالية"
                 >
-                  <ChevronLeft className="size-3.5 sm:size-4" />
+                  <ChevronLeft className="size-3 sm:size-4" />
                 </Button>
 
                 <Button
                   size="icon"
                   variant="outline"
+                  data-testid="surah-prev-btn"
                   onClick={prevSurah}
                   disabled={activeSurah.number <= 1}
-                  className="size-8 sm:size-10 rounded-xl sm:rounded-2xl"
+                  className="size-7 sm:size-10 rounded-xl sm:rounded-2xl shrink-0"
                   title="السورة السابقة"
                 >
-                  <ChevronRight className="size-3.5 sm:size-4" />
+                  <ChevronRight className="size-3 sm:size-4" />
                 </Button>
               </div>
 
@@ -362,13 +382,15 @@ export function QuranHubView() {
               <Button
                 variant="outline"
                 size="sm"
+                data-testid="qiraah-trigger"
                 onClick={() => setQiraahModalOpen(true)}
-                className="gap-1.5 sm:gap-2 font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl bg-card hover:bg-muted border-border shadow-sm h-8 sm:h-10 px-2 sm:px-3.5 min-w-0 flex-1 max-w-[120px] sm:max-w-[220px] truncate"
+                className="gap-1 sm:gap-2 font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl bg-card hover:bg-muted border-border shadow-sm h-8 sm:h-10 px-1.5 sm:px-3.5 min-w-0 flex-1 max-w-[140px] sm:max-w-[220px]"
                 title="اختيار الرواية أو القراءة"
               >
                 <BookOpen className="size-3.5 sm:size-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                <span className="truncate font-bold text-xs sm:text-sm">{activeQiraah.name}</span>
-                <ChevronDown className="size-3 sm:size-3.5 text-muted-foreground shrink-0 opacity-70" />
+                <span className="truncate font-bold text-xs sm:hidden shrink min-w-0">{getQiraahShortName(activeQiraah)}</span>
+                <span className="truncate font-bold text-xs sm:text-sm hidden sm:inline">{activeQiraah.name}</span>
+                <ChevronDown className="size-2.5 sm:size-3.5 text-muted-foreground shrink-0 opacity-70 hidden xs:inline-block" />
               </Button>
             </div>
 
@@ -376,8 +398,9 @@ export function QuranHubView() {
             <Button
               variant="outline"
               size="sm"
+              data-testid="ayah-search-trigger"
               onClick={openQuranSearch}
-              className="gap-1.5 sm:gap-2 font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl bg-card hover:bg-muted border-border shadow-sm h-8 sm:h-10 px-2 sm:px-3 text-muted-foreground hover:text-foreground shrink-0"
+              className="gap-1 sm:gap-2 font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl bg-card hover:bg-muted border-border shadow-sm size-7 sm:size-auto sm:h-10 px-0 sm:px-3 text-muted-foreground hover:text-foreground shrink-0"
               title="البحث في آيات القرآن الكريم (Ctrl+K)"
             >
               <Search className="size-3.5 sm:size-4 text-primary shrink-0" />
@@ -393,6 +416,7 @@ export function QuranHubView() {
             {/* View Mode Switcher */}
             <div className="flex items-center bg-muted/60 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl border border-border text-xs font-bold shrink-0">
               <button
+                data-testid="mode-mushaf-real"
                 onClick={() => handleModeClick('mushaf-real')}
                 className={cn(
                   'px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl transition-all text-[11px] sm:text-xs',
@@ -407,6 +431,7 @@ export function QuranHubView() {
               </button>
 
               <button
+                data-testid="mode-interactive"
                 onClick={() => handleModeClick('interactive')}
                 className={cn(
                   'px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl transition-all text-[11px] sm:text-xs',
@@ -421,6 +446,7 @@ export function QuranHubView() {
               </button>
 
               <button
+                data-testid="mode-pdf-page"
                 onClick={() => handleModeClick('pdf-page')}
                 className={cn(
                   'px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl transition-all text-[11px] sm:text-xs',
@@ -440,6 +466,7 @@ export function QuranHubView() {
               <Button
                 size="sm"
                 variant="outline"
+                data-testid="reciter-trigger"
                 onClick={() => setRecitersModalOpen(true)}
                 className="rounded-xl sm:rounded-2xl text-xs gap-1.5 h-8 sm:h-10 px-2 sm:px-3 font-bold shadow-sm bg-card hover:bg-muted min-w-0 flex-1 md:flex-initial max-w-[130px] sm:max-w-[190px] truncate"
                 title="اختيار القارئ"
@@ -460,6 +487,7 @@ export function QuranHubView() {
                   <Button
                     size="sm"
                     variant={audio.isPlayingFullSurah ? 'default' : 'outline'}
+                    data-testid="recitation-play-trigger"
                     disabled={!activeRiwayahReciter || !isSurahRecorded}
                     onClick={() => {
                       if (audio.isPlayingFullSurah) {
