@@ -25,7 +25,7 @@ export interface HadithState {
   selectedChapterId: number | 'all';
   searchQuery: string;
   categoryFilter: string;
-  gradeFilter: 'all' | 'muttafaqun' | 'sahih' | 'hasan' | 'daif' | 'mawdu';
+  gradeFilter: 'all' | 'muttafaqun' | 'sahih' | 'hasan' | 'daif' | 'mawdu' | 'unspecified';
   searchMode: 'in-book' | 'global';
   loadingBook: boolean;
   searchingGlobal: boolean;
@@ -46,7 +46,7 @@ export interface HadithState {
   setSelectedChapterId: (chapterId: number | 'all') => void;
   setSearchQuery: (q: string) => void;
   setCategoryFilter: (cat: string) => void;
-  setGradeFilter: (grade: 'all' | 'muttafaqun' | 'sahih' | 'hasan' | 'daif' | 'mawdu') => void;
+  setGradeFilter: (grade: 'all' | 'muttafaqun' | 'sahih' | 'hasan' | 'daif' | 'mawdu' | 'unspecified') => void;
   setSearchMode: (mode: 'in-book' | 'global') => void;
   openHadithDetail: (
     hadith: HadithItem,

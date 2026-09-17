@@ -116,7 +116,7 @@ describe('Hadith Domain Canonical Architecture — Cache Integrity, Constants St
     it('verifies GRADE_FILTERS referential identity and contents', () => {
       expect(FeatureHadith.GRADE_FILTERS).toBe(InternalGradeFilters);
       expect(Array.isArray(FeatureHadith.GRADE_FILTERS)).toBe(true);
-      expect(FeatureHadith.GRADE_FILTERS.length).toBe(6);
+      expect(FeatureHadith.GRADE_FILTERS.length).toBe(7);
       expect(FeatureHadith.GRADE_FILTERS.map((f) => f.id)).toEqual([
         'all',
         'muttafaqun',
@@ -124,6 +124,7 @@ describe('Hadith Domain Canonical Architecture — Cache Integrity, Constants St
         'hasan',
         'daif',
         'mawdu',
+        'unspecified',
       ]);
     });
 
@@ -174,13 +175,14 @@ describe('Hadith Domain Canonical Architecture — Cache Integrity, Constants St
     });
 
     it('evaluates Hadith grades correctly for Sahihayn and Sunan', () => {
-      // Sahihayn: Always Sahih / Muttafaqun Alayh
+      // Sahihayn: Always Sahih
       const bukhariGrade = FeatureHadith.getHadithGrade('bukhari', 1);
       expect(bukhariGrade.grade).toBe('صحيح');
-      expect(bukhariGrade.scholar).toContain('الصحيحين');
+      expect(bukhariGrade.scholar).toContain('البخاري');
 
-      const isMuttafaq = FeatureHadith.isMuttafaqunAlayh('bukhari', 1);
-      expect(isMuttafaq).toBe(true);
+      // Requires explicit textual evidence for Muttafaqun Alayh
+      expect(FeatureHadith.isMuttafaqunAlayh('bukhari', 1)).toBe(false);
+      expect(FeatureHadith.isMuttafaqunAlayh('bukhari', 1, 'متفق عليه')).toBe(true);
 
       // Muttafaq check for Nawawi 40
       expect(FeatureHadith.isMuttafaqunAlayh('nawawi40', 1, 'متفق عليه')).toBe(true);

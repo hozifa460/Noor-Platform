@@ -27,6 +27,7 @@ export type {
   FakeHadithCategoryMeta,
   FakeHadithItem,
   AuthenticityCheckResult,
+  TranslationSupportStatus,
 } from './infrastructure';
 
 export {
@@ -56,6 +57,7 @@ export {
   searchAcrossAllBooks,
   loadSunanGrades,
   getHadithGrade,
+  normalizeGradeText,
   isMuttafaqunAlayh,
   parseHadithIsnad,
   findNarratorBio,
@@ -69,6 +71,8 @@ export {
   checkHadithAuthenticity,
   SUPPORTED_TRANSLATION_LANGUAGES,
   isBookTranslationAvailable,
+  getBookTranslationSupport,
+  VERIFIED_CONCORDANT_BOOKS,
   fetchHadithTranslation,
   getCachedHadithBook,
   setCachedHadithBook,

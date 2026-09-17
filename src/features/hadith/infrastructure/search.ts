@@ -29,7 +29,7 @@ export function parseMicroIndexPayload(raw: { books?: unknown; grades?: unknown;
         i: tuple[1],
         c: tuple[2] || 0,
         t: tuple[3] || '',
-        g: grades[tuple[4]] || 'مقبول',
+        g: grades[tuple[4]] || 'غير محدد',
       };
     }
     return result;
@@ -43,7 +43,7 @@ export function parseMicroIndexPayload(raw: { books?: unknown; grades?: unknown;
           i: Number(item[1]),
           c: Number(item[2]) || 0,
           t: String(item[3] || ''),
-          g: String(item[4] || 'مقبول'),
+          g: String(item[4] || 'غير محدد'),
         };
       }
       return item as MicroIndexEntry;

@@ -43,6 +43,13 @@ export const GRADE_FILTERS: GradeFilterOption[] = [
     activeClass:
       'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/40',
   },
+  {
+    id: 'unspecified',
+    name: 'غير محدد',
+    dotColor: 'bg-muted-foreground',
+    activeClass:
+      'bg-muted text-foreground border-border font-bold shadow-xs',
+  },
 ];
 
 interface HadithSearchHeaderProps {
@@ -51,7 +58,7 @@ interface HadithSearchHeaderProps {
   searchMode: 'book' | 'all';
   onToggleSearchMode: (m: 'book' | 'all') => void;
   activeGradeFilter: string;
-  onSelectGradeFilter: (g: 'all' | 'muttafaqun' | 'sahih' | 'hasan' | 'daif' | 'mawdu') => void;
+  onSelectGradeFilter: (g: 'all' | 'muttafaqun' | 'sahih' | 'hasan' | 'daif' | 'mawdu' | 'unspecified') => void;
   onOpenGradesGuide: () => void;
   activeBookName: string;
 }

@@ -45,11 +45,39 @@ const BOOK_API_CODE_MAP: Record<string, string> = {
 
 const translationCache = new Map<string, HadithTranslationResult>();
 
+export type TranslationSupportStatus = 'verified' | 'concordance_required' | 'unsupported';
+
+/**
+ * Books where edition numbering is verified 1:1 with the sunnahset edition numbers.
+ * Note: Sahih Muslim in particular has significant numbering divergence between Fuad Abd al-Baqi numbering
+ * and sunnahset/Hadith_API edition numbering. Automatic matching by ID alone is guarded.
+ */
+export const VERIFIED_CONCORDANT_BOOKS: readonly string[] = [
+  'bukhari',
+  'abudawud',
+  'tirmidhi',
+  'nasai',
+  'ibnmajah',
+  'nawawi40',
+  'qudsi40',
+  'shahwaliullah40',
+];
+
+export function getBookTranslationSupport(bookId: string): TranslationSupportStatus {
+  if (!BOOK_API_CODE_MAP[bookId]) {
+    return 'unsupported';
+  }
+  if (bookId === 'muslim' || !VERIFIED_CONCORDANT_BOOKS.includes(bookId)) {
+    return 'concordance_required';
+  }
+  return 'verified';
+}
+
 /**
  * Checks if translations are available for a given book.
  */
 export function isBookTranslationAvailable(bookId: string): boolean {
-  return Boolean(BOOK_API_CODE_MAP[bookId]);
+  return getBookTranslationSupport(bookId) === 'verified';
 }
 
 /**
@@ -60,6 +88,11 @@ export async function fetchHadithTranslation(
   hadithNumber: number,
   langCode: string
 ): Promise<HadithTranslationResult | null> {
+  // Prevent unverified translation attribution if book has divergent numbering
+  if (getBookTranslationSupport(bookId) !== 'verified') {
+    return null;
+  }
+
   const apiBook = BOOK_API_CODE_MAP[bookId];
   if (!apiBook) return null;
 

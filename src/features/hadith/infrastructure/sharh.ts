@@ -196,11 +196,11 @@ export async function findHadithSharh(hadithText: string): Promise<HadeethEncSha
     // Combined harmonic score
     const finalScore = forwardScore * 0.6 + backwardScore * 0.4;
 
-    // STRICT THRESHOLD: Must match at least 55% of keywords OR match at least 3 distinct core matn tokens!
-    if ((finalScore >= 0.55 || matchedCount >= 3) && matchedCount >= 2 && finalScore > highestScore) {
+    // STRICT SCHOLARLY THRESHOLD: Require high confidence score (>= 0.85) to prevent attributing sharh to an unrelated hadith
+    if (finalScore >= 0.85 && matchedCount >= 2 && finalScore > highestScore) {
       highestScore = finalScore;
       bestMatch = item;
-      if (finalScore >= 0.85) break; // High confidence match
+      if (finalScore >= 0.95) break; // Near-perfect confidence match
     }
   }
 

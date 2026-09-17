@@ -3,7 +3,8 @@
 import { CheckCircle2, AlertTriangle, HelpCircle, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import type { AuthenticityCheckResult } from '../../infrastructure';
+import { cn } from '@/lib/utils';
+import { getHadithGrade, type AuthenticityCheckResult } from '../../infrastructure';
 import type { HadithBookMeta, HadithItem, HadithChapter } from '../../domain';
 
 interface FakeHadithResultCardProps {
@@ -21,6 +22,9 @@ export function FakeHadithResultCard({
   onOpenDetail,
 }: FakeHadithResultCardProps) {
   const primaryAuthentic = result.authenticMatches?.[0];
+  const primaryGrade = primaryAuthentic
+    ? getHadithGrade(primaryAuthentic.book.id, primaryAuthentic.hadith.idInBook)
+    : null;
 
   if (result.status === 'authentic') {
     return (
@@ -31,7 +35,7 @@ export function FakeHadithResultCard({
           </div>
           <div>
             <h4 className="font-bold text-base text-foreground">
-              الحديث ثابت ومخرّج في دواوين السنة المعتمدة
+              الحديث مخرّج في دواوين السنة (يُرجى مراجعة حكم المحدثين على سنده)
             </h4>
             <p className="text-xs text-muted-foreground">
               تم العثور على {result.authenticMatches.length} موضع مسند في دواوين السنة
@@ -42,9 +46,30 @@ export function FakeHadithResultCard({
         {primaryAuthentic && (
           <div className="p-4 rounded-2xl bg-card border border-border/80 space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <Badge variant="outline" className="text-[10px] font-bold">
-                {primaryAuthentic.book.nameAr} • رقم {primaryAuthentic.hadith.idInBook}
-              </Badge>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Badge variant="outline" className="text-[10px] font-bold">
+                  {primaryAuthentic.book.nameAr} • رقم {primaryAuthentic.hadith.idInBook}
+                </Badge>
+                {primaryGrade && (
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      'text-[10px] font-bold py-0 px-1.5 rounded-lg border',
+                      primaryGrade.grade === 'صحيح'
+                        ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                        : primaryGrade.grade === 'حسن'
+                        ? 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30'
+                        : primaryGrade.grade === 'ضعيف'
+                        ? 'bg-orange-500/10 text-orange-700 dark:text-orange-300 border-orange-500/30'
+                        : primaryGrade.grade === 'غير محدد'
+                        ? 'bg-muted/80 text-muted-foreground border-border/80'
+                        : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                    )}
+                  >
+                    {primaryGrade.rawGrade || primaryGrade.grade}
+                  </Badge>
+                )}
+              </div>
               {onOpenDetail && (
                 <Button
                   size="sm"
@@ -115,9 +140,9 @@ export function FakeHadithResultCard({
   return (
     <div className="p-6 rounded-3xl border border-border bg-muted/20 space-y-2 text-center animate-in fade-in duration-200">
       <HelpCircle className="size-8 mx-auto text-muted-foreground/60" />
-      <h4 className="font-bold text-sm text-foreground">لم نجد حكماً مباشراً على هذا النص بعينه</h4>
-      <p className="text-xs text-muted-foreground max-w-md mx-auto">
-        يمكنكم البحث بكلمات المتن المفتاحية في دواوين السنة النبوية الـ 17 للتحقق من ألفاظه ومروياته.
+      <h4 className="font-bold text-sm text-foreground">لم نجد حكماً مباشراً على هذا النص بعينه في الفهرس السريع</h4>
+      <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
+        تنبيه منهجي: عدم العثور على الحديث في الفهرس السريع لا يعني تلقائياً أنه مكذوب أو موضوع. يُرجى البحث بكلمات المتن المفتاحية في دواوين السنة النبوية الـ 17 للتحقق من ألفاظه وأسانيده أو مراجعة المتخصصين.
       </p>
     </div>
   );

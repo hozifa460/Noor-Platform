@@ -4,14 +4,14 @@ import React, { useState, useEffect } from 'react';
 import {
   SUPPORTED_TRANSLATION_LANGUAGES,
   fetchHadithTranslation,
-  isBookTranslationAvailable,
+  getBookTranslationSupport,
   type HadithTranslationResult,
   type SupportedTranslationLanguage,
 } from '../infrastructure';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Copy, Check, Globe, RefreshCw, Languages, AlertCircle } from 'lucide-react';
+import { Copy, Check, Globe, RefreshCw, Languages, AlertCircle, AlertTriangle } from 'lucide-react';
 import { useClipboard } from '@/hooks/use-clipboard';
 
 interface HadithTranslationsViewProps {
@@ -32,7 +32,8 @@ export function HadithTranslationsView({
   const [translation, setTranslation] = useState<HadithTranslationResult | null>(null);
   const { copied, copy } = useClipboard();
 
-  const isAvailable = isBookTranslationAvailable(bookId);
+  const supportStatus = getBookTranslationSupport(bookId);
+  const isAvailable = supportStatus === 'verified';
 
   useEffect(() => {
     if (!isAvailable) return;
@@ -60,8 +61,25 @@ export function HadithTranslationsView({
     copy(toCopy, `تم نسخ الترجمة (${selectedLang.nameAr}) بنجاح`);
   };
 
+  if (supportStatus === 'concordance_required') {
+    return (
+      <div className="py-10 px-6 text-center space-y-4 bg-amber-500/5 rounded-3xl border border-amber-500/20">
+        <div className="size-12 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 grid place-items-center mx-auto">
+          <AlertTriangle className="size-6" />
+        </div>
+        <div className="space-y-2 max-w-md mx-auto">
+          <h4 className="font-bold text-sm text-foreground">
+            تنبيه بشأن ترقيم الترجمات لهذا الكتاب ({bookName})
+          </h4>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            يختلف ترقيم طبعة هذا الكتاب (مثل ترقيم عبد الباقي في صحيح مسلم) عن ترقيمات الطبعات الأجنبية في المستودع. لحماية سلامة النوايا العلمية ومنع إسناد ترجمة إلى حديث مختلف، عُلّق الربط التلقائي بالرقم وحده حتى اعتماد جدول مطابقة نصية متكامل.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-  if (!isAvailable) {
+  if (supportStatus === 'unsupported') {
     return (
       <div className="py-12 px-4 text-center space-y-4 bg-muted/20 rounded-3xl border border-border/60">
         <div className="size-12 rounded-2xl bg-muted text-muted-foreground grid place-items-center mx-auto">

@@ -202,4 +202,5 @@ export const GRADE_FILTER_OPTIONS: GradeFilterOption[] = [
   { id: 'hasan', name: 'حسن', dotColor: 'bg-blue-500', activeClass: 'border-blue-500 bg-blue-500/10 text-blue-700 dark:text-blue-300' },
   { id: 'daif', name: 'ضعيف', dotColor: 'bg-amber-500', activeClass: 'border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-300' },
   { id: 'mawdu', name: 'مكذوب / منكر', dotColor: 'bg-rose-500', activeClass: 'border-rose-500 bg-rose-500/10 text-rose-700 dark:text-rose-300' },
+  { id: 'unspecified', name: 'غير محدد', dotColor: 'bg-muted-foreground', activeClass: 'border-border bg-muted/30 text-muted-foreground' },
 ];
