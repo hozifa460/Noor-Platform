@@ -30,6 +30,7 @@ export function useQuranAudio({ activeRiwayahReciter }: UseQuranAudioProps) {
   const [isSeeking, setIsSeeking] = useState<boolean>(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playRequestIdRef = useRef<number>(0);
 
   useEffect(() => {
     registerAudioElement(audioRef.current);
@@ -74,22 +75,57 @@ export function useQuranAudio({ activeRiwayahReciter }: UseQuranAudioProps) {
     const audio = audioRef.current;
     if (!audio) return;
 
-    if (currentAudioUrl && audio.src !== currentAudioUrl) {
-      audio.src = currentAudioUrl;
+    // Strict guard: if no valid audio URL exists, clean up audio element and stop playback
+    if (!currentAudioUrl) {
+      playRequestIdRef.current += 1;
+      if (audio.src) {
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+      }
+      if (isPlayingFullSurah) {
+        setIsPlayingFullSurah(false);
+      }
+      if (isPlayingAudio) {
+        useQuranStore.getState().pauseAudio();
+      }
+      return;
     }
 
-    if ((isPlayingAudio || isPlayingFullSurah) && currentAudioUrl) {
-      audio.play().catch((err) => {
-        console.warn('Audio play prevented or failed:', err);
-        // Synchronize state with reality if play was rejected
-        if (isPlayingAudio) {
-          useQuranStore.getState().pauseAudio();
-        }
-        if (isPlayingFullSurah) {
-          setIsPlayingFullSurah(false);
-        }
-      });
+    // When audio URL changes (e.g. reciter switched or next ayah/surah selected), update src
+    const isUrlChanged = audio.src !== currentAudioUrl;
+    if (isUrlChanged) {
+      audio.src = currentAudioUrl;
+      audio.currentTime = 0;
+    }
+
+    if (isPlayingAudio || isPlayingFullSurah) {
+      const requestId = ++playRequestIdRef.current;
+      audio
+        .play()
+        .then(() => {
+          if (playRequestIdRef.current !== requestId) return;
+        })
+        .catch((err: unknown) => {
+          if (playRequestIdRef.current !== requestId) return;
+
+          const error = err as Error;
+          // Ignore AbortError when changing audio sources (HTML5 media spec interrupts previous load)
+          if (error?.name === 'AbortError') {
+            return;
+          }
+
+          console.warn('Audio play prevented or rejected:', err);
+          // Synchronize state with reality: reset UI state to paused/stopped on any rejection (including NotAllowedError)
+          if (useQuranStore.getState().isPlayingAudio) {
+            useQuranStore.getState().pauseAudio();
+          }
+          if (useQuranStore.getState().isPlayingFullSurah) {
+            setIsPlayingFullSurah(false);
+          }
+        });
     } else {
+      playRequestIdRef.current += 1;
       audio.pause();
     }
   }, [isPlayingAudio, isPlayingFullSurah, currentAudioUrl, setIsPlayingFullSurah]);
@@ -116,6 +152,11 @@ export function useQuranAudio({ activeRiwayahReciter }: UseQuranAudioProps) {
 
   const handleAudioError = useCallback(() => {
     console.warn('Audio resource load failed or was aborted');
+    playRequestIdRef.current += 1;
+    if (audioRef.current && audioRef.current.src) {
+      audioRef.current.removeAttribute('src');
+      audioRef.current.load();
+    }
     if (isPlayingAudio) {
       useQuranStore.getState().pauseAudio();
     }

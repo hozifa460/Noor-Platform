@@ -85,10 +85,14 @@ export function QuranAudioBar({
               variant="outline"
               size="sm"
               onClick={onOpenReciterModal}
-              className="h-8 rounded-xl text-xs gap-1.5 border-border/80 truncate max-w-[135px] sm:max-w-[240px] shrink-0"
+              className="h-8 rounded-xl text-xs gap-1.5 border-border/80 truncate max-w-[150px] sm:max-w-[280px] shrink-0"
+              title={`القارئ: ${reciterName} (${isPlayingFullSurah ? 'تسجيل سورة كاملة' : 'تلاوة آية بآية'})`}
             >
               <Headphones className="size-3.5 text-primary shrink-0" />
-              <span className="truncate">{reciterName}</span>
+              <span className="truncate font-semibold">{reciterName}</span>
+              <span className="hidden sm:inline-flex text-[10px] px-1.5 py-0.5 rounded-md bg-primary/10 text-primary font-medium shrink-0">
+                {isPlayingFullSurah ? 'سورة كاملة' : 'آية بآية'}
+              </span>
             </Button>
 
             <div className="text-xs text-muted-foreground truncate hidden sm:inline">
