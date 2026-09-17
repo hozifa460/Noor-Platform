@@ -229,13 +229,17 @@ export const useQuranStore = create<QuranState>((set, get) => ({
   navigateToAyah: async (surahNumber: number, ayahNumber: number): Promise<void> => {
     // 1. Ensure audio is stopped (do not auto-play audio)
     get().stopAudio();
+    get().setIsPlayingFullSurah(false);
 
-    // 2. Set active surah, switch activeQiraah explicitly to Hafs, and set interactive view mode
+    // 2. Set active surah, switch activeQiraah explicitly to Hafs, update activeReciter to compatible Hafs reciter, and set interactive view mode
     const surahMeta = ALL_SURAHS.find((s) => s.number === surahNumber);
     const hafsQiraah = QIRAAT_LIST.find((q) => q.id === 'hafs') || QIRAAT_LIST[0];
+    const isCurrentReciterHafs = QURAN_RECITERS.some((r) => r.id === get().activeReciter.id);
+    const targetReciter = isCurrentReciterHafs ? get().activeReciter : QURAN_RECITERS[0];
     if (surahMeta) {
       set({
         activeQiraah: hafsQiraah,
+        activeReciter: targetReciter,
         activeSurah: surahMeta,
         viewMode: 'interactive',
         highlightedAyah: ayahNumber,

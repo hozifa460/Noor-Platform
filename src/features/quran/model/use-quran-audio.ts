@@ -2,7 +2,11 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useQuranStore } from './quran-store';
-import { getMp3QuranSurahUrl, type RiwayahReciterEntry } from '../infrastructure';
+import {
+  getMp3QuranSurahUrl,
+  isSurahAvailableInRecording,
+  type RiwayahReciterEntry,
+} from '../infrastructure';
 import { getAyahAudioUrl, isAyahAudioSupportedForQiraah } from '../domain';
 
 interface UseQuranAudioProps {
@@ -37,11 +41,8 @@ export function useQuranAudio({ activeRiwayahReciter }: UseQuranAudioProps) {
   const currentAudioUrl = useMemo(() => {
     if (isPlayingFullSurah) {
       if (!activeRiwayahReciter) return null;
-      // Strict guard: verify current surah exists in reciter's recorded surahList
-      if (
-        Array.isArray(activeRiwayahReciter.surahList) &&
-        !activeRiwayahReciter.surahList.includes(activeSurah.number)
-      ) {
+      // Strict unified guard: verify current surah exists in reciter's recorded surahList and matches activeQiraah
+      if (!isSurahAvailableInRecording(activeRiwayahReciter, activeSurah.number, activeQiraah.id)) {
         return null;
       }
       return getMp3QuranSurahUrl(activeRiwayahReciter.server, activeSurah.number);

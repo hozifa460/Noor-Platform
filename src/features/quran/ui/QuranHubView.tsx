@@ -25,6 +25,7 @@ import {
   QIRAAT_LIST,
   getAyahRecitersForQiraah,
   isAyahAudioSupportedForQiraah,
+  QURAN_RECITERS,
   type AyahItem,
   type QiraahMeta,
 } from '../domain';
@@ -75,7 +76,6 @@ export function QuranHubView() {
   const playNextAyah = useQuranStore((s) => s.playNextAyah);
   const highlightedTarget = useQuranStore((s) => s.highlightedTarget);
   const openQuranSearch = useQuranStore((s) => s.openQuranSearch);
-  const setHighlightedTarget = useQuranStore((s) => s.setHighlightedTarget);
   const openWordExplorer = useQuranStore((s) => s.openWordExplorer);
   const selectedWordTarget = useQuranStore((s) => s.selectedWordTarget);
 
@@ -133,15 +133,20 @@ export function QuranHubView() {
     };
   }, [showTranslation, viewMode, activeTranslation?.code, activeSurah.number]);
 
-  // Load riwayah reciters safely without stale overwrites; prioritize ones with active surah recorded
+  // Load riwayah reciters safely without stale overwrites; invalidate previous reciter immediately while fetching
   useEffect(() => {
     let isCancelled = false;
+    // Invalidate previous recording immediately upon Riwayah change
+    setActiveRiwayahReciter(null);
+    setRiwayahReciters([]);
+
     getRecitersForRiwayah(activeQiraah.id).then((list) => {
       if (!isCancelled) {
         setRiwayahReciters(list);
+        const currentSurahNo = useQuranStore.getState().activeSurah.number;
         const best =
           list.find(
-            (r) => Array.isArray(r.surahList) && r.surahList.includes(activeSurah.number)
+            (r) => Array.isArray(r.surahList) && r.surahList.includes(currentSurahNo)
           ) || (list.length > 0 ? list[0] : null);
         setActiveRiwayahReciter(best);
       }
@@ -149,12 +154,14 @@ export function QuranHubView() {
     return () => {
       isCancelled = true;
     };
-  }, [activeQiraah.id, activeSurah.number]);
+  }, [activeQiraah.id]);
 
   const handleSelectQiraah = useCallback(
     (q: QiraahMeta) => {
       stopAudio();
       audio.setIsPlayingFullSurah(false);
+      setActiveRiwayahReciter(null);
+      setRiwayahReciters([]);
       setActiveQiraah(q);
       if (q.id !== 'hafs') {
         setViewMode('pdf-page');
@@ -173,13 +180,19 @@ export function QuranHubView() {
     (targetMode: 'interactive' | 'mushaf-real' = 'interactive') => {
       stopAudio();
       audio.setIsPlayingFullSurah(false);
+      setActiveRiwayahReciter(null);
+      setRiwayahReciters([]);
       const hafs = QIRAAT_LIST.find((q) => q.id === 'hafs') || QIRAAT_LIST[0];
       setActiveQiraah(hafs);
+      const currentReciter = useQuranStore.getState().activeReciter;
+      if (!QURAN_RECITERS.some((r) => r.id === currentReciter.id)) {
+        setActiveReciter(QURAN_RECITERS[0]);
+      }
       setViewMode(targetMode);
       setConfirmSwitchToHafsOpen(false);
       toast.success('تم الانتقال إلى مصحف المدينة برواية حفص عن عاصم');
     },
-    [stopAudio, audio, setActiveQiraah, setViewMode]
+    [stopAudio, audio, setActiveQiraah, setActiveReciter, setViewMode]
   );
 
   const handleModeClick = useCallback(
@@ -225,24 +238,33 @@ export function QuranHubView() {
           const sNum = parseInt(sParam, 10);
           if (!isNaN(sNum) && sNum >= 1 && sNum <= 114) {
             const targetSurah = ALL_SURAHS[sNum - 1];
-            const currentSurah = useQuranStore.getState().activeSurah;
-            if (currentSurah.number !== sNum) {
-              setActiveSurah(targetSurah, { skipUrlUpdate: true });
+            const store = useQuranStore.getState();
+            if (store.activeSurah.number !== sNum) {
+              store.setActiveSurah(targetSurah, { skipUrlUpdate: true });
             }
             if (aParam) {
               const aNum = parseInt(aParam, 10);
               if (!isNaN(aNum) && aNum >= 1 && aNum <= targetSurah.numberOfAyahs) {
-                setViewMode('interactive');
-                setHighlightedTarget({ surahNo: sNum, ayahNo: aNum });
+                store.stopAudio();
+                store.setIsPlayingFullSurah(false);
+                if (store.activeQiraah.id !== 'hafs') {
+                  const hafs = QIRAAT_LIST.find((q) => q.id === 'hafs') || QIRAAT_LIST[0];
+                  store.setActiveQiraah(hafs);
+                }
+                if (!QURAN_RECITERS.some((r) => r.id === store.activeReciter.id)) {
+                  store.setActiveReciter(QURAN_RECITERS[0]);
+                }
+                store.setViewMode('interactive');
+                store.setHighlightedTarget({ surahNo: sNum, ayahNo: aNum });
               } else {
-                setHighlightedTarget(null);
+                store.setHighlightedTarget(null);
               }
             } else {
-              setHighlightedTarget(null);
+              store.setHighlightedTarget(null);
             }
           }
         } else {
-          setHighlightedTarget(null);
+          useQuranStore.getState().setHighlightedTarget(null);
         }
       } catch {
         /* ignore */
@@ -252,7 +274,7 @@ export function QuranHubView() {
     parseDeepLinkParams();
     window.addEventListener('popstate', parseDeepLinkParams);
     return () => window.removeEventListener('popstate', parseDeepLinkParams);
-  }, [setActiveSurah, setViewMode, setHighlightedTarget]);
+  }, []);
 
   // Smooth scroll to highlighted ayah when destination surah is rendered in interactive view
   useEffect(() => {
@@ -406,7 +428,8 @@ export function QuranHubView() {
             {/* Recitation Trigger (Full Surah Stream) */}
             {(() => {
               const isSurahRecorded = Boolean(
-                activeRiwayahReciter && isSurahAvailableInRecording(activeRiwayahReciter, activeSurah.number)
+                activeRiwayahReciter &&
+                isSurahAvailableInRecording(activeRiwayahReciter, activeSurah.number, activeQiraah.id)
               );
               return (
                 <Button
@@ -418,15 +441,17 @@ export function QuranHubView() {
                       stopAudio();
                       audio.setIsPlayingFullSurah(false);
                     } else {
-                      if (!isSurahRecorded) {
+                      if (!activeRiwayahReciter || !isSurahRecorded) {
                         toast.error(
-                          `سورة ${activeSurah.nameAr} غير متوفرة في تسجيل ${activeRiwayahReciter?.reciterName || 'هذا القارئ'}`
+                          !activeRiwayahReciter
+                            ? 'جاري تحميل تسجيلات الرواية...'
+                            : `سورة ${activeSurah.nameAr} غير متوفرة في تسجيل ${activeRiwayahReciter.reciterName}`
                         );
                         return;
                       }
                       stopAudio();
                       audio.setIsPlayingFullSurah(true);
-                      const reciterTitle = activeRiwayahReciter?.reciterName || activeReciter.name;
+                      const reciterTitle = activeRiwayahReciter.reciterName;
                       toast.success(
                         `جاري تلاوة سورة ${activeSurah.nameAr} بصوت ${reciterTitle}`
                       );
@@ -438,8 +463,10 @@ export function QuranHubView() {
                     (!activeRiwayahReciter || !isSurahRecorded) && 'opacity-60 cursor-not-allowed'
                   )}
                   title={
-                    !isSurahRecorded
-                      ? `سورة ${activeSurah.nameAr} غير متوفرة لهذا القارئ`
+                    !activeRiwayahReciter
+                      ? 'جاري تحميل تسجيلات الرواية...'
+                      : !isSurahRecorded
+                      ? `سورة ${activeSurah.nameAr} غير متوفرة في تسجيل ${activeRiwayahReciter.reciterName}`
                       : audio.isPlayingFullSurah
                       ? 'إيقاف السورة'
                       : 'تلاوة السورة'
@@ -451,7 +478,13 @@ export function QuranHubView() {
                     <Play className="size-3.5 fill-current" />
                   )}
                   <span className="hidden sm:inline">
-                    {!isSurahRecorded ? 'التسجيل غير متاح' : audio.isPlayingFullSurah ? 'إيقاف السورة' : 'تلاوة السورة'}
+                    {!activeRiwayahReciter
+                      ? 'جاري التحميل...'
+                      : !isSurahRecorded
+                      ? 'التسجيل غير متاح'
+                      : audio.isPlayingFullSurah
+                      ? 'إيقاف السورة'
+                      : 'تلاوة السورة'}
                   </span>
                 </Button>
               );
@@ -787,9 +820,21 @@ export function QuranHubView() {
           if (quickMenuAyah) setSelectedAyahForModal(quickMenuAyah);
         }}
         onPlayFullSurah={() => {
+          const isRecorded = Boolean(
+            activeRiwayahReciter &&
+            isSurahAvailableInRecording(activeRiwayahReciter, activeSurah.number, activeQiraah.id)
+          );
+          if (!isRecorded || !activeRiwayahReciter) {
+            toast.error(
+              !activeRiwayahReciter
+                ? 'جاري تحميل تسجيلات الرواية...'
+                : `سورة ${activeSurah.nameAr} غير متوفرة في تسجيل ${activeRiwayahReciter.reciterName}`
+            );
+            return;
+          }
           stopAudio();
           audio.setIsPlayingFullSurah(true);
-          const reciterTitle = activeRiwayahReciter?.reciterName || activeReciter.name;
+          const reciterTitle = activeRiwayahReciter.reciterName;
           toast.success(`جاري تلاوة سورة ${activeSurah.nameAr} بصوت ${reciterTitle}`);
         }}
         onCopyAyah={() => {
@@ -829,6 +874,19 @@ export function QuranHubView() {
               if (currentPlayingAyah) {
                 playAyah(currentPlayingAyah);
               } else {
+                const canPlay = Boolean(
+                  activeRiwayahReciter &&
+                  isSurahAvailableInRecording(activeRiwayahReciter, activeSurah.number, activeQiraah.id)
+                );
+                if (!canPlay || !activeRiwayahReciter) {
+                  toast.error(
+                    !activeRiwayahReciter
+                      ? 'جاري تحميل تسجيلات الرواية...'
+                      : `سورة ${activeSurah.nameAr} غير متوفرة في تسجيل ${activeRiwayahReciter?.reciterName || 'هذا القارئ'}`
+                  );
+                  return;
+                }
+                stopAudio();
                 audio.setIsPlayingFullSurah(true);
               }
             }
@@ -861,6 +919,18 @@ export function QuranHubView() {
               stopAudio();
               audio.setIsPlayingFullSurah(false);
             } else {
+              const canPlay = Boolean(
+                activeRiwayahReciter &&
+                isSurahAvailableInRecording(activeRiwayahReciter, activeSurah.number, activeQiraah.id)
+              );
+              if (!canPlay || !activeRiwayahReciter) {
+                toast.error(
+                  !activeRiwayahReciter
+                    ? 'جاري تحميل تسجيلات الرواية...'
+                    : `سورة ${activeSurah.nameAr} غير متوفرة في تسجيل ${activeRiwayahReciter?.reciterName || 'هذا القارئ'}`
+                );
+                return;
+              }
               stopAudio();
               audio.setIsPlayingFullSurah(true);
             }

@@ -4,6 +4,7 @@ import {
   getQiraahPdfUrl,
   isAyahAudioSupportedForQiraah,
   getAyahRecitersForQiraah,
+  getAyahAudioUrl,
   QURAN_RECITERS,
   WARSH_AYAH_RECITERS,
 } from '../domain';
@@ -174,6 +175,26 @@ describe('Quran Riwayat, Multi-Reciter Bindings & Hafs Decoupling Suite', () => 
       };
       expect(isSurahAvailableInRecording(emptyReciter, 1)).toBe(false);
     });
+
+    it('unifies playback condition: rejects when reciter riwayahId does not match activeQiraahId even if surah is in list', () => {
+      const reciter: RiwayahReciterEntry = {
+        reciterId: 50,
+        reciterName: 'قارئ ورش',
+        moshafId: 7,
+        moshafName: 'رواية ورش',
+        server: 'https://server.example.com/',
+        surahTotal: 114,
+        surahList: Array.from({ length: 114 }, (_, i) => i + 1),
+        riwayahId: 'warsh',
+      };
+
+      // Matches active Riwayah -> true
+      expect(isSurahAvailableInRecording(reciter, 1, 'warsh')).toBe(true);
+
+      // Incompatible Riwayah -> strictly false
+      expect(isSurahAvailableInRecording(reciter, 1, 'shoaba')).toBe(false);
+      expect(isSurahAvailableInRecording(reciter, 1, 'hafs')).toBe(false);
+    });
   });
 
   describe('4. Store Transitions, Riwayah Switching & Search Navigation', () => {
@@ -210,6 +231,111 @@ describe('Quran Riwayat, Multi-Reciter Bindings & Hafs Decoupling Suite', () => 
       expect(state.currentPlayingAyah).toBeNull();
       expect(state.activeSurah.number).toBe(2);
       expect(state.highlightedTarget).toEqual({ surahNo: 2, ayahNo: 255 });
+    });
+
+    it('transitioning from Warsh to Hafs via search navigation updates activeReciter to Hafs and verifies subsequent playback URL belongs to Hafs', async () => {
+      // 1. Setup in Warsh with Warsh reciter playing
+      const warsh = QIRAAT_LIST.find((q) => q.id === 'warsh')!;
+      const warshReciter = WARSH_AYAH_RECITERS[0];
+      useQuranStore.setState({
+        activeQiraah: warsh,
+        activeReciter: warshReciter,
+        isPlayingAudio: true,
+        isPlayingFullSurah: true,
+        currentPlayingAyah: 1,
+      });
+
+      // Verify initial audio URL was for Warsh
+      const warshUrl = getAyahAudioUrl(warshReciter.subfolder, 2, 255, 'warsh');
+      expect(warshUrl).toContain('warsh/warsh_Abdul_Basit_128kbps');
+
+      // 2. Navigate via search to Hafs text
+      await useQuranStore.getState().navigateToAyah(2, 255);
+
+      const state = useQuranStore.getState();
+      // Audio must be halted
+      expect(state.isPlayingAudio).toBe(false);
+      expect(state.isPlayingFullSurah).toBe(false);
+      expect(state.currentPlayingAyah).toBeNull();
+      // Qiraah must be Hafs
+      expect(state.activeQiraah.id).toBe('hafs');
+      // activeReciter must be updated to a compatible Hafs reciter
+      expect(QURAN_RECITERS.some((r) => r.id === state.activeReciter.id)).toBe(true);
+      expect(state.activeReciter.id).not.toBe(warshReciter.id);
+
+      // 3. Verify subsequent verse audio URL belongs to Hafs (no warsh/ prefix, standard EveryAyah Hafs path)
+      const subsequentHafsUrl = getAyahAudioUrl(
+        state.activeReciter.subfolder,
+        2,
+        255,
+        state.activeQiraah.id
+      );
+      expect(subsequentHafsUrl).not.toContain('warsh/');
+      expect(subsequentHafsUrl).toContain(state.activeReciter.subfolder);
+      expect(subsequentHafsUrl).toContain('002255.mp3');
+    });
+
+    it('preserves user-selected reciter when changing surah and rejects playback if unrecorded without replacing reciter', () => {
+      // Reciter with partial surah coverage (e.g. Ahmad Deeban in Hisham: only surah 1 and 20)
+      const selectedReciter: RiwayahReciterEntry = {
+        reciterId: 99,
+        reciterName: 'أحمد ديبان',
+        moshafId: 12,
+        moshafName: 'رواية هشام',
+        server: 'https://server14.mp3quran.net/deban/',
+        surahTotal: 2,
+        surahList: [1, 20],
+        riwayahId: 'hisham',
+      };
+
+      // In Surah 1: surah is available
+      expect(isSurahAvailableInRecording(selectedReciter, 1, 'hisham')).toBe(true);
+
+      // Surah changes to Surah 2 (Al-Baqarah).
+      // The reciter remains selected (not replaced with an automatic fallback),
+      // but isSurahAvailableInRecording strictly returns false, disabling playback.
+      expect(isSurahAvailableInRecording(selectedReciter, 2, 'hisham')).toBe(false);
+
+      // Surah changes to Surah 20 (Ta-Ha) -> available again without swapping reciter
+      expect(isSurahAvailableInRecording(selectedReciter, 20, 'hisham')).toBe(true);
+    });
+
+    it('invalidates previous reciter immediately during Riwayah switch to prevent stale playback during delayed fetch', () => {
+      // 1. User is on Warsh with active reciter
+      let activeRiwayahReciter: RiwayahReciterEntry | null = {
+        reciterId: 10,
+        reciterName: 'قارئ ورش',
+        moshafId: 5,
+        moshafName: 'رواية ورش',
+        server: 'https://server.example.com/',
+        surahTotal: 114,
+        surahList: [1, 2, 3],
+        riwayahId: 'warsh',
+      };
+
+      // 2. User switches to Shoaba: immediate invalidation MUST set activeRiwayahReciter to null synchronously
+      activeRiwayahReciter = null;
+
+      // 3. During delayed fetch window, all playback checks MUST reject
+      expect(isSurahAvailableInRecording(activeRiwayahReciter, 1, 'shoaba')).toBe(false);
+      expect(isSurahAvailableInRecording(activeRiwayahReciter, 2, 'shoaba')).toBe(false);
+
+      // 4. Simulated delayed fetch completes for Shoaba
+      const fetchedShoabaReciter: RiwayahReciterEntry = {
+        reciterId: 20,
+        reciterName: 'قارئ شعبة',
+        moshafId: 8,
+        moshafName: 'رواية شعبة',
+        server: 'https://server.example.com/shoaba/',
+        surahTotal: 1,
+        surahList: [1],
+        riwayahId: 'shoaba',
+      };
+      activeRiwayahReciter = fetchedShoabaReciter;
+
+      // 5. Now only valid surahs in Shoaba recording pass
+      expect(isSurahAvailableInRecording(activeRiwayahReciter, 1, 'shoaba')).toBe(true);
+      expect(isSurahAvailableInRecording(activeRiwayahReciter, 2, 'shoaba')).toBe(false);
     });
   });
 });
