@@ -77,7 +77,13 @@ export function QuickAyahMenu({
               سورة {surah.nameAr} • الآية {ayah.ayahNo}
             </h4>
           </div>
-          <Button size="icon" variant="ghost" onClick={onClose} className="size-8 rounded-xl">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onClose}
+            className="size-8 rounded-xl"
+            data-testid="quick-menu-close-btn"
+          >
             <X className="size-4" />
           </Button>
         </div>
@@ -105,6 +111,7 @@ export function QuickAyahMenu({
 
           {isVerseLevelAvailable ? (
             <select
+              data-testid="quick-menu-reciter-select"
               value={activeReciter.id}
               onChange={(e) => {
                 const available = getAyahRecitersForQiraah(activeQiraah.id);
