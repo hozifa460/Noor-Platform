@@ -407,4 +407,124 @@ test.describe('Noor Platform — Quran Mobile Layout, Control Bar & RTL Wrapping
     await page.screenshot({ path: mushafScreenshotPath, fullPage: false });
     expect(fs.existsSync(mushafScreenshotPath)).toBe(true);
   });
+
+  // 5. Behavioral test: Floating AI Button collision hiding -> window resize / scroll recovery -> audio player hiding
+  test('Floating AI button behavior: collision hiding -> window resize/scroll recovery -> audio player hiding', async ({
+    page,
+  }) => {
+    // 1. Initial State at standard viewport (375x800): button is visible and interactive
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.goto('/quran');
+    await page.waitForLoadState('domcontentloaded');
+    await page.evaluate(() => document.fonts.ready);
+
+    const aiContainer = page.locator('[data-testid="floating-ai-button"]');
+    const aiButton = aiContainer.locator('button');
+    await expect(aiContainer).toBeVisible({ timeout: 15000 });
+    await expect(aiButton).toBeEnabled();
+
+    const initialMetrics = await aiContainer.evaluate((el) => {
+      const style = window.getComputedStyle(el);
+      const btn = el.querySelector('button');
+      return {
+        visibility: style.visibility,
+        opacity: style.opacity,
+        pointerEvents: style.pointerEvents,
+        tabIndex: btn ? btn.tabIndex : null,
+        ariaHidden: btn ? btn.getAttribute('aria-hidden') : null,
+      };
+    });
+    expect(initialMetrics.visibility).toBe('visible');
+    expect(initialMetrics.pointerEvents).toBe('auto');
+    expect(initialMetrics.tabIndex).toBe(0);
+
+    // 2. Collision step: Resize window to a short height (200px) where header buttons intersect the AI button
+    await page.setViewportSize({ width: 375, height: 200 });
+    await page.waitForTimeout(300);
+
+    // Verify button is visually and interactively hidden
+    await expect(aiContainer).toBeHidden();
+    await expect(aiButton).toBeDisabled();
+
+    // Critical requirement: Measurable container remains mounted in DOM with non-zero dimensions
+    const collisionContainerState = await aiContainer.evaluate((el) => {
+      const rect = el.getBoundingClientRect();
+      const style = window.getComputedStyle(el);
+      const btn = el.querySelector('button');
+      return {
+        inDom: true,
+        width: rect.width,
+        height: rect.height,
+        visibility: style.visibility,
+        pointerEvents: style.pointerEvents,
+        btnDisabled: btn ? (btn as HTMLButtonElement).disabled : false,
+        btnTabIndex: btn ? btn.tabIndex : 0,
+        btnAriaHidden: btn ? btn.getAttribute('aria-hidden') : 'false',
+      };
+    });
+    expect(collisionContainerState.inDom).toBe(true);
+    expect(collisionContainerState.width).toBeGreaterThan(0);
+    expect(collisionContainerState.height).toBeGreaterThan(0);
+    expect(collisionContainerState.visibility).toBe('hidden');
+    expect(collisionContainerState.pointerEvents).toBe('none');
+    expect(collisionContainerState.btnDisabled).toBe(true);
+    expect(collisionContainerState.btnTabIndex).toBe(-1);
+    expect(collisionContainerState.btnAriaHidden).toBe('true');
+
+    // 3. Recovery step: Resize window back to 800px to eliminate collision
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.waitForTimeout(300);
+
+    // Verify button automatically reappears and recovers interactivity
+    await expect(aiContainer).toBeVisible();
+    await expect(aiButton).toBeEnabled();
+
+    const recoveredState = await aiContainer.evaluate((el) => {
+      const style = window.getComputedStyle(el);
+      const btn = el.querySelector('button');
+      return {
+        visibility: style.visibility,
+        pointerEvents: style.pointerEvents,
+        btnDisabled: btn ? (btn as HTMLButtonElement).disabled : false,
+        btnTabIndex: btn ? btn.tabIndex : -1,
+        btnAriaHidden: btn ? btn.getAttribute('aria-hidden') : 'true',
+      };
+    });
+    expect(recoveredState.visibility).toBe('visible');
+    expect(recoveredState.pointerEvents).toBe('auto');
+    expect(recoveredState.btnDisabled).toBe(false);
+    expect(recoveredState.btnTabIndex).toBe(0);
+    expect(recoveredState.btnAriaHidden).toBe('false');
+
+    // Also verify scroll listener: scroll down and assert button remains visible and measurable
+    await page.evaluate(() => window.scrollTo(0, 300));
+    await page.waitForTimeout(200);
+    await expect(aiContainer).toBeVisible();
+
+    // 4. Audio Playback step: Trigger recitation play, button must hide during playback
+    await page.waitForFunction(
+      () => {
+        const btn = document.querySelector('[data-testid="recitation-play-trigger"]');
+        return btn && !(btn as HTMLButtonElement).disabled;
+      },
+      { timeout: 15000 }
+    );
+
+    const playBtn = page.locator('[data-testid="recitation-play-trigger"]');
+    await playBtn.click();
+    await page.waitForSelector('[data-testid="quran-audio-bar"]', { timeout: 10000 });
+    await page.waitForTimeout(500);
+
+    // Verify audio bar is visible and floating AI button is hidden during playback
+    await expect(page.locator('[data-testid="quran-audio-bar"]')).toBeVisible();
+    await expect(aiContainer).toBeHidden();
+    await expect(aiButton).toBeDisabled();
+
+    // 5. Stop audio playback: floating AI button must recover again
+    await playBtn.click();
+    await page.waitForTimeout(500);
+    await expect(aiContainer).toBeVisible();
+    await expect(aiButton).toBeEnabled();
+  });
 });
+

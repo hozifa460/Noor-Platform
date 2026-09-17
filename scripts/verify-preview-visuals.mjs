@@ -466,7 +466,13 @@ async function run() {
         let aiButtonIntersectsQuran = false;
         if (aiButton) {
           const aiRect = aiButton.getBoundingClientRect();
-          const aiVisible = aiRect.width > 0 && aiRect.height > 0 && window.getComputedStyle(aiButton).display !== 'none';
+          const aiStyle = window.getComputedStyle(aiButton);
+          const aiVisible =
+            aiRect.width > 0 &&
+            aiRect.height > 0 &&
+            aiStyle.display !== 'none' &&
+            aiStyle.visibility !== 'hidden' &&
+            aiStyle.opacity !== '0';
           if (aiVisible) {
             for (const b of buttons) {
               const bRect = b.getBoundingClientRect();
@@ -702,7 +708,13 @@ async function run() {
         let aiButtonOverlaps = false;
         if (aiButton) {
           const aiRect = aiButton.getBoundingClientRect();
-          const aiVisible = aiRect.width > 0 && aiRect.height > 0 && window.getComputedStyle(aiButton).display !== 'none';
+          const aiStyle = window.getComputedStyle(aiButton);
+          const aiVisible =
+            aiRect.width > 0 &&
+            aiRect.height > 0 &&
+            aiStyle.display !== 'none' &&
+            aiStyle.visibility !== 'hidden' &&
+            aiStyle.opacity !== '0';
           if (aiVisible && bRect) {
             aiButtonOverlaps = !(
               aiRect.right <= bRect.left ||
@@ -797,7 +809,13 @@ async function run() {
         let aiButtonOverlaps = false;
         if (aiButton) {
           const aiRect = aiButton.getBoundingClientRect();
-          const aiVisible = aiRect.width > 0 && aiRect.height > 0 && window.getComputedStyle(aiButton).display !== 'none';
+          const aiStyle = window.getComputedStyle(aiButton);
+          const aiVisible =
+            aiRect.width > 0 &&
+            aiRect.height > 0 &&
+            aiStyle.display !== 'none' &&
+            aiStyle.visibility !== 'hidden' &&
+            aiStyle.opacity !== '0';
           if (aiVisible && bRect) {
             aiButtonOverlaps = !(
               aiRect.right <= bRect.left ||

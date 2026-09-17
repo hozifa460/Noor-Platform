@@ -19,6 +19,9 @@ export function FloatingAIButton() {
   const isMediaPlayerActive = usePlayerStore((s) => Boolean(s.currentItem));
   const isAudioActive = isQuranAudioActive || isMediaPlayerActive;
 
+  const isHidden = Boolean(isAudioActive || hasCollision);
+  const showModal = isOpen && !isHidden;
+
   // Strict collision detection against Quran header buttons and audio bars
   useEffect(() => {
     const checkCollision = () => {
@@ -35,6 +38,9 @@ export function FloatingAIButton() {
           for (const target of targets) {
             const tRect = target.getBoundingClientRect();
             if (tRect.width === 0 || tRect.height === 0) continue;
+
+            const tStyle = window.getComputedStyle(target);
+            if (tStyle.display === 'none' || tStyle.visibility === 'hidden' || tStyle.opacity === '0') continue;
 
             const intersects = !(
               aiRect.right <= tRect.left ||
@@ -55,37 +61,50 @@ export function FloatingAIButton() {
 
     checkCollision();
     window.addEventListener('resize', checkCollision);
-    window.addEventListener('scroll', checkCollision, { passive: true });
+    window.addEventListener('scroll', checkCollision, { passive: true, capture: true });
+    window.addEventListener('orientationchange', checkCollision);
     const timer = setTimeout(checkCollision, 250);
 
     return () => {
       window.removeEventListener('resize', checkCollision);
-      window.removeEventListener('scroll', checkCollision);
+      window.removeEventListener('scroll', checkCollision, { capture: true });
+      window.removeEventListener('orientationchange', checkCollision);
       clearTimeout(timer);
     };
   }, [isAudioActive]);
 
-  // Completely hidden during audio playback or if direct collision with buttons is detected
-  if (isAudioActive || hasCollision) {
-    return null;
-  }
-
   return (
     <>
-      {/* ─── Floating Button ────────────────────────────────────────── */}
+      {/* ─── Floating Button (Measurable Container) ─────────────────── */}
       <div
         ref={buttonRef}
         data-testid="floating-ai-button"
-        className="fixed bottom-20 lg:bottom-1.5 left-3 sm:left-4 lg:left-2 z-50 animate-in fade-in slide-in-from-bottom-5 duration-300"
+        aria-hidden={isHidden ? 'true' : undefined}
+        className={cn(
+          'fixed bottom-20 lg:bottom-1.5 left-3 sm:left-4 lg:left-2 z-50 w-11 sm:w-12 h-11 sm:h-12 transition-opacity duration-200',
+          isHidden
+            ? 'invisible opacity-0 pointer-events-none'
+            : 'visible opacity-100 pointer-events-auto'
+        )}
       >
         <button
-          onClick={() => setIsOpen(true)}
+          type="button"
+          onClick={() => {
+            if (!isHidden) {
+              setIsOpen(true);
+            }
+          }}
+          disabled={isHidden}
+          tabIndex={isHidden ? -1 : 0}
+          aria-hidden={isHidden ? 'true' : 'false'}
+          aria-disabled={isHidden ? 'true' : 'false'}
           className={cn(
             'group relative flex items-center rounded-full shadow-2xl transition-all duration-300',
             'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white',
             'hover:from-emerald-500 hover:to-teal-500 hover:shadow-emerald-900/40 hover:scale-105 active:scale-95',
             'border border-emerald-400/30 ring-4 ring-emerald-500/20',
-            'p-2 sm:p-2.5 max-w-[46px] sm:max-w-[48px] hover:max-w-xs overflow-hidden'
+            'p-2 sm:p-2.5 max-w-[46px] sm:max-w-[48px] hover:max-w-xs overflow-hidden',
+            isHidden && 'pointer-events-none cursor-default'
           )}
           aria-label="مساعد الذكاء الاصطناعي"
           title="مساعد نور الذكي (باحث فقهي وإسلامي)"
@@ -111,7 +130,7 @@ export function FloatingAIButton() {
       </div>
 
       {/* ─── Coming Soon Modal Dialog ────────────────────────────────── */}
-      {isOpen && (
+      {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div
             className="relative w-full max-w-md overflow-hidden rounded-3xl bg-card border border-border shadow-2xl p-6 sm:p-7 text-right animate-in zoom-in-95 duration-200"
