@@ -63,8 +63,8 @@ async function runAllTests() {
 
   // Suite 2: Qira'at & Narrations Catalog Verification
   console.log('\n--- Test Suite 2: Qira\'at & Narrations Catalog Verification ---');
-  test('Contains 19 verified Qira\'at and Narrations Mus-hafs', () => {
-    assert.strictEqual(QIRAAT_LIST.length, 19);
+  test('Contains 21 verified canonical Qira\'at and Narrations', () => {
+    assert.strictEqual(QIRAAT_LIST.length, 21);
   });
 
   test('Default Qiraah is Hafs an Aasim', () => {
