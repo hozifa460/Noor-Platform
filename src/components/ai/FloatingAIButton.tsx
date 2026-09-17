@@ -4,15 +4,29 @@ import { useState } from 'react';
 import { Sparkles, Bot, X, BookOpen, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useQuranStore } from '@/features/quran';
+import { usePlayerStore } from '@/stores/player-store';
 import { cn } from '@/lib/utils';
 
 export function FloatingAIButton() {
   const [isOpen, setIsOpen] = useState(false);
 
+  const isQuranAudioActive = useQuranStore(
+    (s) => s.isPlayingAudio || s.isPlayingFullSurah || s.currentPlayingAyah !== null
+  );
+  const isMediaPlayerActive = usePlayerStore((s) => Boolean(s.currentItem));
+  const isAudioActive = isQuranAudioActive || isMediaPlayerActive;
+
   return (
     <>
       {/* ─── Floating Button ────────────────────────────────────────── */}
-      <div className="fixed bottom-20 lg:bottom-6 left-4 sm:left-6 z-50 animate-in fade-in slide-in-from-bottom-5 duration-300">
+      <div
+        data-testid="floating-ai-button"
+        className={cn(
+          'fixed left-4 sm:left-6 z-50 animate-in fade-in slide-in-from-bottom-5 duration-300',
+          isAudioActive ? 'hidden lg:block lg:bottom-6' : 'bottom-20 lg:bottom-6'
+        )}
+      >
         <button
           onClick={() => setIsOpen(true)}
           className={cn(

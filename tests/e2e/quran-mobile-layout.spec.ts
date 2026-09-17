@@ -95,7 +95,7 @@ test.describe('Noor Platform — Quran Mobile Layout, Control Bar & RTL Wrapping
       expect(qiraahText).toContain('رواية حفص');
 
       // Verify short name element is visible and has width > 0
-      const shortNameSpan = qiraahBtn.locator('span.sm\\:hidden');
+      const shortNameSpan = qiraahBtn.locator('[data-testid="qiraah-short-name"]');
       await expect(shortNameSpan).toBeVisible();
       const shortNameBox = await shortNameSpan.boundingBox();
       expect(shortNameBox).not.toBeNull();

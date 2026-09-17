@@ -346,7 +346,7 @@ export function QuranHubView() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 sm:gap-2.5 max-w-7xl mx-auto w-full min-w-0 flex-wrap">
           {/* Row 1: Surah Title, Navigation, Qira'ah & Ayah Search */}
           <div className="flex items-center justify-between gap-1.5 sm:gap-2 w-full lg:w-auto min-w-0 flex-wrap">
-            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 md:flex-initial">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 lg:flex-initial flex-wrap">
               {/* Surah Drawer Trigger */}
               <Button
                 variant="outline"
@@ -392,19 +392,20 @@ export function QuranHubView() {
                 </Button>
               </div>
 
-              {/* Qira'ah / Narration Trigger Button */}
+              {/* Qira'ah / Narration Trigger Button - Always keeps readable canonical name */}
               <Button
                 variant="outline"
                 size="sm"
                 data-testid="qiraah-trigger"
                 onClick={() => setQiraahModalOpen(true)}
-                className="gap-1 sm:gap-2 font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl bg-card hover:bg-muted border-border shadow-sm h-8 sm:h-10 px-1.5 sm:px-3.5 min-w-0 flex-1 max-w-[140px] sm:max-w-[220px]"
+                className="gap-1 sm:gap-2 font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl bg-card hover:bg-muted border-border shadow-sm h-8 sm:h-10 px-1.5 sm:px-3 shrink-0 min-w-fit max-w-[170px] sm:max-w-[220px]"
                 title="اختيار الرواية أو القراءة"
               >
                 <BookOpen className="size-3.5 sm:size-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                <span className="truncate font-bold text-xs sm:hidden shrink min-w-0">{getQiraahShortName(activeQiraah)}</span>
-                <span className="truncate font-bold text-xs sm:text-sm hidden sm:inline">{activeQiraah.name}</span>
-                <ChevronDown className="size-2.5 sm:size-3.5 text-muted-foreground shrink-0 opacity-70 hidden xs:inline-block" />
+                <span data-testid="qiraah-short-name" className="truncate font-bold text-xs sm:text-sm shrink-0">
+                  {getQiraahShortName(activeQiraah)}
+                </span>
+                <ChevronDown className="size-2.5 sm:size-3.5 text-muted-foreground shrink-0 opacity-70 hidden md:inline-block" />
               </Button>
             </div>
 

@@ -87,7 +87,7 @@ async function run() {
         name: 'Chrome on Android (Portrait) — Google Pixel 7',
         category: 'Mobile Android',
         deviceType: 'simulation',
-        engine: 'Chromium / Blink',
+        engine: 'Chromium / Blink بمحاكاة الأجهزة',
         viewport: { width: 412, height: 915 },
         dpr: 2.625,
         orientation: 'portrait',
@@ -130,7 +130,7 @@ async function run() {
         name: 'Chrome on Android (Landscape) — Google Pixel 7',
         category: 'Mobile Android',
         deviceType: 'simulation',
-        engine: 'Chromium / Blink',
+        engine: 'Chromium / Blink بمحاكاة الأجهزة',
         viewport: { width: 915, height: 412 },
         dpr: 2.625,
         orientation: 'landscape',
@@ -197,7 +197,7 @@ async function run() {
         name: 'Safari on iPhone (Portrait) — iPhone 14 Pro',
         category: 'Mobile iOS',
         deviceType: 'simulation',
-        engine: 'WebKit (Safari)',
+        engine: 'WebKit (Safari) بمحاكاة الأجهزة',
         viewport: { width: 393, height: 852 },
         dpr: 3.0,
         orientation: 'portrait',
@@ -240,7 +240,7 @@ async function run() {
         name: 'Safari on iPhone (Landscape) — iPhone 14 Pro',
         category: 'Mobile iOS',
         deviceType: 'simulation',
-        engine: 'WebKit (Safari)',
+        engine: 'WebKit (Safari) بمحاكاة الأجهزة',
         viewport: { width: 852, height: 393 },
         dpr: 3.0,
         orientation: 'landscape',
@@ -291,7 +291,7 @@ async function run() {
         name: 'Tablet View (Portrait) — iPad (Gen 7)',
         category: 'Tablet',
         deviceType: 'simulation',
-        engine: 'WebKit (Safari)',
+        engine: 'WebKit (Safari) بمحاكاة الأجهزة',
         viewport: { width: 810, height: 1080 },
         dpr: 2.0,
         orientation: 'portrait',
@@ -334,7 +334,7 @@ async function run() {
         name: 'Tablet View (Landscape) — iPad (Gen 7)',
         category: 'Tablet',
         deviceType: 'simulation',
-        engine: 'WebKit (Safari)',
+        engine: 'WebKit (Safari) بمحاكاة الأجهزة',
         viewport: { width: 1080, height: 810 },
         dpr: 2.0,
         orientation: 'landscape',
@@ -386,7 +386,7 @@ async function run() {
         name: 'Desktop Standard View (1440x900)',
         category: 'Desktop',
         deviceType: 'simulation',
-        engine: 'Chromium / Blink',
+        engine: 'Chromium / Blink بمحاكاة الأجهزة',
         viewport: { width: 1440, height: 900 },
         dpr: 1.0,
         orientation: 'landscape',
@@ -407,7 +407,7 @@ async function run() {
       const page = await context.newPage();
       await prepareQuranPage(page);
 
-      // Apply CSS 200% zoom
+      // Apply CSS 200% zoom to simulate genuine browser page zoom
       await page.evaluate(() => {
         document.body.style.zoom = '200%';
       });
@@ -420,19 +420,57 @@ async function run() {
         const header = document.querySelector('[data-testid="quran-header-bar"]');
         const hRect = header ? header.getBoundingClientRect() : null;
 
+        // Verify all header buttons exist and are visible
         const buttons = Array.from(document.querySelectorAll('[data-testid="quran-header-bar"] button'));
         const allVisible = buttons.every((b) => {
           const r = b.getBoundingClientRect();
           return r.width > 0 && r.height > 0;
         });
 
+        // Specific verification for Qiraah button text visibility
+        const qiraahBtn = document.querySelector('[data-testid="qiraah-trigger"]');
+        const qiraahRect = qiraahBtn ? qiraahBtn.getBoundingClientRect() : null;
+        const qiraahTextSpan = qiraahBtn ? qiraahBtn.querySelector('span') : null;
+        const qiraahTextRect = qiraahTextSpan ? qiraahTextSpan.getBoundingClientRect() : null;
+        const qiraahText = qiraahBtn ? (qiraahBtn.textContent || '').trim() : '';
+
+        const hasReadableShortName = Boolean(
+          qiraahRect && qiraahRect.width >= 70 &&
+          qiraahTextRect && qiraahTextRect.width > 20 &&
+          qiraahText.includes('رواية حفص')
+        );
+
+        // Strict non-intersection verification between adjacent buttons
+        let anyIntersection = false;
+        for (let i = 0; i < buttons.length; i++) {
+          for (let j = i + 1; j < buttons.length; j++) {
+            const rA = buttons[i].getBoundingClientRect();
+            const rB = buttons[j].getBoundingClientRect();
+            // Skip non-visible
+            if (rA.width === 0 || rB.width === 0) continue;
+            // Check bounding box intersection with a small 1px margin
+            const intersects = !(
+              rA.right <= rB.left + 1 ||
+              rA.left >= rB.right - 1 ||
+              rA.bottom <= rB.top + 1 ||
+              rA.top >= rB.bottom - 1
+            );
+            if (intersects) {
+              anyIntersection = true;
+            }
+          }
+        }
+
         return {
           pageScrollWidth: scrollW,
           pageClientWidth: clientW,
           horizontalOverflowPx: Math.max(0, scrollW - clientW),
           headerContained: Boolean(hRect && hRect.left >= -1),
-          textComplete: allVisible,
-          notes: 'Desktop 200% Page Zoom (1280x800 base + 200% zoom)'
+          textComplete: allVisible && hasReadableShortName && !anyIntersection,
+          qiraahWidth: Math.round(qiraahRect?.width || 0),
+          qiraahText,
+          buttonsNoIntersection: !anyIntersection,
+          notes: `Desktop 200% Zoom: Qiraah button width=${Math.round(qiraahRect?.width || 0)}px, text="${qiraahText}", overlap=${anyIntersection}`
         };
       });
 
@@ -442,7 +480,7 @@ async function run() {
         name: 'Desktop View with 200% Page Zoom',
         category: 'Desktop Zoom',
         deviceType: 'simulation',
-        engine: 'Chromium / Blink',
+        engine: 'Chromium / Blink بمحاكاة الأجهزة',
         viewport: { width: 1280, height: 800 },
         dpr: 2.0,
         orientation: 'landscape',
@@ -500,7 +538,7 @@ async function run() {
         name: 'Qiraah & Riwayah Selection Modal (Mobile)',
         category: 'Modal Dialog',
         deviceType: 'simulation',
-        engine: 'Chromium / Blink',
+        engine: 'Chromium / Blink بمحاكاة الأجهزة',
         viewport: { width: 412, height: 915 },
         dpr: 2.625,
         orientation: 'portrait',
@@ -539,7 +577,7 @@ async function run() {
         name: 'Surah Index Drawer (Mobile)',
         category: 'Drawer',
         deviceType: 'simulation',
-        engine: 'Chromium / Blink',
+        engine: 'Chromium / Blink بمحاكاة الأجهزة',
         viewport: { width: 412, height: 915 },
         dpr: 2.625,
         orientation: 'portrait',
@@ -578,7 +616,7 @@ async function run() {
         name: 'Quran Ayah Search Modal (Mobile)',
         category: 'Modal Dialog',
         deviceType: 'simulation',
-        engine: 'Chromium / Blink',
+        engine: 'Chromium / Blink بمحاكاة الأجهزة',
         viewport: { width: 412, height: 915 },
         dpr: 2.625,
         orientation: 'portrait',
@@ -652,7 +690,7 @@ async function run() {
         name: 'Sticky Audio Bar Docked at Bottom (Desktop)',
         category: 'Audio Bar',
         deviceType: 'simulation',
-        engine: 'Chromium / Blink',
+        engine: 'Chromium / Blink بمحاكاة الأجهزة',
         viewport: { width: 1280, height: 800 },
         dpr: 1.0,
         orientation: 'landscape',
@@ -687,7 +725,7 @@ async function run() {
       const playBtn = page.locator('[data-testid="recitation-play-trigger"]');
       await playBtn.click();
       await page.waitForSelector('[data-testid="quran-audio-bar"]', { timeout: 10000 });
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(1000);
 
       const metrics = await page.evaluate(() => {
         const bar = document.querySelector('[data-testid="quran-audio-bar"]');
@@ -712,15 +750,32 @@ async function run() {
         const sliderRect = slider?.getBoundingClientRect();
         const sliderValid = Boolean(sliderRect && sliderRect.width > 40);
 
+        // Verify FloatingAIButton does NOT overlap with the audio bar
+        const aiButton = document.querySelector('[data-testid="floating-ai-button"]');
+        let aiButtonOverlaps = false;
+        if (aiButton) {
+          const aiRect = aiButton.getBoundingClientRect();
+          const aiVisible = aiRect.width > 0 && aiRect.height > 0 && window.getComputedStyle(aiButton).display !== 'none';
+          if (aiVisible && bRect) {
+            aiButtonOverlaps = !(
+              aiRect.right <= bRect.left ||
+              aiRect.left >= bRect.right ||
+              aiRect.bottom <= bRect.top ||
+              aiRect.top >= bRect.bottom
+            );
+          }
+        }
+
         return {
           pageScrollWidth: document.documentElement.scrollWidth,
           pageClientWidth: document.documentElement.clientWidth,
           horizontalOverflowPx: 0,
           headerContained: true,
-          textComplete: buttonsAllVisible && sliderValid,
+          textComplete: buttonsAllVisible && sliderValid && !aiButtonOverlaps,
           audioBarVisible: Boolean(bar),
           audioBarBottomDocked: isDocked,
-          notes: `iPhone WebKit Audio Bar docked: top=${Math.round(bRect?.top || 0)}px, bottom=${Math.round(bRect?.bottom || 0)}px, windowH=${winH}px, ${buttons.length} buttons visible`
+          aiButtonNoOverlap: !aiButtonOverlaps,
+          notes: `iPhone WebKit Audio Bar docked: top=${Math.round(bRect?.top || 0)}px, bottom=${Math.round(bRect?.bottom || 0)}px, windowH=${winH}px, ${buttons.length} buttons visible, aiOverlap=${aiButtonOverlaps}`
         };
       });
 
@@ -730,12 +785,12 @@ async function run() {
         name: 'Sticky Audio Bar Docked at Bottom (iPhone WebKit)',
         category: 'Audio Bar',
         deviceType: 'simulation',
-        engine: 'WebKit (Safari)',
+        engine: 'WebKit (Safari) بمحاكاة الأجهزة',
         viewport: { width: 393, height: 852 },
         dpr: 3.0,
         orientation: 'portrait',
         screenshotFile: 'preview_13_audio_bar_iphone_webkit.png',
-        passed: Boolean(metrics.audioBarVisible && metrics.audioBarBottomDocked && metrics.textComplete),
+        passed: Boolean(metrics.audioBarVisible && metrics.audioBarBottomDocked && metrics.textComplete && metrics.aiButtonNoOverlap),
         metrics
       });
 
