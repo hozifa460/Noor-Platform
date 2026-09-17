@@ -19,6 +19,7 @@ import {
   type ReciterMeta,
   findMatchingFullSurahReciter,
   findMatchingVerseReciter,
+  getReciterSyncStatus,
 } from '../domain';
 import { cn } from '@/lib/utils';
 
@@ -286,9 +287,7 @@ export function ReciterModal({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {filteredVerseReciters.map((vr) => {
                     const isSelected = vr.id === activeVerseReciter.id;
-                    const hasFullSurahMatch = Boolean(
-                      findMatchingFullSurahReciter(vr, reciters)
-                    );
+                    const syncStatus = getReciterSyncStatus(vr, 'verse');
 
                     return (
                       <button
@@ -306,11 +305,17 @@ export function ReciterModal({
                           <div className="text-sm font-semibold truncate">{vr.name}</div>
                           <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
                             <span>تلاوة مقطعة مع التظليل</span>
-                            {hasFullSurahMatch && (
-                              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                                • متزامن مع السور
-                              </span>
-                            )}
+                            <span
+                              title={syncStatus.explanation}
+                              className={cn(
+                                'text-[10px] font-medium',
+                                syncStatus.isSynchronizable
+                                  ? 'text-emerald-600 dark:text-emerald-400'
+                                  : 'text-muted-foreground/80'
+                              )}
+                            >
+                              • {syncStatus.badgeText}
+                            </span>
                           </div>
                         </div>
                         {isSelected && <Check className="size-4 text-primary shrink-0 mr-2" />}
@@ -357,9 +362,7 @@ export function ReciterModal({
                       currentSurahNo && Array.isArray(r.surahList)
                         ? r.surahList.includes(currentSurahNo)
                         : true;
-                    const hasVerseMatch = Boolean(
-                      findMatchingVerseReciter(r, verseReciters)
-                    );
+                    const syncStatus = getReciterSyncStatus(r, 'surah');
 
                     return (
                       <button
@@ -405,11 +408,17 @@ export function ReciterModal({
                             )
                           )}
 
-                          {hasVerseMatch && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-primary/10 text-primary text-[10px] font-medium">
-                              متزامن مع الآيات ✓
-                            </span>
-                          )}
+                          <span
+                            title={syncStatus.explanation}
+                            className={cn(
+                              'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium',
+                              syncStatus.isSynchronizable
+                                ? 'bg-primary/10 text-primary'
+                                : 'bg-muted text-muted-foreground'
+                            )}
+                          >
+                            {syncStatus.badgeText}
+                          </span>
                         </div>
                       </button>
                     );
