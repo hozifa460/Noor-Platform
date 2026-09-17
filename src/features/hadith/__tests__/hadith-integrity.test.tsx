@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { normalizeArabic } from '@/lib/arabic';
 import {
   normalizeGradeText,
   getHadithGrade,
@@ -11,6 +12,7 @@ import {
   fetchHadithTranslation,
   parseMicroIndexPayload,
   findHadithSharh,
+  checkHadithAuthenticity,
   type HadeethEncSharhItem,
   type HadithBookMeta,
   type HadithItem,
@@ -30,7 +32,15 @@ describe('Hadith Scientific Integrity & Attribution Safeguards', () => {
       expect(normalizeGradeText('Da if')).toBe('ضعيف'); // Space typo
       expect(normalizeGradeText('Munkar')).toBe('ضعيف');
       expect(normalizeGradeText('Shadh')).toBe('ضعيف');
-      expect(normalizeGradeText("Maqtu'")).toBe('ضعيف');
+    });
+
+    it('decouples Maqtu from weakness and preserves it as an isnad description', () => {
+      // Standalone Maqtu' is an isnad attribution description (Tabi'i saying), not a health grade!
+      expect(normalizeGradeText("Maqtu'")).toBe('غير محدد');
+      expect(normalizeGradeText('مقطوع')).toBe('غير محدد');
+      expect(normalizeGradeText("Sahih Maqtu'")).toBe('صحيح');
+      expect(normalizeGradeText("Hasan Maqtu'")).toBe('حسن');
+      expect(normalizeGradeText("Da'if Maqtu'")).toBe('ضعيف');
     });
 
     it('normalizes Mawdu and Batil to موضوع', () => {
@@ -105,26 +115,43 @@ describe('Hadith Scientific Integrity & Attribution Safeguards', () => {
   });
 
   describe('4. Divergent Numbering & Translation Guard', () => {
-    it('guards Sahih Muslim from unverified automatic translation lookup', async () => {
+    it('guards books without proven concordance from unverified translation lookup', async () => {
       expect(getBookTranslationSupport('muslim')).toBe('concordance_required');
+      expect(getBookTranslationSupport('abudawud')).toBe('concordance_required');
+      expect(getBookTranslationSupport('tirmidhi')).toBe('concordance_required');
       expect(isBookTranslationAvailable('muslim')).toBe(false);
+      expect(isBookTranslationAvailable('abudawud')).toBe(false);
 
       const translation = await fetchHadithTranslation('muslim', 1, 'eng');
       expect(translation).toBeNull();
     });
 
-    it('allows verified concordant books for translations', () => {
+    it('allows only verified concordant books with proven 1:1 alignment', () => {
       expect(getBookTranslationSupport('bukhari')).toBe('verified');
+      expect(getBookTranslationSupport('nawawi40')).toBe('verified');
+      expect(getBookTranslationSupport('qudsi40')).toBe('verified');
+      expect(getBookTranslationSupport('shahwaliullah40')).toBe('verified');
       expect(isBookTranslationAvailable('bukhari')).toBe(true);
+      expect(isBookTranslationAvailable('nawawi40')).toBe(true);
     });
   });
 
-  describe('5. Sharh Threshold Safeguard', () => {
-    it('rejects sharh candidates when similarity score is below 0.85 even if words match', async () => {
-      // Hadith text with common words that doesn't match any specific sharh entry
-      const hadithMatn = 'حدثنا فلان قال رأيت رجلا يصلي في بستانه بالمدينة ومعه كتاب يقرأ فيه بالبركة';
-      const match = await findHadithSharh(hadithMatn);
+  describe('5. Sharh Documented Link Guard', () => {
+    it('disallows similarity thresholds and rejects unlinked sharh', async () => {
+      // Even with 85% word overlap or common tokens, require documented link, else return null
+      const unlinkedHadith = 'حدثنا فلان قال رأيت رجلا يصلي في بستانه بالمدينة ومعه كتاب يقرأ فيه بالبركة';
+      const match = await findHadithSharh(unlinkedHadith);
       expect(match).toBeNull();
+    });
+
+    it('returns sharh when there is a documented verbatim correspondence', async () => {
+      // Verbatim hadith from documented seed
+      const verbatimMatn = 'إنما الأعمال بالنيات وإنما لكل امرئ ما نوى فمن كانت هجرته إلى الله ورسوله';
+      const match = await findHadithSharh(verbatimMatn);
+      expect(match).toBeDefined();
+      expect(match?.id).toMatch(/^(1|66511)$/);
+      expect(normalizeArabic(match?.hadeeth || '')).toContain('الاعمال بالنيات');
+      expect(match?.explanation).toBeTruthy();
     });
   });
 
@@ -176,12 +203,12 @@ describe('Hadith Scientific Integrity & Attribution Safeguards', () => {
       expect(html).toContain('ترقيم عبد الباقي');
     });
 
-    it('renders neutral scientific disclaimer in FakeHadithResultCard for authentic match', () => {
+    it('renders neutral scientific disclaimer in FakeHadithResultCard for found_in_corpus match', () => {
       const html = renderToStaticMarkup(
         <FakeHadithResultCard
           result={{
             query: 'إنما الأعمال بالنيات',
-            status: 'authentic',
+            status: 'found_in_corpus',
             matchedFake: null,
             authenticMatches: [
               {
@@ -234,6 +261,21 @@ describe('Hadith Scientific Integrity & Attribution Safeguards', () => {
 
       // Hadith in Musnad Ahmad has unrecorded grade in engine, so it must display 'غير محدد', NOT 'صحيح لغيره بمجموع الطرق'
       expect(html).toContain('غير محدد');
+    });
+  });
+
+  describe('7. Authenticity Engine Status (found_in_corpus)', () => {
+    it('returns found_in_corpus when narration matches canonical sunnah collections', async () => {
+      const result = await checkHadithAuthenticity('إنما الأعمال بالنيات');
+      expect(result.status).toBe('found_in_corpus');
+      expect(result.authenticMatches.length).toBeGreaterThan(0);
+      expect(result.matchedFake).toBeNull();
+    });
+
+    it('returns fake when narration matches catalog of fabricated hadiths', async () => {
+      const result = await checkHadithAuthenticity('رجب شهر الله');
+      expect(result.status).toBe('fake');
+      expect(result.matchedFake).toBeDefined();
     });
   });
 });

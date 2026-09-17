@@ -159,52 +159,21 @@ export async function findHadithSharh(hadithText: string): Promise<HadeethEncSha
 
   const pool = candidateSet.size > 0 ? Array.from(candidateSet) : allSharh;
 
-  let bestMatch: HadeethEncSharhItem | null = null;
-  let highestScore = 0;
-
   for (const item of pool) {
     const normHadeeth = normalizeArabic(item.hadeeth || '');
-    const normTitle = normalizeArabic(item.title || '');
-    const combined = normHadeeth + ' ' + normTitle;
 
-    // Direct exact containment check
-    if (combined.includes(normalizedMatn) || (normalizedMatn.length > 25 && normHadeeth.includes(normalizedMatn.slice(0, 35)))) {
-      return item; // 100% Exact match!
-    }
-
-    let matchedCount = 0;
-    for (const token of tokens) {
-      if (combined.includes(token)) {
-        matchedCount++;
+    // Strict Scholarly Verification: Only accept documented exact/verbatim matn correspondence.
+    // Similarity heuristics (even >= 85%) are strictly disallowed to prevent falsely attributing
+    // a sharh of one hadith to another similar but distinct narration.
+    if (normalizedMatn.length >= 25 && normHadeeth.length >= 25) {
+      if (normHadeeth === normalizedMatn || normHadeeth.includes(normalizedMatn) || normalizedMatn.includes(normHadeeth)) {
+        return item; // Verified documented verbatim match
       }
-    }
-
-    const forwardScore = matchedCount / tokens.length;
-
-    // Check backward score (how much of HadeethEnc's core text is in the matn)
-    const hTokens = normHadeeth
-      .split(/\s+/)
-      .filter((w) => w.length >= 3 && !COMMON_STOP_WORDS.has(w))
-      .slice(0, 10);
-
-    let backwardScore = 0;
-    if (hTokens.length > 0) {
-      const hMatched = hTokens.filter((tok) => normalizedMatn.includes(tok)).length;
-      backwardScore = hMatched / hTokens.length;
-    }
-
-    // Combined harmonic score
-    const finalScore = forwardScore * 0.6 + backwardScore * 0.4;
-
-    // STRICT SCHOLARLY THRESHOLD: Require high confidence score (>= 0.85) to prevent attributing sharh to an unrelated hadith
-    if (finalScore >= 0.85 && matchedCount >= 2 && finalScore > highestScore) {
-      highestScore = finalScore;
-      bestMatch = item;
-      if (finalScore >= 0.95) break; // Near-perfect confidence match
     }
   }
 
-  return bestMatch;
+  // If no verified documented link exists, return null so UI explicitly declares lack of sharh
+  return null;
 }
 
 export function getSharhByHadithId(sharhList: HadeethEncSharhItem[], id: string): HadeethEncSharhItem | null {

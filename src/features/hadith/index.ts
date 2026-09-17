@@ -73,11 +73,14 @@ export {
   isBookTranslationAvailable,
   getBookTranslationSupport,
   VERIFIED_CONCORDANT_BOOKS,
+  CONCORDANCE_EVIDENCE_CATALOG,
   fetchHadithTranslation,
   getCachedHadithBook,
   setCachedHadithBook,
   BUILTIN_SEED_SHARH,
 } from './infrastructure';
+
+export type { ConcordanceEvidenceItem } from './infrastructure';
 
 // Model Layer
 export {

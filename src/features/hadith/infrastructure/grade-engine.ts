@@ -46,18 +46,17 @@ export function normalizeGradeText(
     return 'موضوع';
   }
 
-  // 2. Weak & Terminology categories (Munkar, Shadh, Maqtu', etc.)
+  // 2. Weak & Terminology categories (Daif, Munkar, Shadh)
+  // NOTE: 'مقطوع' (Maqtu') is an isnad attribution classification (statement/action of a Tabi'i), NOT a health grade!
+  // A Maqtu' narration can be Sahih, Hasan, Da'if, or unspecified, depending on its chain.
   if (
     raw.includes('ضعيف') ||
     raw.includes('منكر') ||
     raw.includes('شاذ') ||
-    raw.includes('مقطوع') ||
     cleaned.includes("da'if") ||
     cleaned.includes('daif') ||
     cleaned.includes('munkar') ||
-    cleaned.includes('shadh') ||
-    cleaned.includes("maqtu'") ||
-    cleaned.includes('maqtu')
+    cleaned.includes('shadh')
   ) {
     return 'ضعيف';
   }
@@ -138,7 +137,7 @@ export function getHadithGrade(
   if (bookId === 'bukhari') {
     result = {
       grade: 'صحيح',
-      rawGrade: 'صحيح متفق عليه أو مخرج في الصحيح',
+      rawGrade: 'صحيح مخرج في صحيح البخاري',
       scholar: 'الإمام البخاري وأجمع علماء الأمة على صحة أصوله',
       source: 'صحيح البخاري',
       badgeColor: 'emerald',

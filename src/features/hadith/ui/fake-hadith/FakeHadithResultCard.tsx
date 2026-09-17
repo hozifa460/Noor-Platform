@@ -26,7 +26,7 @@ export function FakeHadithResultCard({
     ? getHadithGrade(primaryAuthentic.book.id, primaryAuthentic.hadith.idInBook)
     : null;
 
-  if (result.status === 'authentic') {
+  if (result.status === 'found_in_corpus') {
     return (
       <div className="p-6 rounded-3xl border border-emerald-500/30 bg-emerald-500/10 space-y-4 animate-in zoom-in-95 duration-200">
         <div className="flex items-center gap-3">

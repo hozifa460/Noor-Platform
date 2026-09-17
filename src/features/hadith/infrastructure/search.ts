@@ -57,7 +57,8 @@ export async function loadHadithMicroIndex(): Promise<MicroIndexEntry[]> {
   if (microIndexCache) return microIndexCache;
 
   // 1. Node local FS (build-time / SSR / tests)
-  if (typeof window === 'undefined') {
+  const isNode = typeof process !== 'undefined' && Boolean(process.versions?.node);
+  if (typeof window === 'undefined' || isNode) {
     try {
       const fs = await import('fs');
       const path = await import('path');

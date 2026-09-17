@@ -42,7 +42,7 @@ export interface AuthenticityCheckResult {
   query: string;
   matchedFake: FakeHadithItem | null;
   authenticMatches: GlobalSearchResultItem[];
-  status: 'fake' | 'authentic' | 'unverified';
+  status: 'fake' | 'found_in_corpus' | 'unverified';
 }
 
 let fakeHadithsCache: FakeHadithItem[] | null = null;
@@ -194,7 +194,7 @@ export async function checkHadithAuthenticity(query: string): Promise<Authentici
         query: q,
         matchedFake: null,
         authenticMatches: sunnahResults.slice(0, 5),
-        status: 'authentic',
+        status: 'found_in_corpus',
       };
     }
   } catch {
