@@ -8,7 +8,7 @@ import {
 import { QURAN_RECITERS, WARSH_AYAH_RECITERS } from '../domain/data';
 import type { RiwayahReciterEntry } from '../infrastructure';
 
-describe('Quran Reciter Verified Catalog ID Mapping & Cross-Sync Suite', () => {
+describe('Quran Reciter Verified Catalog ID Mapping & Multi-Recording Suite', () => {
   it('strictly maps reciters using verified catalog IDs (e.g. Alafasy, Muaiqly)', () => {
     const muaiqlyFullSurah: RiwayahReciterEntry = {
       reciterId: 102,
@@ -41,14 +41,43 @@ describe('Quran Reciter Verified Catalog ID Mapping & Cross-Sync Suite', () => {
     const surahMatch = findMatchingFullSurahReciter(alafasyVerse, mockFullSurahList);
     expect(surahMatch).not.toBeNull();
     expect(surahMatch?.reciterId).toBe(123);
+    expect(surahMatch?.moshafId).toBe(123);
     expect(surahMatch?.reciterName).toBe('مشاري العفاسي');
   });
 
-  it('supports reciters with multiple recordings (Muhammad Ayyoub moshafs 109 and 320)', () => {
-    const ayyoubVerse = QURAN_RECITERS.find((r) => r.id === 'ayyoub');
-    expect(ayyoubVerse).toBeDefined();
+  it('strictly rejects recordings with missing or invalid moshafId even with a valid reciterId', () => {
+    // Valid reciterId (123 for Alafasy) but moshafId is missing/undefined
+    const missingMoshafReciter = {
+      reciterId: 123,
+      reciterName: 'مشاري العفاسي',
+      moshafName: 'حفص عن عاصم',
+      server: 'https://server8.mp3quran.net/afs/',
+      surahTotal: 114,
+      surahList: [1, 2],
+    } as unknown as RiwayahReciterEntry;
 
-    // Moshaf 109 (Murattal)
+    // 1. findMatchingVerseReciter must reject it and return null
+    const verseMatch = findMatchingVerseReciter(missingMoshafReciter, QURAN_RECITERS);
+    expect(verseMatch).toBeNull();
+
+    // 2. getReciterSyncStatus must mark it non-synchronizable
+    const syncStatus = getReciterSyncStatus(missingMoshafReciter, 'surah');
+    expect(syncStatus.isSynchronizable).toBe(false);
+    expect(syncStatus.badgeText).toBe('سورة كاملة فقط');
+
+    // 3. Valid reciterId with an unregistered/mismatched moshafId
+    const invalidMoshafReciter = {
+      reciterId: 123,
+      moshafId: 99999,
+      reciterName: 'مشاري العفاسي',
+    } as RiwayahReciterEntry;
+    expect(findMatchingVerseReciter(invalidMoshafReciter, QURAN_RECITERS)).toBeNull();
+    expect(getReciterSyncStatus(invalidMoshafReciter, 'surah').isSynchronizable).toBe(false);
+  });
+
+  describe('Multi-recording disambiguation, order independence, and selection retention', () => {
+    const ayyoubVerse = QURAN_RECITERS.find((r) => r.id === 'ayyoub')!;
+
     const ayyoubMurattal: RiwayahReciterEntry = {
       reciterId: 109,
       reciterName: 'محمد أيوب',
@@ -58,10 +87,7 @@ describe('Quran Reciter Verified Catalog ID Mapping & Cross-Sync Suite', () => {
       surahTotal: 114,
       surahList: [1, 2, 3],
     };
-    const matchMurattal = findMatchingVerseReciter(ayyoubMurattal, QURAN_RECITERS);
-    expect(matchMurattal?.id).toBe('ayyoub');
 
-    // Moshaf 320 (Special Recitation)
     const ayyoubSpecial: RiwayahReciterEntry = {
       reciterId: 109,
       reciterName: 'محمد أيوب',
@@ -71,43 +97,83 @@ describe('Quran Reciter Verified Catalog ID Mapping & Cross-Sync Suite', () => {
       surahTotal: 114,
       surahList: [1, 2, 3],
     };
-    const matchSpecial = findMatchingVerseReciter(ayyoubSpecial, QURAN_RECITERS);
-    expect(matchSpecial?.id).toBe('ayyoub');
 
-    // Reverse lookup: finding full surah entry for ayyoub
-    const mockAyyoubSurahs: RiwayahReciterEntry[] = [ayyoubMurattal, ayyoubSpecial];
-    const fullSurahMatch = findMatchingFullSurahReciter(ayyoubVerse!, mockAyyoubSurahs);
-    expect(fullSurahMatch).not.toBeNull();
-    expect(fullSurahMatch?.reciterId).toBe(109);
-  });
+    it('chooses documented canonical defaultMoshafId (109) regardless of input list ordering when no prior selection exists', () => {
+      // Order 1: Murattal (109) first, Special (320) second
+      const matchForward = findMatchingFullSurahReciter(ayyoubVerse, [ayyoubMurattal, ayyoubSpecial]);
+      expect(matchForward).not.toBeNull();
+      expect(matchForward?.moshafId).toBe(109);
 
-  it('supports reciters with multiple recordings (Minshawi Murattal moshafs 112 and 10924)', () => {
-    const minshawiMurattalVerse = QURAN_RECITERS.find((r) => r.id === 'minshawi_murattal')!;
+      // Order 2: Special (320) first, Murattal (109) second (reversed order)
+      const matchReversed = findMatchingFullSurahReciter(ayyoubVerse, [ayyoubSpecial, ayyoubMurattal]);
+      expect(matchReversed).not.toBeNull();
+      // Must STILL be 109 (never blindly take the first element in the array)
+      expect(matchReversed?.moshafId).toBe(109);
+    });
 
-    const minshawiFullSurah1: RiwayahReciterEntry = {
-      reciterId: 112,
-      reciterName: 'محمد صديق المنشاوي',
-      moshafId: 112,
-      moshafName: 'حفص عن عاصم - مرتل',
-      server: 'https://server10.mp3quran.net/minsh/',
-      surahTotal: 114,
-      surahList: [1, 2, 3],
-    };
-    expect(findMatchingVerseReciter(minshawiFullSurah1, QURAN_RECITERS)?.id).toBe('minshawi_murattal');
+    it('retains currently selected recording if it is valid among matching candidates', () => {
+      // User currently has Special (320) selected
+      const currentSelection = ayyoubSpecial;
 
-    const minshawiFullSurah2: RiwayahReciterEntry = {
-      reciterId: 112,
-      reciterName: 'محمد صديق المنشاوي',
-      moshafId: 10924,
-      moshafName: 'حفص عن عاصم - تسجيل قديم',
-      server: 'https://server10.mp3quran.net/minsh_old/',
-      surahTotal: 114,
-      surahList: [1, 2, 3],
-    };
-    expect(findMatchingVerseReciter(minshawiFullSurah2, QURAN_RECITERS)?.id).toBe('minshawi_murattal');
+      // In forward list order: preserves 320
+      const match1 = findMatchingFullSurahReciter(
+        ayyoubVerse,
+        [ayyoubMurattal, ayyoubSpecial],
+        currentSelection
+      );
+      expect(match1?.moshafId).toBe(320);
 
-    const reverseMatch = findMatchingFullSurahReciter(minshawiMurattalVerse, [minshawiFullSurah1]);
-    expect(reverseMatch?.reciterId).toBe(112);
+      // In reversed list order: preserves 320
+      const match2 = findMatchingFullSurahReciter(
+        ayyoubVerse,
+        [ayyoubSpecial, ayyoubMurattal],
+        currentSelection
+      );
+      expect(match2?.moshafId).toBe(320);
+    });
+
+    it('refuses ambiguous synchronization when multiple candidates exist but documented default is absent and no selection exists', () => {
+      // List contains only Special (320) which is NOT the canonical default (109)
+      // Without previous selection, it refuses ambiguous assumption and returns null
+      const match = findMatchingFullSurahReciter(ayyoubVerse, [ayyoubSpecial], null);
+      expect(match).toBeNull();
+    });
+
+    it('supports Minshawi Murattal multiple recordings (112 and 10924) with documented priority (112)', () => {
+      const minshawiMurattalVerse = QURAN_RECITERS.find((r) => r.id === 'minshawi_murattal')!;
+
+      const minshawi112: RiwayahReciterEntry = {
+        reciterId: 112,
+        reciterName: 'محمد صديق المنشاوي',
+        moshafId: 112,
+        moshafName: 'حفص عن عاصم - مرتل',
+        server: 'https://server10.mp3quran.net/minsh/',
+        surahTotal: 114,
+        surahList: [1, 2, 3],
+      };
+
+      const minshawi10924: RiwayahReciterEntry = {
+        reciterId: 112,
+        reciterName: 'محمد صديق المنشاوي',
+        moshafId: 10924,
+        moshafName: 'حفص عن عاصم - تسجيل قديم',
+        server: 'https://server10.mp3quran.net/minsh_old/',
+        surahTotal: 114,
+        surahList: [1, 2, 3],
+      };
+
+      // Both map to minshawi_murattal in reverse
+      expect(findMatchingVerseReciter(minshawi112, QURAN_RECITERS)?.id).toBe('minshawi_murattal');
+      expect(findMatchingVerseReciter(minshawi10924, QURAN_RECITERS)?.id).toBe('minshawi_murattal');
+
+      // Forward lookup picks default 112 even if 10924 is first in array
+      const matchReversed = findMatchingFullSurahReciter(minshawiMurattalVerse, [minshawi10924, minshawi112]);
+      expect(matchReversed?.moshafId).toBe(112);
+
+      // Preserves 10924 if user already had it selected
+      const matchPreserved = findMatchingFullSurahReciter(minshawiMurattalVerse, [minshawi112, minshawi10924], minshawi10924);
+      expect(matchPreserved?.moshafId).toBe(10924);
+    });
   });
 
   it('rejects unmapped reciters with no counterpart in the other mode (Akram Al-Alaqmi, Majid Al-Anzi)', () => {
@@ -152,7 +218,6 @@ describe('Quran Reciter Verified Catalog ID Mapping & Cross-Sync Suite', () => {
       },
     ];
 
-    // Must NOT match Minshawi Murattal (112) because mujawwad is a distinct recitation style
     expect(findMatchingFullSurahReciter(minshawiMujawwad!, mockSurahReciters)).toBeNull();
 
     const abdulbasitMujawwad = QURAN_RECITERS.find((r) => r.id === 'abdulbasit_mujawwad');
@@ -164,30 +229,15 @@ describe('Quran Reciter Verified Catalog ID Mapping & Cross-Sync Suite', () => {
     expect(findMatchingFullSurahReciter(husaryMuallim!, mockSurahReciters)).toBeNull();
   });
 
-  it('rejects ambiguous or heuristic string matching when IDs are absent or mismatched', () => {
-    // Object with matching name string but wrong reciterId
-    const impostorReciter = {
-      reciterId: 9999,
-      reciterName: 'مشاري العفاسي',
-      moshafId: 9999,
-      moshafName: 'حفص عن عاصم',
-    };
-    expect(findMatchingVerseReciter(impostorReciter, QURAN_RECITERS)).toBeNull();
-
-    // Object with missing reciterId
-    const incompleteReciter = {
-      reciterName: 'ماهر المعيقلي',
-    };
-    expect(findMatchingVerseReciter(incompleteReciter, QURAN_RECITERS)).toBeNull();
-  });
-
-  it('provides clear sync status badges and explanations via getReciterSyncStatus', () => {
+  it('uses neutral availability wording «متوفر في المسارين» without implying temporal synchronization', () => {
     // Synchronizable verse reciter
     const alafasyStatus = getReciterSyncStatus({ id: 'alafasy' }, 'verse');
     expect(alafasyStatus.isSynchronizable).toBe(true);
-    expect(alafasyStatus.badgeText).toContain('متزامن مع السور');
+    expect(alafasyStatus.badgeText).toBe('متوفر في المسارين ✓');
+    expect(alafasyStatus.explanation).toBe('يتوفر لهذا القارئ تسجيل سورة كاملة وتلاوة آية بآية');
+    expect(alafasyStatus.explanation).not.toContain('متزامنة');
 
-    // Unsynchronizable verse reciter (e.g. Minshawi Mujawwad)
+    // Unsynchronizable verse reciter
     const mujawwadStatus = getReciterSyncStatus({ id: 'minshawi_mujawwad' }, 'verse');
     expect(mujawwadStatus.isSynchronizable).toBe(false);
     expect(mujawwadStatus.badgeText).toBe('آية بآية فقط');
@@ -195,10 +245,11 @@ describe('Quran Reciter Verified Catalog ID Mapping & Cross-Sync Suite', () => {
     // Synchronizable full surah reciter (Muhammad Ayyoub moshaf 109 & 320)
     const ayyoub109Status = getReciterSyncStatus({ reciterId: 109, moshafId: 109 }, 'surah');
     expect(ayyoub109Status.isSynchronizable).toBe(true);
-    expect(ayyoub109Status.badgeText).toContain('متزامن مع الآيات');
+    expect(ayyoub109Status.badgeText).toBe('متوفر في المسارين ✓');
 
     const ayyoub320Status = getReciterSyncStatus({ reciterId: 109, moshafId: 320 }, 'surah');
     expect(ayyoub320Status.isSynchronizable).toBe(true);
+    expect(ayyoub320Status.badgeText).toBe('متوفر في المسارين ✓');
 
     // Unsynchronizable full surah reciter (Akram Al-Alaqmi reciterId: 10)
     const akramStatus = getReciterSyncStatus({ reciterId: 10, moshafId: 10 }, 'surah');
@@ -212,6 +263,8 @@ describe('Quran Reciter Verified Catalog ID Mapping & Cross-Sync Suite', () => {
     for (const mapping of VERIFIED_RECITER_MAPPINGS) {
       expect(validVerseIds.has(mapping.verseId)).toBe(true);
       expect(typeof mapping.mp3QuranReciterId).toBe('number');
+      expect(typeof mapping.defaultMoshafId).toBe('number');
+      expect(mapping.mp3QuranMoshafIds.includes(mapping.defaultMoshafId)).toBe(true);
     }
   });
 });

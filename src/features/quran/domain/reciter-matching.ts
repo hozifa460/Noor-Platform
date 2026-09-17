@@ -9,52 +9,56 @@ import type { ReciterMeta } from './types';
 export interface VerifiedReciterMapping {
   verseId: string;
   mp3QuranReciterId: number;
-  mp3QuranMoshafIds?: readonly number[];
+  mp3QuranMoshafIds: readonly number[];
+  /** Canonical default moshafId when no prior selection exists */
+  defaultMoshafId: number;
   notes?: string;
 }
 
 export const VERIFIED_RECITER_MAPPINGS: readonly VerifiedReciterMapping[] = [
   // Hafs reciters
   // Minshawi: Murattal has 2 recordings in MP3Quran (112 and historical 10924).
+  // Priority default: 112 (Murattal standard).
   // Note: Minshawi Mujawwad has NO counterpart in MP3Quran Hafs.
-  { verseId: 'minshawi_murattal', mp3QuranReciterId: 112, mp3QuranMoshafIds: [112, 10924], notes: 'محمد صديق المنشاوي (مرتل)' },
-  { verseId: 'husary_murattal', mp3QuranReciterId: 118, mp3QuranMoshafIds: [118], notes: 'محمود خليل الحصري (مرتل)' },
-  { verseId: 'abdulbasit_murattal', mp3QuranReciterId: 51, mp3QuranMoshafIds: [53], notes: 'عبد الباسط عبد الصمد (مرتل)' },
-  { verseId: 'alafasy', mp3QuranReciterId: 123, mp3QuranMoshafIds: [123], notes: 'مشاري العفاسي' },
-  { verseId: 'muaiqly', mp3QuranReciterId: 102, mp3QuranMoshafIds: [102], notes: 'ماهر المعيقلي' },
-  { verseId: 'dossari', mp3QuranReciterId: 92, mp3QuranMoshafIds: [92], notes: 'ياسر الدوسري' },
-  { verseId: 'sudais', mp3QuranReciterId: 54, mp3QuranMoshafIds: [54], notes: 'عبدالرحمن السديس' },
-  { verseId: 'shuraim', mp3QuranReciterId: 31, mp3QuranMoshafIds: [31], notes: 'سعود الشريم' },
-  { verseId: 'ghamadi', mp3QuranReciterId: 30, mp3QuranMoshafIds: [30], notes: 'سعد الغامدي' },
-  { verseId: 'hudhaify', mp3QuranReciterId: 74, mp3QuranMoshafIds: [74], notes: 'علي بن عبدالرحمن الحذيفي' },
-  { verseId: 'ajamy', mp3QuranReciterId: 5, mp3QuranMoshafIds: [5], notes: 'أحمد بن علي العجمي' },
-  { verseId: 'qatami', mp3QuranReciterId: 86, mp3QuranMoshafIds: [86], notes: 'ناصر القطامي' },
-  { verseId: 'abbad', mp3QuranReciterId: 81, mp3QuranMoshafIds: [81], notes: 'فارس عباد' },
-  { verseId: 'budair', mp3QuranReciterId: 43, mp3QuranMoshafIds: [43], notes: 'صلاح البدير' },
-  { verseId: 'tablawi', mp3QuranReciterId: 106, mp3QuranMoshafIds: [106], notes: 'محمد الطبلاوي' },
-  { verseId: 'banna', mp3QuranReciterId: 121, mp3QuranMoshafIds: [121], notes: 'محمود علي البنا' },
-  // Muhammad Ayyoub: has 2 recordings in MP3Quran (moshaf 109: مرتل, moshaf 320: تلاوة مميزة)
-  { verseId: 'ayyoub', mp3QuranReciterId: 109, mp3QuranMoshafIds: [109, 320], notes: 'محمد أيوب - تسجيلان: مرتل (109) ومميز (320)' },
-  { verseId: 'neana', mp3QuranReciterId: 9, mp3QuranMoshafIds: [9], notes: 'أحمد نعينع' },
-  { verseId: 'rifai', mp3QuranReciterId: 89, mp3QuranMoshafIds: [89], notes: 'هاني الرفاعي' },
-  { verseId: 'basfar', mp3QuranReciterId: 60, mp3QuranMoshafIds: [60], notes: 'عبدالله بصفر' },
-  { verseId: 'qasim', mp3QuranReciterId: 67, mp3QuranMoshafIds: [67], notes: 'عبدالمحسن القاسم' },
-  { verseId: 'ali_jaber', mp3QuranReciterId: 76, mp3QuranMoshafIds: [76], notes: 'علي جابر' },
-  { verseId: 'qahtani', mp3QuranReciterId: 21, mp3QuranMoshafIds: [21], notes: 'خالد القحطاني' },
-  { verseId: 'sahl_yassin', mp3QuranReciterId: 32, mp3QuranMoshafIds: [32], notes: 'سهل ياسين' },
-  { verseId: 'suesy', mp3QuranReciterId: 77, mp3QuranMoshafIds: [77], notes: 'علي حجاج السويسي' },
+  { verseId: 'minshawi_murattal', mp3QuranReciterId: 112, mp3QuranMoshafIds: [112, 10924], defaultMoshafId: 112, notes: 'محمد صديق المنشاوي (مرتل)' },
+  { verseId: 'husary_murattal', mp3QuranReciterId: 118, mp3QuranMoshafIds: [118], defaultMoshafId: 118, notes: 'محمود خليل الحصري (مرتل)' },
+  { verseId: 'abdulbasit_murattal', mp3QuranReciterId: 51, mp3QuranMoshafIds: [53], defaultMoshafId: 53, notes: 'عبد الباسط عبد الصمد (مرتل)' },
+  { verseId: 'alafasy', mp3QuranReciterId: 123, mp3QuranMoshafIds: [123], defaultMoshafId: 123, notes: 'مشاري العفاسي' },
+  { verseId: 'muaiqly', mp3QuranReciterId: 102, mp3QuranMoshafIds: [102], defaultMoshafId: 102, notes: 'ماهر المعيقلي' },
+  { verseId: 'dossari', mp3QuranReciterId: 92, mp3QuranMoshafIds: [92], defaultMoshafId: 92, notes: 'ياسر الدوسري' },
+  { verseId: 'sudais', mp3QuranReciterId: 54, mp3QuranMoshafIds: [54], defaultMoshafId: 54, notes: 'عبدالرحمن السديس' },
+  { verseId: 'shuraim', mp3QuranReciterId: 31, mp3QuranMoshafIds: [31], defaultMoshafId: 31, notes: 'سعود الشريم' },
+  { verseId: 'ghamadi', mp3QuranReciterId: 30, mp3QuranMoshafIds: [30], defaultMoshafId: 30, notes: 'سعد الغامدي' },
+  { verseId: 'hudhaify', mp3QuranReciterId: 74, mp3QuranMoshafIds: [74], defaultMoshafId: 74, notes: 'علي بن عبدالرحمن الحذيفي' },
+  { verseId: 'ajamy', mp3QuranReciterId: 5, mp3QuranMoshafIds: [5], defaultMoshafId: 5, notes: 'أحمد بن علي العجمي' },
+  { verseId: 'qatami', mp3QuranReciterId: 86, mp3QuranMoshafIds: [86], defaultMoshafId: 86, notes: 'ناصر القطامي' },
+  { verseId: 'abbad', mp3QuranReciterId: 81, mp3QuranMoshafIds: [81], defaultMoshafId: 81, notes: 'فارس عباد' },
+  { verseId: 'budair', mp3QuranReciterId: 43, mp3QuranMoshafIds: [43], defaultMoshafId: 43, notes: 'صلاح البدير' },
+  { verseId: 'tablawi', mp3QuranReciterId: 106, mp3QuranMoshafIds: [106], defaultMoshafId: 106, notes: 'محمد الطبلاوي' },
+  { verseId: 'banna', mp3QuranReciterId: 121, mp3QuranMoshafIds: [121], defaultMoshafId: 121, notes: 'محمود علي البنا' },
+  // Muhammad Ayyoub: has 2 recordings in MP3Quran (moshaf 109: مرتل, moshaf 320: تلاوة مميزة).
+  // Priority default: 109 (Murattal standard).
+  { verseId: 'ayyoub', mp3QuranReciterId: 109, mp3QuranMoshafIds: [109, 320], defaultMoshafId: 109, notes: 'محمد أيوب - تسجيلان: مرتل (109) ومميز (320)' },
+  { verseId: 'neana', mp3QuranReciterId: 9, mp3QuranMoshafIds: [9], defaultMoshafId: 9, notes: 'أحمد نعينع' },
+  { verseId: 'rifai', mp3QuranReciterId: 89, mp3QuranMoshafIds: [89], defaultMoshafId: 89, notes: 'هاني الرفاعي' },
+  { verseId: 'basfar', mp3QuranReciterId: 60, mp3QuranMoshafIds: [60], defaultMoshafId: 60, notes: 'عبدالله بصفر' },
+  { verseId: 'qasim', mp3QuranReciterId: 67, mp3QuranMoshafIds: [67], defaultMoshafId: 67, notes: 'عبدالمحسن القاسم' },
+  { verseId: 'ali_jaber', mp3QuranReciterId: 76, mp3QuranMoshafIds: [76], defaultMoshafId: 76, notes: 'علي جابر' },
+  { verseId: 'qahtani', mp3QuranReciterId: 21, mp3QuranMoshafIds: [21], defaultMoshafId: 21, notes: 'خالد القحطاني' },
+  { verseId: 'sahl_yassin', mp3QuranReciterId: 32, mp3QuranMoshafIds: [32], defaultMoshafId: 32, notes: 'سهل ياسين' },
+  { verseId: 'suesy', mp3QuranReciterId: 77, mp3QuranMoshafIds: [77], defaultMoshafId: 77, notes: 'علي حجاج السويسي' },
 
   // Warsh reciters
-  { verseId: 'warsh_abdulbasit', mp3QuranReciterId: 51, mp3QuranMoshafIds: [52], notes: 'عبد الباسط (ورش)' },
-  { verseId: 'warsh_aldosary', mp3QuranReciterId: 178, mp3QuranMoshafIds: [178], notes: 'إبراهيم الدوسري (ورش)' },
-  { verseId: 'warsh_yassin', mp3QuranReciterId: 14, mp3QuranMoshafIds: [14], notes: 'القارئ ياسين (ورش)' },
+  { verseId: 'warsh_abdulbasit', mp3QuranReciterId: 51, mp3QuranMoshafIds: [52], defaultMoshafId: 52, notes: 'عبد الباسط (ورش)' },
+  { verseId: 'warsh_aldosary', mp3QuranReciterId: 178, mp3QuranMoshafIds: [178], defaultMoshafId: 178, notes: 'إبراهيم الدوسري (ورش)' },
+  { verseId: 'warsh_yassin', mp3QuranReciterId: 14, mp3QuranMoshafIds: [14], defaultMoshafId: 14, notes: 'القارئ ياسين (ورش)' },
 ] as const;
 
 /**
  * Finds a matching verse-by-verse reciter for a given full surah reciter
- * strictly using documented catalog IDs.
+ * strictly requiring both reciterId and moshafId.
  *
- * Rejects heuristic guessing; returns null if no counterpart exists.
+ * Rejects heuristic guessing and incomplete recordings.
  */
 export function findMatchingVerseReciter<
   T extends { reciterId?: number; moshafId?: number; reciterName?: string }
@@ -62,16 +66,18 @@ export function findMatchingVerseReciter<
   fullSurahReciter: T | null | undefined,
   verseReciters: ReciterMeta[]
 ): ReciterMeta | null {
-  if (!fullSurahReciter || typeof fullSurahReciter.reciterId !== 'number' || !Array.isArray(verseReciters)) {
+  if (
+    !fullSurahReciter ||
+    typeof fullSurahReciter.reciterId !== 'number' ||
+    typeof fullSurahReciter.moshafId !== 'number' ||
+    !Array.isArray(verseReciters)
+  ) {
     return null;
   }
 
   const mapping = VERIFIED_RECITER_MAPPINGS.find((m) => {
     if (m.mp3QuranReciterId !== fullSurahReciter.reciterId) return false;
-    if (m.mp3QuranMoshafIds && typeof fullSurahReciter.moshafId === 'number') {
-      return m.mp3QuranMoshafIds.includes(fullSurahReciter.moshafId);
-    }
-    return true;
+    return m.mp3QuranMoshafIds.includes(fullSurahReciter.moshafId!);
   });
 
   if (!mapping) return null;
@@ -80,17 +86,19 @@ export function findMatchingVerseReciter<
 }
 
 /**
- * Finds a matching full surah reciter for a given verse-by-verse reciter
- * strictly using documented catalog IDs.
+ * Finds a matching full surah reciter for a given verse-by-verse reciter.
  *
- * Rejects heuristic guessing; returns null if no counterpart exists
- * (e.g. minshawi_mujawwad, abdulbasit_mujawwad, husary_muallim).
+ * Disambiguation rules for multi-recording reciters:
+ * 1. If `currentSelectedSurahReciter` is provided and is a valid matching candidate, retain it.
+ * 2. If no previous selection exists, use the documented `defaultMoshafId` priority.
+ * 3. Never relies on input array order; refuses ambiguous synchronization if default is missing.
  */
 export function findMatchingFullSurahReciter<
   T extends { reciterId?: number; moshafId?: number; reciterName?: string }
 >(
   verseReciter: ReciterMeta | null | undefined,
-  fullSurahReciters: T[]
+  fullSurahReciters: T[],
+  currentSelectedSurahReciter?: T | null
 ): T | null {
   if (!verseReciter || !verseReciter.id || !Array.isArray(fullSurahReciters)) {
     return null;
@@ -99,19 +107,42 @@ export function findMatchingFullSurahReciter<
   const mapping = VERIFIED_RECITER_MAPPINGS.find((m) => m.verseId === verseReciter.id);
   if (!mapping) return null;
 
-  return (
-    fullSurahReciters.find((fs) => {
-      if (fs.reciterId !== mapping.mp3QuranReciterId) return false;
-      if (mapping.mp3QuranMoshafIds && typeof fs.moshafId === 'number') {
-        return mapping.mp3QuranMoshafIds.includes(fs.moshafId);
-      }
-      return true;
-    }) || null
-  );
+  // Filter candidates: strictly require valid numeric reciterId and moshafId
+  const candidates = fullSurahReciters.filter((fs) => {
+    if (typeof fs.reciterId !== 'number' || typeof fs.moshafId !== 'number') return false;
+    if (fs.reciterId !== mapping.mp3QuranReciterId) return false;
+    return mapping.mp3QuranMoshafIds.includes(fs.moshafId);
+  });
+
+  if (candidates.length === 0) return null;
+
+  // Rule 1: Retain current selection if it is already a valid matching candidate
+  if (currentSelectedSurahReciter) {
+    const existing = candidates.find(
+      (c) =>
+        c.reciterId === currentSelectedSurahReciter.reciterId &&
+        c.moshafId === currentSelectedSurahReciter.moshafId
+    );
+    if (existing) {
+      return existing;
+    }
+  }
+
+  // Rule 2: Use documented canonical defaultMoshafId priority (order-independent)
+  const defaultSelection = candidates.find((c) => c.moshafId === mapping.defaultMoshafId);
+  if (defaultSelection) {
+    return defaultSelection;
+  }
+
+  // Refuse ambiguous synchronization if the documented default is absent
+  return null;
 }
 
 /**
  * Provides clear UI explanation and status for a reciter's availability across modes.
+ *
+ * Uses neutral «متوفر في المسارين» to avoid implying temporal synchronization between recordings.
+ * Strictly rejects incomplete recordings lacking reciterId or moshafId.
  */
 export function getReciterSyncStatus(
   reciter: { id?: string; reciterId?: number; moshafId?: number },
@@ -126,8 +157,8 @@ export function getReciterSyncStatus(
     return isMapped
       ? {
           isSynchronizable: true,
-          badgeText: 'متزامن مع السور ✓',
-          explanation: 'يتوفر لهذا القارئ تسجيل سورة كاملة وتلاوة آية بآية متزامنة',
+          badgeText: 'متوفر في المسارين ✓',
+          explanation: 'يتوفر لهذا القارئ تسجيل سورة كاملة وتلاوة آية بآية',
         }
       : {
           isSynchronizable: false,
@@ -136,19 +167,26 @@ export function getReciterSyncStatus(
         };
   }
 
-  const isMapped = VERIFIED_RECITER_MAPPINGS.some((m) => {
-    if (m.mp3QuranReciterId !== reciter.reciterId) return false;
-    if (m.mp3QuranMoshafIds && typeof reciter.moshafId === 'number') {
-      return m.mp3QuranMoshafIds.includes(reciter.moshafId);
-    }
-    return true;
-  });
+  // For surah mode: strictly require both reciterId and moshafId
+  if (typeof reciter.reciterId !== 'number' || typeof reciter.moshafId !== 'number') {
+    return {
+      isSynchronizable: false,
+      badgeText: 'سورة كاملة فقط',
+      explanation: 'تسجيل سور كاملة فقط (بيانات التسجيل غير مكتملة أو لا تتوفر له تلاوة مقطعة)',
+    };
+  }
+
+  const isMapped = VERIFIED_RECITER_MAPPINGS.some(
+    (m) =>
+      m.mp3QuranReciterId === reciter.reciterId &&
+      m.mp3QuranMoshafIds.includes(reciter.moshafId!)
+  );
 
   return isMapped
     ? {
         isSynchronizable: true,
-        badgeText: 'متزامن مع الآيات ✓',
-        explanation: 'يتوفر لهذا القارئ تسجيل سورة كاملة وتلاوة آية بآية متزامنة',
+        badgeText: 'متوفر في المسارين ✓',
+        explanation: 'يتوفر لهذا القارئ تسجيل سورة كاملة وتلاوة آية بآية',
       }
     : {
         isSynchronizable: false,

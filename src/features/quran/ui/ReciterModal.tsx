@@ -132,8 +132,8 @@ export function ReciterModal({
 
   // Handlers with bi-directional syncing
   const handleSelectVerse = (vr: ReciterMeta) => {
-    // Check if this reciter exists in MP3Quran for full surahs and sync
-    const matchingSurahReciter = findMatchingFullSurahReciter(vr, reciters);
+    // Check if this reciter exists in MP3Quran for full surahs and sync (preserving current valid selection)
+    const matchingSurahReciter = findMatchingFullSurahReciter(vr, reciters, activeReciter);
     if (matchingSurahReciter) {
       onSelectReciter(matchingSurahReciter);
     }

@@ -235,7 +235,7 @@ test.describe('Noor Platform — Quran Reciter Switching & Audio Sync Suite', ()
     }).toPass({ timeout: 10000 });
   });
 
-  test('Navigating to an unrecorded surah halts audio, clears audio.src, and sends 0 requests for previous recording without calling stopAudio()', async ({
+  test('Navigating to an unrecorded surah halts audio, clears audio.src, and sends 0 requests for the unrecorded surah (002.mp3) without calling stopAudio()', async ({
     page,
   }) => {
     // 1. Start at Surah 1 (Al-Fatihah)
@@ -274,12 +274,12 @@ test.describe('Noor Platform — Quran Reciter Switching & Audio Sync Suite', ()
       expect(src).toContain('001.mp3');
     }).toPass({ timeout: 10000 });
 
-    // Track network requests to verify no requests are dispatched for Surah 2
-    const audioRequests: string[] = [];
+    // Track network requests dispatched after navigation to verify 0 requests are sent for missing Surah 2
+    const postNavAudioRequests: string[] = [];
     page.on('request', (request) => {
       const url = request.url();
       if (url.includes('.mp3') || url.includes('majd_onazi')) {
-        audioRequests.push(url);
+        postNavAudioRequests.push(url);
       }
     });
 
@@ -306,8 +306,10 @@ test.describe('Noor Platform — Quran Reciter Switching & Audio Sync Suite', ()
       expect(audioState.paused).toBe(true);
     }).toPass({ timeout: 10000 });
 
-    // 6. Verify 0 requests were sent for 002.mp3 from the unrecorded reciter
-    const surah2Requests = audioRequests.filter((url) => url.includes('002.mp3'));
+    // 6. Verify 0 requests were sent for the unrecorded surah (002.mp3) or to majd_onazi after navigation
+    const surah2Requests = postNavAudioRequests.filter((url) => url.includes('002.mp3'));
     expect(surah2Requests.length).toBe(0);
+    const reciterRequestsAfterNav = postNavAudioRequests.filter((url) => url.includes('majd_onazi'));
+    expect(reciterRequestsAfterNav.length).toBe(0);
   });
 });
