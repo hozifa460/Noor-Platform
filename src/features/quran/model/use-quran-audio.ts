@@ -74,14 +74,39 @@ export function useQuranAudio({ activeRiwayahReciter }: UseQuranAudioProps) {
     const audio = audioRef.current;
     if (!audio) return;
 
-    if (currentAudioUrl && audio.src !== currentAudioUrl) {
-      audio.src = currentAudioUrl;
+    // Strict guard: if no valid audio URL exists, clean up audio element and stop playback
+    if (!currentAudioUrl) {
+      if (audio.src) {
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+      }
+      if (isPlayingFullSurah) {
+        setIsPlayingFullSurah(false);
+      }
+      if (isPlayingAudio) {
+        useQuranStore.getState().pauseAudio();
+      }
+      return;
     }
 
-    if ((isPlayingAudio || isPlayingFullSurah) && currentAudioUrl) {
-      audio.play().catch((err) => {
+    // When audio URL changes (e.g. reciter switched or next ayah/surah selected), update src
+    const isUrlChanged = audio.src !== currentAudioUrl;
+    if (isUrlChanged) {
+      audio.src = currentAudioUrl;
+      audio.currentTime = 0;
+    }
+
+    if (isPlayingAudio || isPlayingFullSurah) {
+      audio.play().catch((err: unknown) => {
+        const error = err as Error;
+        // Ignore AbortError when changing audio sources (HTML5 media spec interrupts previous load)
+        // Also ignore NotAllowedError in environments with strict autoplay policy
+        if (error?.name === 'AbortError' || error?.name === 'NotAllowedError') {
+          return;
+        }
         console.warn('Audio play prevented or failed:', err);
-        // Synchronize state with reality if play was rejected
+        // Synchronize state with reality if play was genuinely rejected
         if (isPlayingAudio) {
           useQuranStore.getState().pauseAudio();
         }
@@ -116,6 +141,10 @@ export function useQuranAudio({ activeRiwayahReciter }: UseQuranAudioProps) {
 
   const handleAudioError = useCallback(() => {
     console.warn('Audio resource load failed or was aborted');
+    if (audioRef.current && audioRef.current.src) {
+      audioRef.current.removeAttribute('src');
+      audioRef.current.load();
+    }
     if (isPlayingAudio) {
       useQuranStore.getState().pauseAudio();
     }

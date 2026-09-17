@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -28,6 +28,8 @@ import {
   isAyahAudioSupportedForQiraah,
   getQiraahShortName,
   QURAN_RECITERS,
+  findMatchingFullSurahReciter,
+  findMatchingVerseReciter,
   type AyahItem,
   type QiraahMeta,
 } from '../domain';
@@ -111,6 +113,26 @@ export function QuranHubView() {
     loadedTranslationKey === currentTranslationKey;
 
   const audio = useQuranAudio({ activeRiwayahReciter });
+
+  const currentActiveReciterName = useMemo(() => {
+    if (audio.isPlayingFullSurah) {
+      return activeRiwayahReciter?.reciterName || 'اختيار القارئ';
+    }
+    if (isPlayingAudio || currentPlayingAyah !== null) {
+      return activeReciter.name;
+    }
+    if (viewMode === 'interactive') {
+      return activeReciter.name || activeRiwayahReciter?.reciterName || 'اختيار القارئ';
+    }
+    return activeRiwayahReciter?.reciterName || activeReciter.name || 'اختيار القارئ';
+  }, [
+    audio.isPlayingFullSurah,
+    isPlayingAudio,
+    currentPlayingAyah,
+    viewMode,
+    activeReciter.name,
+    activeRiwayahReciter?.reciterName,
+  ]);
 
   // Expose store on window strictly when test mode is active or in dev/test (isolated from production builds)
   useEffect(() => {
@@ -484,11 +506,11 @@ export function QuranHubView() {
                 data-testid="reciter-trigger"
                 onClick={() => setRecitersModalOpen(true)}
                 className="rounded-xl sm:rounded-2xl text-xs gap-1.5 h-8 sm:h-10 px-2 sm:px-3 font-bold shadow-sm bg-card hover:bg-muted min-w-0 flex-1 md:flex-initial max-w-[130px] sm:max-w-[190px] truncate"
-                title="اختيار القارئ"
+                title={`القارئ الحالي: ${currentActiveReciterName}`}
               >
                 <Headphones className="size-3.5 text-primary shrink-0" />
                 <span className="truncate font-bold">
-                  {activeRiwayahReciter?.reciterName || 'اختيار القارئ'}
+                  {currentActiveReciterName}
                 </span>
               </Button>
 
@@ -810,7 +832,20 @@ export function QuranHubView() {
         onClose={() => setRecitersModalOpen(false)}
         reciters={riwayahReciters}
         activeReciter={activeRiwayahReciter}
-        onSelectReciter={setActiveRiwayahReciter}
+        onSelectReciter={(r) => {
+          setActiveRiwayahReciter(r);
+          // If currently playing full surah, verify current surah exists
+          if (audio.isPlayingFullSurah) {
+            const isRecorded = isSurahAvailableInRecording(r, activeSurah.number, activeQiraah.id);
+            if (!isRecorded) {
+              stopAudio();
+              audio.setIsPlayingFullSurah(false);
+              toast.error(`سورة ${activeSurah.nameAr} غير متوفرة في تسجيل ${r.reciterName}`);
+              return;
+            }
+          }
+          toast.success(`تم اختيار القارئ: ${r.reciterName}`);
+        }}
         verseReciters={getAyahRecitersForQiraah(activeQiraah.id)}
         activeVerseReciter={activeReciter}
         onSelectVerseReciter={(vr) => {
@@ -822,6 +857,7 @@ export function QuranHubView() {
         qiraahName={activeQiraah.name}
         currentSurahNo={activeSurah.number}
         currentSurahName={activeSurah.nameAr}
+        isPlayingFullSurah={audio.isPlayingFullSurah}
       />
 
       {/* Quick Ayah Menu Popup */}
@@ -834,12 +870,20 @@ export function QuranHubView() {
         activeReciter={activeReciter}
         onSelectActiveReciter={(r) => {
           setActiveReciter(r);
+          const matchingFull = findMatchingFullSurahReciter(r, riwayahReciters);
+          if (matchingFull) {
+            setActiveRiwayahReciter(matchingFull);
+          }
           toast.success(`تم اختيار القارئ: ${r.name}`);
         }}
         riwayahReciters={riwayahReciters}
         activeRiwayahReciter={activeRiwayahReciter}
         onSelectRiwayahReciter={(r) => {
           setActiveRiwayahReciter(r);
+          const matchingVerse = findMatchingVerseReciter(r, getAyahRecitersForQiraah(activeQiraah.id));
+          if (matchingVerse) {
+            setActiveReciter(matchingVerse);
+          }
           toast.success(`تم اختيار القارئ: ${r.reciterName}`);
         }}
         onPlayAyah={(num) => {
