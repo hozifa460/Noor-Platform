@@ -299,7 +299,7 @@ export function QuranHubView() {
   const isVerseLevelAvailable = isAyahAudioSupportedForQiraah(activeQiraah.id);
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-40 md:pb-28">
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-40 md:pb-28 w-full max-w-full min-w-0">
       {/* Hidden Global Audio Tag */}
       <audio
         ref={audio.audioRef}
@@ -311,207 +311,216 @@ export function QuranHubView() {
       />
 
       {/* Main Top Navigation Header */}
-      <header className="sticky top-0 z-30 border-b border-border/80 bg-background/95 backdrop-blur-md px-3 sm:px-6 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-2.5 max-w-7xl mx-auto">
-          {/* Right: Surah Title & Quick Drawer Trigger */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSurahDrawerOpen(true)}
-              className="gap-2 font-bold text-xs sm:text-sm rounded-2xl bg-card hover:bg-muted border-border shadow-sm h-10 px-3 sm:px-4"
-            >
-              <div className="size-6 rounded-xl bg-primary/10 grid place-items-center text-primary font-bold text-xs">
-                {activeSurah.number}
-              </div>
-              <span className="font-bold">سورة {activeSurah.nameAr}</span>
-              <Badge variant="secondary" className="text-[10px] hidden sm:inline-flex">
-                {activeSurah.numberOfAyahs} آية
-              </Badge>
-            </Button>
+      {/* Main Top Navigation Header */}
+      <header className="sticky top-0 z-30 border-b border-border/80 bg-background/95 backdrop-blur-md px-2 sm:px-6 py-2 sm:py-3 w-full max-w-full">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 sm:gap-2.5 max-w-7xl mx-auto w-full min-w-0">
+          {/* Row 1: Surah Title, Navigation, Qira'ah & Ayah Search */}
+          <div className="flex items-center justify-between gap-1.5 sm:gap-2 w-full md:w-auto min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 md:flex-initial">
+              {/* Surah Drawer Trigger */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSurahDrawerOpen(true)}
+                className="gap-1.5 sm:gap-2 font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl bg-card hover:bg-muted border-border shadow-sm h-8 sm:h-10 px-2 sm:px-3.5 shrink-0 max-w-[125px] sm:max-w-none"
+              >
+                <div className="size-5 sm:size-6 rounded-lg sm:rounded-xl bg-primary/10 grid place-items-center text-primary font-bold text-[10px] sm:text-xs shrink-0">
+                  {activeSurah.number}
+                </div>
+                <span className="font-bold truncate text-xs sm:text-sm">سورة {activeSurah.nameAr}</span>
+                <Badge variant="secondary" className="text-[10px] hidden sm:inline-flex">
+                  {activeSurah.numberOfAyahs} آية
+                </Badge>
+              </Button>
 
-            {/* Qira'ah / Narration Trigger Button */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setQiraahModalOpen(true)}
-              className="gap-2 font-bold text-xs sm:text-sm rounded-2xl bg-card hover:bg-muted border-border shadow-sm h-10 px-3 sm:px-4 max-w-[180px] sm:max-w-[240px] truncate"
-              title="اختيار الرواية أو القراءة"
-            >
-              <BookOpen className="size-4 text-amber-600 dark:text-amber-400 shrink-0" />
-              <span className="truncate font-bold">{activeQiraah.name}</span>
-              <ChevronDown className="size-3.5 text-muted-foreground shrink-0 opacity-70" />
-            </Button>
+              {/* Surah Navigation (Prev / Next) */}
+              <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={nextSurah}
+                  disabled={activeSurah.number >= 114}
+                  className="size-8 sm:size-10 rounded-xl sm:rounded-2xl"
+                  title="السورة التالية"
+                >
+                  <ChevronLeft className="size-3.5 sm:size-4" />
+                </Button>
+
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={prevSurah}
+                  disabled={activeSurah.number <= 1}
+                  className="size-8 sm:size-10 rounded-xl sm:rounded-2xl"
+                  title="السورة السابقة"
+                >
+                  <ChevronRight className="size-3.5 sm:size-4" />
+                </Button>
+              </div>
+
+              {/* Qira'ah / Narration Trigger Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setQiraahModalOpen(true)}
+                className="gap-1.5 sm:gap-2 font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl bg-card hover:bg-muted border-border shadow-sm h-8 sm:h-10 px-2 sm:px-3.5 min-w-0 flex-1 max-w-[120px] sm:max-w-[220px] truncate"
+                title="اختيار الرواية أو القراءة"
+              >
+                <BookOpen className="size-3.5 sm:size-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span className="truncate font-bold text-xs sm:text-sm">{activeQiraah.name}</span>
+                <ChevronDown className="size-3 sm:size-3.5 text-muted-foreground shrink-0 opacity-70" />
+              </Button>
+            </div>
 
             {/* Quran Ayah Search Trigger */}
             <Button
               variant="outline"
               size="sm"
               onClick={openQuranSearch}
-              className="gap-2 font-bold text-xs sm:text-sm rounded-2xl bg-card hover:bg-muted border-border shadow-sm h-10 px-3 sm:px-4 text-muted-foreground hover:text-foreground"
+              className="gap-1.5 sm:gap-2 font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl bg-card hover:bg-muted border-border shadow-sm h-8 sm:h-10 px-2 sm:px-3 text-muted-foreground hover:text-foreground shrink-0"
               title="البحث في آيات القرآن الكريم (Ctrl+K)"
             >
-              <Search className="size-4 text-primary shrink-0" />
-              <span className="hidden sm:inline font-bold text-foreground">بحث في الآيات</span>
-              <kbd className="hidden md:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-lg bg-muted border border-border text-[10px] font-mono text-muted-foreground">
+              <Search className="size-3.5 sm:size-4 text-primary shrink-0" />
+              <span className="hidden md:inline font-bold text-foreground">بحث في الآيات</span>
+              <kbd className="hidden lg:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-lg bg-muted border border-border text-[10px] font-mono text-muted-foreground">
                 Ctrl K
               </kbd>
             </Button>
           </div>
 
-          {/* Center & Left: Controls & Reciters */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Row 2: Mode Switcher, Reciter & Audio Controls */}
+          <div className="flex items-center justify-between md:justify-end gap-1.5 sm:gap-2 w-full md:w-auto min-w-0">
             {/* View Mode Switcher */}
-            <div className="flex items-center bg-muted/60 p-1 rounded-2xl border border-border text-xs font-bold">
+            <div className="flex items-center bg-muted/60 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl border border-border text-xs font-bold shrink-0">
               <button
                 onClick={() => handleModeClick('mushaf-real')}
                 className={cn(
-                  'px-2.5 py-1.5 rounded-xl transition-all',
+                  'px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl transition-all text-[11px] sm:text-xs',
                   viewMode === 'mushaf-real'
                     ? 'bg-card text-foreground shadow-sm font-bold'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
                 title="عرض نص السورة بالقراءة المتصلة"
               >
-                قراءة متصلة
+                <span className="sm:hidden">متصلة</span>
+                <span className="hidden sm:inline">قراءة متصلة</span>
               </button>
 
               <button
                 onClick={() => handleModeClick('interactive')}
                 className={cn(
-                  'px-2.5 py-1.5 rounded-xl transition-all',
+                  'px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl transition-all text-[11px] sm:text-xs',
                   viewMode === 'interactive'
                     ? 'bg-card text-foreground shadow-sm font-bold'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
                 title="عرض الآيات التفاعلية مع التفسير والترجمة"
               >
-                آيات تفاعلية
+                <span className="sm:hidden">تفاعلية</span>
+                <span className="hidden sm:inline">آيات تفاعلية</span>
               </button>
 
               <button
                 onClick={() => handleModeClick('pdf-page')}
                 className={cn(
-                  'px-2.5 py-1.5 rounded-xl transition-all',
+                  'px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl transition-all text-[11px] sm:text-xs',
                   viewMode === 'pdf-page'
                     ? 'bg-card text-foreground shadow-sm font-bold'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
                 title="المصحف المصور الأصلي (PDF)"
               >
-                المصحف المصور
+                <span className="sm:hidden">مصور</span>
+                <span className="hidden sm:inline">المصحف المصور</span>
               </button>
             </div>
 
-            {/* Recitation Trigger (Full Surah Stream) */}
-            {(() => {
-              const isSurahRecorded = Boolean(
-                activeRiwayahReciter &&
-                isSurahAvailableInRecording(activeRiwayahReciter, activeSurah.number, activeQiraah.id)
-              );
-              return (
-                <Button
-                  size="sm"
-                  variant={audio.isPlayingFullSurah ? 'default' : 'outline'}
-                  disabled={!activeRiwayahReciter || !isSurahRecorded}
-                  onClick={() => {
-                    if (audio.isPlayingFullSurah) {
-                      stopAudio();
-                      audio.setIsPlayingFullSurah(false);
-                    } else {
-                      if (!activeRiwayahReciter || !isSurahRecorded) {
-                        toast.error(
-                          !activeRiwayahReciter
-                            ? 'جاري تحميل تسجيلات الرواية...'
-                            : `سورة ${activeSurah.nameAr} غير متوفرة في تسجيل ${activeRiwayahReciter.reciterName}`
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 md:flex-initial justify-end">
+              {/* Reciters Modal Button */}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setRecitersModalOpen(true)}
+                className="rounded-xl sm:rounded-2xl text-xs gap-1.5 h-8 sm:h-10 px-2 sm:px-3 font-bold shadow-sm bg-card hover:bg-muted min-w-0 flex-1 md:flex-initial max-w-[130px] sm:max-w-[190px] truncate"
+                title="اختيار القارئ"
+              >
+                <Headphones className="size-3.5 text-primary shrink-0" />
+                <span className="truncate font-bold">
+                  {activeRiwayahReciter?.reciterName || 'اختيار القارئ'}
+                </span>
+              </Button>
+
+              {/* Recitation Trigger (Full Surah Stream) */}
+              {(() => {
+                const isSurahRecorded = Boolean(
+                  activeRiwayahReciter &&
+                  isSurahAvailableInRecording(activeRiwayahReciter, activeSurah.number, activeQiraah.id)
+                );
+                return (
+                  <Button
+                    size="sm"
+                    variant={audio.isPlayingFullSurah ? 'default' : 'outline'}
+                    disabled={!activeRiwayahReciter || !isSurahRecorded}
+                    onClick={() => {
+                      if (audio.isPlayingFullSurah) {
+                        stopAudio();
+                        audio.setIsPlayingFullSurah(false);
+                      } else {
+                        if (!activeRiwayahReciter || !isSurahRecorded) {
+                          toast.error(
+                            !activeRiwayahReciter
+                              ? 'جاري تحميل تسجيلات الرواية...'
+                              : `سورة ${activeSurah.nameAr} غير متوفرة في تسجيل ${activeRiwayahReciter.reciterName}`
+                          );
+                          return;
+                        }
+                        stopAudio();
+                        audio.setIsPlayingFullSurah(true);
+                        const reciterTitle = activeRiwayahReciter.reciterName;
+                        toast.success(
+                          `جاري تلاوة سورة ${activeSurah.nameAr} بصوت ${reciterTitle}`
                         );
-                        return;
                       }
-                      stopAudio();
-                      audio.setIsPlayingFullSurah(true);
-                      const reciterTitle = activeRiwayahReciter.reciterName;
-                      toast.success(
-                        `جاري تلاوة سورة ${activeSurah.nameAr} بصوت ${reciterTitle}`
-                      );
+                    }}
+                    className={cn(
+                      'rounded-xl sm:rounded-2xl text-xs gap-1.5 h-8 sm:h-10 px-2.5 sm:px-3 font-bold shadow-sm shrink-0',
+                      audio.isPlayingFullSurah && 'bg-emerald-600 hover:bg-emerald-700 text-white',
+                      (!activeRiwayahReciter || !isSurahRecorded) && 'opacity-60 cursor-not-allowed'
+                    )}
+                    title={
+                      !activeRiwayahReciter
+                        ? 'جاري تحميل تسجيلات الرواية...'
+                        : !isSurahRecorded
+                        ? `سورة ${activeSurah.nameAr} غير متوفرة في تسجيل ${activeRiwayahReciter.reciterName}`
+                        : audio.isPlayingFullSurah
+                        ? 'إيقاف السورة'
+                        : 'تلاوة السورة'
                     }
-                  }}
-                  className={cn(
-                    'rounded-2xl text-xs gap-1.5 h-10 px-3 font-bold shadow-sm',
-                    audio.isPlayingFullSurah && 'bg-emerald-600 hover:bg-emerald-700 text-white',
-                    (!activeRiwayahReciter || !isSurahRecorded) && 'opacity-60 cursor-not-allowed'
-                  )}
-                  title={
-                    !activeRiwayahReciter
-                      ? 'جاري تحميل تسجيلات الرواية...'
-                      : !isSurahRecorded
-                      ? `سورة ${activeSurah.nameAr} غير متوفرة في تسجيل ${activeRiwayahReciter.reciterName}`
-                      : audio.isPlayingFullSurah
-                      ? 'إيقاف السورة'
-                      : 'تلاوة السورة'
-                  }
-                >
-                  {audio.isPlayingFullSurah ? (
-                    <Pause className="size-3.5" />
-                  ) : (
-                    <Play className="size-3.5 fill-current" />
-                  )}
-                  <span className="hidden sm:inline">
-                    {!activeRiwayahReciter
-                      ? 'جاري التحميل...'
-                      : !isSurahRecorded
-                      ? 'التسجيل غير متاح'
-                      : audio.isPlayingFullSurah
-                      ? 'إيقاف السورة'
-                      : 'تلاوة السورة'}
-                  </span>
-                </Button>
-              );
-            })()}
-
-            {/* Reciters Modal Button */}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setRecitersModalOpen(true)}
-              className="rounded-2xl text-xs gap-1.5 h-10 px-2.5 sm:px-3 font-bold shadow-sm bg-card hover:bg-muted max-w-[140px] sm:max-w-[190px] truncate"
-              title="اختيار القارئ"
-            >
-              <Headphones className="size-3.5 text-primary shrink-0" />
-              <span className="truncate font-bold">
-                {activeRiwayahReciter?.reciterName || 'اختيار القارئ'}
-              </span>
-            </Button>
-
-            {/* Surah Navigation (Prev / Next) */}
-            <div className="flex items-center gap-1">
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={nextSurah}
-                disabled={activeSurah.number >= 114}
-                className="size-10 rounded-2xl"
-                title="السورة التالية"
-              >
-                <ChevronLeft className="size-4" />
-              </Button>
-
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={prevSurah}
-                disabled={activeSurah.number <= 1}
-                className="size-10 rounded-2xl"
-                title="السورة السابقة"
-              >
-                <ChevronRight className="size-4" />
-              </Button>
+                  >
+                    {audio.isPlayingFullSurah ? (
+                      <Pause className="size-3.5" />
+                    ) : (
+                      <Play className="size-3.5 fill-current" />
+                    )}
+                    <span className="hidden sm:inline">
+                      {!activeRiwayahReciter
+                        ? 'جاري التحميل...'
+                        : !isSurahRecorded
+                        ? 'التسجيل غير متاح'
+                        : audio.isPlayingFullSurah
+                        ? 'إيقاف السورة'
+                        : 'تلاوة السورة'}
+                    </span>
+                  </Button>
+                );
+              })()}
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Quran Content Body */}
-      <main className="flex-1 max-w-5xl w-full mx-auto p-3 sm:p-6 space-y-6">
+      <main className="flex-1 max-w-5xl w-full mx-auto p-2 sm:p-6 space-y-4 sm:space-y-6 min-w-0">
         {/* Informative Riwayah Banner: when non-Hafs is selected in digital text mode */}
         {activeQiraah.id !== 'hafs' && viewMode !== 'pdf-page' && (
           <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
@@ -576,7 +585,7 @@ export function QuranHubView() {
 
         {/* 1. Continuous Text Reading Mode */}
         {!loadingSurah && !surahLoadError && viewMode === 'mushaf-real' && surahData && (
-          <div className="mushaf-real-page rounded-3xl border border-amber-900/20 dark:border-amber-500/20 shadow-2xl p-6 sm:p-12 relative overflow-hidden">
+          <div className="mushaf-real-page rounded-2xl sm:rounded-3xl border border-amber-900/20 dark:border-amber-500/20 shadow-2xl p-4 sm:p-12 relative overflow-hidden w-full max-w-full min-w-0">
             <div className="mushaf-surah-header text-center my-6 py-4 px-6 rounded-2xl relative shadow-md">
               <div className="text-xs font-bold text-amber-800 dark:text-amber-300 mb-1">
                 سورة {surahData.nameAr} ({surahData.placeOfRevelation === 'Meccan' ? 'مكية' : 'مدنية'}) — آياتها {surahData.totalAyahs}
@@ -593,7 +602,7 @@ export function QuranHubView() {
             )}
 
             <div
-              className="text-justify font-quran font-medium leading-[2.6] sm:leading-[3.0] text-amber-950 dark:text-amber-50"
+              className="text-justify font-quran font-medium leading-[2.6] sm:leading-[3.0] text-amber-950 dark:text-amber-50 break-words [overflow-wrap:anywhere]"
               style={{ fontSize: `${fontSize}px` }}
             >
               {surahData.ayahs.map((ayah) => {
@@ -622,7 +631,7 @@ export function QuranHubView() {
 
         {/* 2. Interactive Ayah List Mode */}
         {!loadingSurah && !surahLoadError && viewMode === 'interactive' && surahData && (
-          <div className="space-y-3">
+          <div className="space-y-3 w-full max-w-full min-w-0">
             {surahData.ayahs.map((ayah) => {
               const isPlaying = currentPlayingAyah === ayah.ayahNo && isPlayingAudio;
               const translation = isTranslationReady ? surahTranslationsMap.get(ayah.ayahNo) : undefined;
@@ -670,13 +679,13 @@ export function QuranHubView() {
         {/* 3. Original PDF Mushaf Viewer Mode */}
         {!loadingSurah && viewMode === 'pdf-page' && (
           activeQiraah.pdfUrl ? (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-card border border-border text-xs">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-[11px] font-bold">
+            <div className="space-y-3 w-full max-w-full min-w-0">
+              <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-2xl bg-card border border-border text-xs w-full max-w-full min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Badge variant="outline" className="text-[11px] font-bold shrink-0">
                     {activeQiraah.name}
                   </Badge>
-                  <span className="text-muted-foreground text-[11px] hidden sm:inline">
+                  <span className="text-muted-foreground text-[11px] hidden sm:inline truncate">
                     مصحف مصور رقمي موثق (604 صفحات)
                   </span>
                 </div>
@@ -684,10 +693,11 @@ export function QuranHubView() {
                   variant="outline"
                   size="sm"
                   onClick={() => handleSwitchToHafsText('interactive')}
-                  className="rounded-xl text-xs font-bold gap-1.5 h-8 hover:bg-primary hover:text-primary-foreground transition-all"
+                  className="rounded-xl text-xs font-bold gap-1.5 h-8 hover:bg-primary hover:text-primary-foreground transition-all shrink-0"
                 >
-                  <FileText className="size-3.5" />
-                  <span>الانتقال إلى نص حفص التفاعلي</span>
+                  <FileText className="size-3.5 shrink-0" />
+                  <span className="hidden sm:inline">الانتقال إلى نص حفص التفاعلي</span>
+                  <span className="sm:hidden">نص حفص</span>
                 </Button>
               </div>
               <div className="rounded-3xl border border-border overflow-hidden bg-card shadow-2xl p-2 sm:p-4">

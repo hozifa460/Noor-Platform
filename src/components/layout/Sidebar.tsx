@@ -148,7 +148,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           'h-screen lg:h-[calc(100vh-4rem)] w-72 lg:w-64 shrink-0',
           'bg-sidebar border-l border-sidebar-border lg:border-l-0 lg:border-r',
           'transform transition-transform duration-300 ease-out',
-          open ? 'translate-x-0' : 'translate-x-full lg:translate-x-0',
+          open
+            ? 'translate-x-0'
+            : 'translate-x-full lg:translate-x-0 invisible lg:visible pointer-events-none lg:pointer-events-auto',
         )}
       >
         <div className="lg:hidden flex items-center justify-between p-4 border-b border-sidebar-border">
