@@ -13,7 +13,6 @@ import {
   parseMicroIndexPayload,
   findHadithSharh,
   checkHadithAuthenticity,
-  type HadeethEncSharhItem,
   type HadithBookMeta,
   type HadithItem,
   HadithCard,
@@ -82,10 +81,10 @@ describe('Hadith Scientific Integrity & Attribution Safeguards', () => {
     });
 
     it('parses micro index payload defaulting missing grade to غير محدد', () => {
-      const payload: any = [
+      const payload: unknown = [
         ['bukhari', 1, 1, 'إنما الأعمال بالنيات'], // index 4 (grade) missing!
       ];
-      const entries = parseMicroIndexPayload(payload);
+      const entries = parseMicroIndexPayload(payload as { books?: unknown; grades?: unknown; items?: unknown });
       expect(entries.length).toBe(1);
       expect(entries[0].g).toBe('غير محدد');
     });
