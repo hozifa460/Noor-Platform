@@ -145,6 +145,7 @@ self.onmessage = function (e) {
 
   if (type === 'SEARCH') {
     const { query, category, scholar, limit } = payload;
+    const requestId = e.data.requestId;
     const normQuery = normalizeArabic(query);
     const concepts = extractConceptGroups(query);
 
@@ -219,6 +220,6 @@ self.onmessage = function (e) {
     }
 
     const finalResults = results.slice(0, limit || 60).map((r) => r.item);
-    self.postMessage({ type: 'SEARCH_RESULTS', query, results: finalResults });
+    self.postMessage({ type: 'SEARCH_RESULTS', requestId, query, results: finalResults });
   }
 };
