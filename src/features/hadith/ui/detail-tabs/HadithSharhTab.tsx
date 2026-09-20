@@ -2,6 +2,7 @@
 
 import { Sparkles, BookOpen, Loader2 } from 'lucide-react';
 import type { HadeethEncSharhItem } from '../../domain';
+import { sanitizeTafsirHtml } from '@/lib/shared';
 
 interface HadithSharhTabProps {
   sharh: HadeethEncSharhItem | null;
@@ -41,7 +42,7 @@ export function HadithSharhTab({ sharh, loadingSharh }: HadithSharhTabProps) {
 
         <div
           className="text-foreground text-sm sm:text-base leading-loose select-text"
-          dangerouslySetInnerHTML={{ __html: sharh.explanation }}
+          dangerouslySetInnerHTML={{ __html: sanitizeTafsirHtml(sharh.explanation) }}
         />
 
         {sharh.attribution && (
