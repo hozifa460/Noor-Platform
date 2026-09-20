@@ -9,7 +9,49 @@ import {
 } from '../domain';
 
 let microIndexCache: MicroIndexEntry[] | null = null;
+/**
+ * Single-flight guard: while the (multi-MB) micro-index is being fetched,
+ * concurrent callers share the SAME in-flight promise instead of each starting
+ * another full download (production evidence: two parallel index fetches were
+ * observed for one short typing session, doubling the global-search wait).
+ */
+let microIndexInFlight: Promise<MicroIndexEntry[]> | null = null;
 const globalSearchResultCache = new Map<string, GlobalSearchResultItem[]>();
+
+/** Bounded fetch: rejects after `timeoutMs` so a stalled connection can never
+ *  leave `searchingGlobal` (the global-search spinner) stuck forever. */
+const MICRO_INDEX_FETCH_TIMEOUT_MS = 30_000;
+
+function fetchBounded(url: string): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      try {
+        controller?.abort();
+      } catch {
+        /* noop */
+      }
+      reject(new Error(`Micro-index fetch timed out after ${MICRO_INDEX_FETCH_TIMEOUT_MS}ms`));
+    }, MICRO_INDEX_FETCH_TIMEOUT_MS);
+    fetch(url, controller ? { signal: controller.signal } : undefined).then(
+      (res) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(res);
+      },
+      (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
 
 /**
  * Parses raw micro-index payload
@@ -55,51 +97,63 @@ export function parseMicroIndexPayload(raw: { books?: unknown; grades?: unknown;
 
 export async function loadHadithMicroIndex(): Promise<MicroIndexEntry[]> {
   if (microIndexCache) return microIndexCache;
+  if (microIndexInFlight) return microIndexInFlight;
 
-  // 1. Node local FS (build-time / SSR / tests)
-  const isNode = typeof process !== 'undefined' && Boolean(process.versions?.node);
-  if (typeof window === 'undefined' || isNode) {
+  microIndexInFlight = (async () => {
+    // 1. Node local FS (build-time / SSR / tests)
+    const isNode = typeof process !== 'undefined' && Boolean(process.versions?.node);
+    if (typeof window === 'undefined' || isNode) {
+      try {
+        const fs = await import('fs');
+        const path = await import('path');
+        const p = path.join(process.cwd(), 'public', 'data', 'hadith', 'hadiths_core_index.json');
+        if (fs.existsSync(p)) {
+          const parsed = JSON.parse(fs.readFileSync(p, 'utf-8'));
+          microIndexCache = parseMicroIndexPayload(parsed);
+          return microIndexCache;
+        }
+      } catch {
+        /* proceed */
+      }
+    }
+
+    // 2. Browser relative URL (/data/hadith/hadiths_core_index.json)
+    //    Bounded: a stalled connection must not hang the global search forever.
     try {
-      const fs = await import('fs');
-      const path = await import('path');
-      const p = path.join(process.cwd(), 'public', 'data', 'hadith', 'hadiths_core_index.json');
-      if (fs.existsSync(p)) {
-        const parsed = JSON.parse(fs.readFileSync(p, 'utf-8'));
+      const res = await fetchBounded('/data/hadith/hadiths_core_index.json');
+      if (res.ok) {
+        const parsed = await res.json();
         microIndexCache = parseMicroIndexPayload(parsed);
         return microIndexCache;
       }
     } catch {
       /* proceed */
     }
-  }
 
-  // 2. Browser relative URL (/data/hadith/hadiths_core_index.json)
-  try {
-    const res = await fetch('/data/hadith/hadiths_core_index.json');
-    if (res.ok) {
-      const parsed = await res.json();
-      microIndexCache = parseMicroIndexPayload(parsed);
-      return microIndexCache;
-    }
-  } catch {
-    /* proceed */
-  }
-
-  // 3. CDN / HF resolve
-  if (HADITH_BASE) {
-    try {
-      const res = await fetch(hadithUrl('data/hadith/hadiths_core_index.json'));
-      if (res.ok) {
-        const parsed = await res.json();
-        microIndexCache = parseMicroIndexPayload(parsed);
-        return microIndexCache;
+    // 3. CDN / HF resolve (bounded as well)
+    if (HADITH_BASE) {
+      try {
+        const res = await fetchBounded(hadithUrl('data/hadith/hadiths_core_index.json'));
+        if (res.ok) {
+          const parsed = await res.json();
+          microIndexCache = parseMicroIndexPayload(parsed);
+          return microIndexCache;
+        }
+      } catch (err) {
+        console.warn('[hadith] hadiths_core_index fetch failed:', err);
       }
-    } catch (err) {
-      console.warn('[hadith] hadiths_core_index fetch failed:', err);
     }
-  }
 
-  return [];
+    return [];
+  })();
+
+  try {
+    return await microIndexInFlight;
+  } finally {
+    // Clear the in-flight slot AFTER settlement so later calls retry fresh
+    // (cache hit short-circuits above when the load succeeded).
+    microIndexInFlight = null;
+  }
 }
 
 /**
