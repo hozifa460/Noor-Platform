@@ -6,7 +6,14 @@ import { fatwaIndexManager } from './index-manager';
 export class FatwaWorkerClient {
   private worker: Worker | null = null;
   private isReady = false;
-  private pendingCallbacks = new Map<string, (results: FatwaIndexItem[]) => void>();
+  /**
+   * Pending search promises keyed by a UNIQUE request id (never by the query
+   * string). Keying by query made two identical in-flight queries collide:
+   * the second `set()` overwrote the first callback, so the first promise
+   * could never settle, and the safety timeout cleaned up the wrong entry.
+   */
+  private requestSeq = 0;
+  private pendingCallbacks = new Map<number, (results: FatwaIndexItem[]) => void>();
 
   constructor() {
     this.initWorker();
@@ -18,14 +25,14 @@ export class FatwaWorkerClient {
     try {
       this.worker = new Worker('/workers/fatwa-search-worker.js');
       this.worker.onmessage = (e) => {
-        const { type, query, results } = e.data;
+        const { type, requestId, results } = e.data;
         if (type === 'INDEX_READY') {
           this.isReady = true;
         } else if (type === 'SEARCH_RESULTS') {
-          const cb = this.pendingCallbacks.get(query);
+          const cb = this.pendingCallbacks.get(requestId);
           if (cb) {
+            this.pendingCallbacks.delete(requestId);
             cb(results);
-            this.pendingCallbacks.delete(query);
           }
         }
       };
@@ -50,18 +57,24 @@ export class FatwaWorkerClient {
       return fatwaIndexManager.searchIndex(query, category, scholar, limit);
     }
 
+    const requestId = ++this.requestSeq;
+
     return new Promise((resolve) => {
-      this.pendingCallbacks.set(query, resolve);
+      this.pendingCallbacks.set(requestId, resolve);
       this.worker!.postMessage({
         type: 'SEARCH',
+        requestId,
         payload: { query, category, scholar, limit },
       });
 
-      // Safety timeout
+      // Safety timeout — keyed by the unique requestId so a duplicate query in
+      // flight can never cancel this entry, and this entry can never cancel a
+      // newer one. Guarantees the promise settles even if the worker never replies.
       setTimeout(() => {
-        if (this.pendingCallbacks.has(query)) {
-          this.pendingCallbacks.delete(query);
-          resolve(fatwaIndexManager.searchIndex(query, category, scholar, limit));
+        const cb = this.pendingCallbacks.get(requestId);
+        if (cb) {
+          this.pendingCallbacks.delete(requestId);
+          cb(fatwaIndexManager.searchIndex(query, category, scholar, limit));
         }
       }, 500);
     });

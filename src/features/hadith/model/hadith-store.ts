@@ -60,6 +60,15 @@ export interface HadithState {
   runGlobalSearch: (q: string) => Promise<void>;
 }
 
+/**
+ * Monotonic generation counter for book loads. Each `loadBookData` call bumps
+ * it and captures its own value; a response may only commit to the store if it
+ * is still the newest load. Without this guard a slow load of book A could
+ * overwrite the data/loading/error state of a later-selected book B
+ * (A → B → A navigation, or simply switching faster than a cold load resolves).
+ */
+let latestBookLoadGeneration = 0;
+
 export const useHadithStore = create<HadithState>((set, get) => ({
   activeBook: HADITH_BOOKS_LIST[0], // صحيح البخاري
   bookData: null,
@@ -102,6 +111,7 @@ export const useHadithStore = create<HadithState>((set, get) => ({
   },
 
   loadBookData: async (fileName: string) => {
+    const generation = ++latestBookLoadGeneration;
     set({ loadingBook: true });
     try {
       const activeBookId = get().activeBook?.id;
@@ -109,8 +119,12 @@ export const useHadithStore = create<HadithState>((set, get) => ({
         loadSunanGrades(activeBookId).catch(() => {});
       }
       const data = await loadHadithBook(fileName);
+      // A newer load superseded this one while it was awaiting — drop the stale
+      // result so it cannot clobber the current book or its loading/error state.
+      if (generation !== latestBookLoadGeneration) return;
       set({ bookData: data, loadingBook: false });
     } catch {
+      if (generation !== latestBookLoadGeneration) return;
       set({ loadingBook: false });
     }
   },
