@@ -28,6 +28,7 @@ export type {
   FakeHadithItem,
   AuthenticityCheckResult,
   TranslationSupportStatus,
+  MicroIndexLoadOutcome,
 } from './infrastructure';
 
 export {
@@ -53,6 +54,9 @@ export {
   isSharhCacheLoaded,
   parseMicroIndexPayload,
   loadHadithMicroIndex,
+  loadHadithMicroIndexOutcome,
+  getMicroIndexLoadError,
+  MicroIndexLoadError,
   searchHadithsInBook,
   searchAcrossAllBooks,
   loadSunanGrades,

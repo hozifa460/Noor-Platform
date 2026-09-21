@@ -35,6 +35,8 @@ export function HadithHubView() {
   const loadingBook = useHadithStore((s) => s.loadingBook);
   const searchingGlobal = useHadithStore((s) => s.searchingGlobal);
   const globalResults = useHadithStore((s) => s.globalResults);
+  const globalSearchError = useHadithStore((s) => s.globalSearchError);
+  const retryGlobalSearch = useHadithStore((s) => s.retryGlobalSearch);
 
   const selectedHadith = useHadithStore((s) => s.selectedHadith);
   const selectedHadithBook = useHadithStore((s) => s.selectedHadithBook);
@@ -237,7 +239,29 @@ export function HadithHubView() {
             )}
 
             {/* Global Search Results */}
-            {!searchingGlobal && searchMode === 'global' && (
+            {!searchingGlobal && searchMode === 'global' && globalSearchError && (
+              <div className="py-20 text-center space-y-3 bg-card rounded-3xl border border-border p-6">
+                <ShieldAlert className="size-10 mx-auto text-destructive/70" />
+                <h4 className="font-bold text-base text-foreground">
+                  تعذّر تحميل فهرس البحث الشامل
+                </h4>
+                <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                  {globalSearchError === 'timeout'
+                    ? 'انتهت مهلة تحميل الفهرس (أكثر من 30 ثانية لكل مصدر) — تحقق من الاتصال ثم أعد المحاولة.'
+                    : 'تعذّر الوصول إلى مصدر الفهرس — تحقق من الاتصال ثم أعد المحاولة.'}
+                </p>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={() => retryGlobalSearch()}
+                  className="rounded-2xl px-8 font-bold text-xs gap-2 shadow-xs bg-card hover:bg-muted cursor-pointer"
+                >
+                  <RefreshCw className="size-4" />
+                  <span>إعادة المحاولة</span>
+                </Button>
+              </div>
+            )}
+            {!searchingGlobal && searchMode === 'global' && !globalSearchError && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
                   <span>

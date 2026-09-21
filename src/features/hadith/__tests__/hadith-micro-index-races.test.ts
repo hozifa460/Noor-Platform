@@ -1,24 +1,18 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 /**
- * Regression tests for the global hadith search stall (production diagnosis):
- *
- * Reproduction: /hadith → "كل الدواوين" (global mode) → type a query →
- * the "جاري البحث في دواوين السنة الـ 17" spinner persists indefinitely.
- *
- * Root cause proven in code (before this fix):
- *   1. loadHadithMicroIndex fetched the 21.5MB index with NO timeout — a
- *      stalled connection left `searchingGlobal` true forever (no settle path).
- *   2. No single-flight: every concurrent caller started its OWN 21.5MB fetch
- *      (microIndexCache is only set after full completion), multiplying the
- *      wait and bandwidth.
- *
- * These tests simulate a STALLED fetch (a promise that never resolves — the
- * on-the-wire equivalent of the production stall) and assert the loader
- * settles instead of hanging, and that concurrent callers share one fetch.
+ * Tests for:
+ *  (A) per-ATTEMPT bounded body read — headers arriving fast must not exempt a
+ *      body that stalls mid-download (stalled `Response.json()` also settles);
+ *  (B) single-flight sharing stays intact under concurrent load attempts;
+ *  (C) timer cleanup — a successful load leaves no dangling timeout handles;
+ *  (D) load FAILURE vs EMPTY index is distinguished end-to-end, retry refetches
+ *      fresh, and a failure is never cached as success.
  */
 
 let fetchCalls: string[] = [];
+let fetchImpl: (url: string) => Promise<Response> = () =>
+  new Promise<Response>(() => {}); // default: fully stalled connection
 
 // Force the BROWSER code path: in vitest `process.versions.node` exists, which
 // would otherwise route into the local-FS branch (and the real 21MB fixture).
@@ -35,11 +29,12 @@ vi.mock('fs', () => ({
 
 beforeEach(() => {
   fetchCalls = [];
+  fetchImpl = () => new Promise<Response>(() => {});
   vi.stubGlobal('fetch', vi.fn((url: string | URL | Request) => {
     fetchCalls.push(String(url));
-    // Simulate a stalled connection: the response NEVER arrives.
-    return new Promise<Response>(() => {});
+    return fetchImpl(String(url));
   }) as unknown as typeof fetch);
+  vi.resetModules();
 });
 
 afterEach(() => {
@@ -47,8 +42,18 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+function okJson(payload: unknown): Response {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => payload,
+  } as Response;
+}
+
+const VALID_PAYLOAD = { books: ['bukhari'], grades: ['صحيح'], items: [[0, 1, 1, 'متن الحديث', 0]] };
+
 describe('loadHadithMicroIndex — stalled-fetch races (global search hang)', () => {
-  it('SETTLES (with empty fallback) when the index fetch stalls, instead of hanging forever', async () => {
+  it('(pre-existing) SETTLES (with empty fallback) when the index fetch stalls, instead of hanging forever', async () => {
     vi.useFakeTimers();
     try {
       const { loadHadithMicroIndex } = await import('../infrastructure/search');
@@ -85,6 +90,118 @@ describe('loadHadithMicroIndex — stalled-fetch races (global search hang)', ()
 
       // Let bounded timeouts fire so pending promises settle (no dangling timers).
       await vi.advanceTimersByTimeAsync(70_000);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('(A) a body that stalls AFTER headers still settles via the per-attempt timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      // Headers arrive instantly (ok=true), but res.json() never resolves —
+      // the timeout must cover the body read, not just the header wait.
+      fetchImpl = () =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => new Promise<unknown>(() => {}),
+        } as unknown as Response);
+
+      const { loadHadithMicroIndexOutcome, getMicroIndexLoadError } = await import('../infrastructure/search');
+      const p = loadHadithMicroIndexOutcome();
+      let outcome: unknown;
+      void p.then((o) => { outcome = o; });
+
+      // Past BOTH per-attempt budgets (same-origin source, then HF mirror).
+      await vi.advanceTimersByTimeAsync(65_000);
+
+      expect(outcome).toEqual({ status: 'failed', reason: 'timeout' });
+      expect(getMicroIndexLoadError()).toEqual({ status: 'failed', reason: 'timeout' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('(B) single-flight holds under concurrency: one attempt, one shared outcome', async () => {
+    vi.useFakeTimers();
+    try {
+      const { loadHadithMicroIndexOutcome } = await import('../infrastructure/search');
+      const ps = [loadHadithMicroIndexOutcome(), loadHadithMicroIndexOutcome(), loadHadithMicroIndexOutcome()];
+      await vi.advanceTimersByTimeAsync(0);
+      await Promise.resolve();
+
+      const indexCalls = fetchCalls.filter((u) => u.includes('hadiths_core_index.json'));
+      expect(indexCalls.length).toBe(1); // three callers, ONE fetch
+
+      void Promise.all(ps).then(() => {});
+      await vi.advanceTimersByTimeAsync(65_000);
+      const results = await Promise.all(ps);
+      expect(results[0]).toEqual({ status: 'failed', reason: 'timeout' });
+      expect(results[1]).toEqual(results[0]);
+      expect(results[2]).toEqual(results[0]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('(C) timers are cleaned up: no dangling timeout handles after a successful load', async () => {
+    vi.useFakeTimers();
+    try {
+      fetchImpl = () => Promise.resolve(okJson(VALID_PAYLOAD));
+      const { loadHadithMicroIndexOutcome } = await import('../infrastructure/search');
+      const outcome = await loadHadithMicroIndexOutcome();
+      expect(outcome.status).toBe('loaded');
+      await vi.advanceTimersByTimeAsync(300_000); // every timer must be cleared
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('(D) failure is NOT cached: retry refetches fresh and can succeed after failing', async () => {
+    vi.useFakeTimers();
+    try {
+      const mod = await import('../infrastructure/search');
+      const attempt1 = mod.loadHadithMicroIndexOutcome();
+      await vi.advanceTimersByTimeAsync(65_000);
+      await expect(attempt1).resolves.toEqual({ status: 'failed', reason: 'timeout' });
+
+      // The source recovers: the NEXT call must fetch again (not replay failure).
+      fetchImpl = () => Promise.resolve(okJson(VALID_PAYLOAD));
+      const attempt2 = await mod.loadHadithMicroIndexOutcome();
+      expect(attempt2.status).toBe('loaded');
+      if (attempt2.status === 'loaded') {
+        expect(attempt2.entries).toHaveLength(1);
+        expect(attempt2.entries[0]).toMatchObject({ b: 'bukhari', i: 1 });
+      }
+      const indexCalls = fetchCalls.filter((u) => u.includes('hadiths_core_index.json'));
+      // Attempt 1 hit both sources (stall), attempt 2 fetched the local source again.
+      expect(indexCalls.length).toBeGreaterThanOrEqual(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('(D) searchAcrossAllBooks throws typed MicroIndexLoadError on failure — NOT empty results', async () => {
+    vi.useFakeTimers();
+    try {
+      const mod = await import('../infrastructure/search');
+      const p = mod.searchAcrossAllBooks('النيات');
+      const assertion = expect(p).rejects.toMatchObject({ name: 'MicroIndexLoadError', reason: 'timeout' });
+      await vi.advanceTimersByTimeAsync(65_000);
+      await assertion;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('(D) a genuinely EMPTY loaded index still resolves to empty results (not an error)', async () => {
+    vi.useFakeTimers();
+    try {
+      fetchImpl = () => Promise.resolve(okJson({ books: [], grades: [], items: [] }));
+      const mod = await import('../infrastructure/search');
+      await expect(mod.searchAcrossAllBooks('النيات')).resolves.toEqual([]);
+      expect(mod.getMicroIndexLoadError()).toBeNull();
     } finally {
       vi.useRealTimers();
     }
