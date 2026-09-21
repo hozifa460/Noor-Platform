@@ -53,6 +53,7 @@ export {
   clearSharhCache,
   isSharhCacheLoaded,
   parseMicroIndexPayload,
+  isValidMicroIndexPayload,
   loadHadithMicroIndex,
   loadHadithMicroIndexOutcome,
   getMicroIndexLoadError,

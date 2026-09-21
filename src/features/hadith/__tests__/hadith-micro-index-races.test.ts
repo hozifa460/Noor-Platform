@@ -52,6 +52,86 @@ function okJson(payload: unknown): Response {
 
 const VALID_PAYLOAD = { books: ['bukhari'], grades: ['صحيح'], items: [[0, 1, 1, 'متن الحديث', 0]] };
 
+describe('payload structure validation (invalid payload = source failure)', () => {
+  it('HTTP 200 with {"error":"unavailable"} is treated as a source failure, not an empty index', async () => {
+    vi.useFakeTimers();
+    try {
+      fetchImpl = () => Promise.resolve(okJson({ error: 'unavailable' }));
+      const mod = await import('../infrastructure/search');
+      const outcome = await mod.loadHadithMicroIndexOutcome();
+      expect(outcome).toEqual({ status: 'failed', reason: 'invalid-payload' });
+      expect(mod.getMicroIndexLoadError()).toEqual({ status: 'failed', reason: 'invalid-payload' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('an invalid payload is NOT cached: recovery afterwards returns a valid load', async () => {
+    vi.useFakeTimers();
+    try {
+      // Attempt 1: both sources answer 200 with a non-index body.
+      fetchImpl = () => Promise.resolve(okJson({ error: 'unavailable' }));
+      const mod = await import('../infrastructure/search');
+      const attempt1 = await mod.loadHadithMicroIndexOutcome();
+      expect(attempt1).toEqual({ status: 'failed', reason: 'invalid-payload' });
+
+      // Attempt 2: the source recovers with a real index → must be loaded, not replayed failure.
+      fetchImpl = () => Promise.resolve(okJson(VALID_PAYLOAD));
+      const attempt2 = await mod.loadHadithMicroIndexOutcome();
+      expect(attempt2.status).toBe('loaded');
+      if (attempt2.status === 'loaded') {
+        expect(attempt2.entries).toHaveLength(1);
+        expect(attempt2.entries[0]).toMatchObject({ b: 'bukhari', i: 1 });
+      }
+      expect(mod.getMicroIndexLoadError()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('an invalid payload from the first source falls through to the next source (which succeeds)', async () => {
+    vi.useFakeTimers();
+    try {
+      // Same-origin returns {"error":...}; the CDN/HF mirror returns a valid index.
+      fetchImpl = (url) =>
+        Promise.resolve(url.startsWith('/') ? okJson({ error: 'unavailable' }) : okJson(VALID_PAYLOAD));
+      const mod = await import('../infrastructure/search');
+      const outcome = await mod.loadHadithMicroIndexOutcome();
+      expect(outcome.status).toBe('loaded');
+      const indexCalls = fetchCalls.filter((u) => u.includes('hadiths_core_index.json'));
+      expect(indexCalls.length).toBe(2); // tried source 1 (invalid) then source 2 (valid)
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a structurally-correct EMPTY index remains a VALID load (emptiness is data)', async () => {
+    vi.useFakeTimers();
+    try {
+      fetchImpl = () => Promise.resolve(okJson({ books: [], grades: [], items: [] }));
+      const mod = await import('../infrastructure/search');
+      expect(mod.isValidMicroIndexPayload({ books: [], grades: [], items: [] })).toBe(true);
+      const outcome = await mod.loadHadithMicroIndexOutcome();
+      expect(outcome).toEqual({ status: 'loaded', entries: [] });
+      expect(mod.getMicroIndexLoadError()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('rejects malformed variants: missing keys, non-array items, truncated tuples', async () => {
+    const mod = await import('../infrastructure/search');
+    expect(mod.isValidMicroIndexPayload(null)).toBe(false);
+    expect(mod.isValidMicroIndexPayload('x')).toBe(false);
+    expect(mod.isValidMicroIndexPayload({ error: 'unavailable' })).toBe(false);
+    expect(mod.isValidMicroIndexPayload({ books: [], grades: [] })).toBe(false);
+    expect(mod.isValidMicroIndexPayload({ books: [], grades: [], items: {} })).toBe(false);
+    // truncated tuple (only 3 fields) is treated as corrupted
+    expect(mod.isValidMicroIndexPayload({ books: ['bukhari'], grades: ['صحيح'], items: [[0, 1, 1]] })).toBe(false);
+    expect(mod.isValidMicroIndexPayload(VALID_PAYLOAD)).toBe(true);
+  });
+});
+
 describe('loadHadithMicroIndex — stalled-fetch races (global search hang)', () => {
   it('(pre-existing) SETTLES (with empty fallback) when the index fetch stalls, instead of hanging forever', async () => {
     vi.useFakeTimers();

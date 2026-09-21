@@ -119,6 +119,28 @@ async function fetchJsonBounded(url: string): Promise<unknown> {
 }
 
 /**
+ * Structural validation of a micro-index payload. A 200-OK body that is NOT a
+ * valid index (e.g. `{"error":"unavailable"}` from an upstream, an HTML error
+ * page, or a truncated schema) must be treated as a SOURCE FAILURE — never
+ * cached — so the loader falls through to the next source and, if all sources
+ * deliver invalid payloads, reports a typed failure instead of an empty index.
+ *
+ * A structurally-correct EMPTY index (`books/grades/items` all empty arrays)
+ * is a VALID load (returns true) — emptiness is data, not corruption.
+ */
+export function isValidMicroIndexPayload(raw: unknown): boolean {
+  if (!raw || typeof raw !== 'object') return false;
+  const r = raw as { books?: unknown; grades?: unknown; items?: unknown };
+  if (Array.isArray(r.books) && Array.isArray(r.grades) && Array.isArray(r.items)) {
+    // tuple-schema sanity: every item must be a tuple of >=5 fields when present
+    return r.items.every((it: unknown) => Array.isArray(it) && it.length >= 5);
+  }
+  // legacy array-of-entries shape
+  if (Array.isArray(raw)) return true;
+  return false;
+}
+
+/**
  * Parses raw micro-index payload
  */
 export function parseMicroIndexPayload(raw: { books?: unknown; grades?: unknown; items?: unknown }): MicroIndexEntry[] {
@@ -200,27 +222,35 @@ export async function loadHadithMicroIndexOutcome(): Promise<MicroIndexLoadOutco
 
     // 2. Browser relative URL (/data/hadith/hadiths_core_index.json)
     //    Bounded per attempt (headers + full body), single-flight shared.
+    //    A non-conforming payload (e.g. {"error":"unavailable"}) counts as a
+    //    source failure → fall through to the mirror; it is NEVER cached.
+    let sawInvalidPayload = false;
     const local = await fetchJsonBounded('/data/hadith/hadiths_core_index.json');
-    if (local !== null) {
+    if (local !== null && isValidMicroIndexPayload(local)) {
       microIndexCache = parseMicroIndexPayload(local as { books?: unknown; grades?: unknown; items?: unknown });
       microIndexLoadError = null;
       return { status: 'loaded', entries: microIndexCache };
     }
+    if (local !== null) sawInvalidPayload = true;
 
     // 3. CDN / HF mirror (bounded as well, same per-attempt budget)
     if (HADITH_BASE) {
       const remote = await fetchJsonBounded(hadithUrl('data/hadith/hadiths_core_index.json'));
-      if (remote !== null) {
+      if (remote !== null && isValidMicroIndexPayload(remote)) {
         microIndexCache = parseMicroIndexPayload(remote as { books?: unknown; grades?: unknown; items?: unknown });
         microIndexLoadError = null;
         return { status: 'loaded', entries: microIndexCache };
       }
+      if (remote !== null) sawInvalidPayload = true;
     }
 
-    // Both network sources failed: report failure — NOT an empty index.
-    // Console carries the typed reason; the store/UI branch on it for retry.
+    // All sources failed: report failure — NOT an empty index. An invalid
+    // payload is distinguished from a transport failure in the typed reason.
     // A failure must NEVER poison the cache: the next call retries fresh.
-    microIndexLoadError = { status: 'failed', reason: lastFetchDiagnosis ?? 'network' };
+    microIndexLoadError = {
+      status: 'failed',
+      reason: sawInvalidPayload ? 'invalid-payload' : lastFetchDiagnosis ?? 'network',
+    };
     console.warn('[hadith] hadiths_core_index unavailable from all sources:', microIndexLoadError.reason);
     return microIndexLoadError;
   })();

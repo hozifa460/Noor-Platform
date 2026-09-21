@@ -36,7 +36,7 @@ export interface HadithState {
    * affordance on this state, never the "no results" copy. Cleared on every
    * new search start and on success.
    */
-  globalSearchError: 'timeout' | 'network' | null;
+  globalSearchError: 'timeout' | 'network' | 'invalid-payload' | null;
 
   // Global search results
   globalResults: GlobalSearchResultItem[];
@@ -157,7 +157,7 @@ export const useHadithStore = create<HadithState>((set, get) => ({
         // Index unavailable (timeout/network): keep the spinner off, preserve
         // any previous results, and surface the typed error for the retry UI.
         // The in-flight slot was already cleared, so retry refetches fresh.
-        set({ searchingGlobal: false, globalSearchError: err.reason === 'timeout' ? 'timeout' : 'network' });
+        set({ searchingGlobal: false, globalSearchError: err.reason === 'timeout' ? 'timeout' : err.reason });
       } else {
         set({ searchingGlobal: false });
       }
