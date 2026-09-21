@@ -8,8 +8,181 @@ import {
   type MicroIndexEntry,
 } from '../domain';
 
+/**
+ * Distinguishes an index LOAD FAILURE from a genuinely EMPTY index.
+ * `searchAcrossAllBooks` and the store currently cannot tell "the fetch failed"
+ * (show the retry state) from "the loaded index has no entries" (show the
+ * no-results state). This enum is the typed contract for that distinction.
+ */
+export type MicroIndexLoadOutcome =
+  | { status: 'loaded'; entries: MicroIndexEntry[] }
+  | { status: 'failed'; reason: 'timeout' | 'network' | 'invalid-payload' };
+
 let microIndexCache: MicroIndexEntry[] | null = null;
+/** Last load outcome (failure only — success is implied by a non-null cache). */
+let microIndexLoadError: MicroIndexLoadOutcome | null = null;
+
+/** Read the last load outcome (mainly for testing and diagnostics). */
+export function getMicroIndexLoadError(): MicroIndexLoadOutcome | null {
+  return microIndexLoadError;
+}
+/**
+ * Single-flight guard: while the (multi-MB) micro-index is being fetched,
+ * concurrent callers share the SAME in-flight promise instead of each starting
+ * another full download (production evidence: two parallel index fetches were
+ * observed for one short typing session, each re-downloading the full file).
+ * Note the correction: this removes DUPLICATE DOWNLOADS, not the wire time of
+ * the download itself — no download-speedup is claimed or measured here.
+ */
+let microIndexInFlight: Promise<MicroIndexLoadOutcome> | null = null;
 const globalSearchResultCache = new Map<string, GlobalSearchResultItem[]>();
+
+/** Bounded fetch: rejects after `MICRO_INDEX_SOURCE_TIMEOUT_MS` so a stalled
+ *  connection can never leave `searchingGlobal` (the global-search spinner)
+ *  stuck forever.
+ *
+ *  Scope of the timeout (per ATTEMPT, not per process): the sources are tried
+ *  SEQUENTIALLY — same-origin first (step 2), then the CDN/HF mirror (step 3).
+ *  Each attempt gets its own 90s budget — sized from the measured production
+ *  download of the 21.5MB index (76.1s on a slow link, verified 2026-09);
+ *  a 30s budget was tried first and killed slow-but-successful downloads,
+ *  turning them into a false failure (preview-verified). Worst case before the
+ *  UI settles is ~180s (2 × 90s) when BOTH stall, after which the failure
+ *  state + retry appear instead of spinning forever. The next search call
+ *  retries fresh. No debounce is added anywhere; successful loads are cached. */
+const MICRO_INDEX_SOURCE_TIMEOUT_MS = 90_000;
+
+/** Diagnosis of the most recent bounded fetch: set by `fetchJsonBounded`
+ *  on EVERY attempt (success clears it). Used only to label the final
+ *  `failed` outcome with the most informative reason seen across attempts. */
+let lastFetchDiagnosis: 'timeout' | 'network' | null = null;
+
+/**
+ * Fetches one JSON source with a per-ATTEMPT timeout that covers headers AND
+ * the full body read (`res.json()`), then aborts so a stalled socket is
+ * released. Returning `null` means "this source failed" (timeout, abort,
+ * exception, or non-OK status) — the caller tries the next source.
+ */
+async function fetchJsonBounded(url: string): Promise<unknown> {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  let settled = false;
+  // The SAME timer object also bounds the body read (`res.json()`): headers
+  // arriving fast must not exempt a body that then stalls mid-download.
+  let timer: ReturnType<typeof setTimeout>;
+  const cleanup = () => clearTimeout(timer);
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      try {
+        controller?.abort();
+      } catch {
+        /* noop */
+      }
+      cleanup();
+      lastFetchDiagnosis = 'timeout';
+      reject(new Error(`Micro-index fetch timed out after ${MICRO_INDEX_SOURCE_TIMEOUT_MS}ms: ${url}`));
+    }, MICRO_INDEX_SOURCE_TIMEOUT_MS);
+  });
+  try {
+    const res = await Promise.race([
+      fetch(url, controller ? { signal: controller.signal } : undefined),
+      timeout,
+    ]).catch((err) => {
+      // Rejections are network-level (abort/connection/DNS) unless this is
+      // the timeout rejection above, which was already diagnosed.
+      if (lastFetchDiagnosis !== 'timeout') lastFetchDiagnosis = 'network';
+      throw err;
+    });
+    const parsed = await Promise.race([res.json(), timeout]).catch((err) => {
+      if (lastFetchDiagnosis !== 'timeout') lastFetchDiagnosis = 'network';
+      throw err;
+    });
+    if (settled) return null;
+    settled = true;
+    cleanup();
+    if (!res.ok) {
+      lastFetchDiagnosis = 'network';
+      return null;
+    }
+    lastFetchDiagnosis = null;
+    return parsed;
+  } catch {
+    settled = true;
+    cleanup();
+    try {
+      controller?.abort();
+    } catch {
+      /* noop */
+    }
+    return null;
+  }
+}
+
+/**
+ * Structural validation of a micro-index payload. A 200-OK body that is NOT a
+ * valid index (e.g. `{"error":"unavailable"}` from an upstream, an HTML error
+ * page, or a truncated schema) must be treated as a SOURCE FAILURE — never
+ * cached — so the loader falls through to the next source and, if all sources
+ * deliver invalid payloads, reports a typed failure instead of an empty index.
+ *
+ * REAL DATA SHAPE (verified against public/data/hadith/hadiths_core_index.json,
+ * 41,676 items): the dictionary form is
+ *   { books: string[], grades: string[], items: [bookIdx, idInBook, chapterId, text][] }
+ * i.e. every row carries exactly FOUR fields; the 5th (grade index) is OPTIONAL
+ * and usually absent — grading is resolved elsewhere (getHadithGrade). Validation
+ * therefore MUST accept 4-field rows and must NOT demand a 5th.
+ *
+ * A structurally-correct EMPTY index (`books/grades/items` all empty arrays)
+ * is a VALID load (returns true) — emptiness is data, not corruption.
+ */
+export function isValidMicroIndexPayload(raw: unknown): boolean {
+  if (!raw || typeof raw !== 'object') return false;
+
+  // Shape A (current dictionary form): books/grades/items.
+  const r = raw as { books?: unknown; grades?: unknown; items?: unknown };
+  if (Array.isArray(r.books) && Array.isArray(r.grades) && Array.isArray(r.items)) {
+    const books = r.books as unknown[];
+    const items = r.items as unknown[];
+    if (!books.every((b) => typeof b === 'string')) return false;
+    if (!(r.grades as unknown[]).every((g) => typeof g === 'string')) return false;
+
+    for (const it of items) {
+      // Every row must be a tuple with >= 4 fields: [bookIdx, idInBook, chapterId, text].
+      if (!Array.isArray(it) || it.length < 4) return false;
+      const [bookIdx, idInBook, chapterId, text, gradeIdx] = it as unknown[];
+      if (typeof bookIdx !== 'number' || !Number.isInteger(bookIdx)) return false;
+      // Book reference must resolve inside `books` (guards against corrupted/misaligned data).
+      if (bookIdx < 0 || bookIdx >= books.length) return false;
+      if (typeof idInBook !== 'number' || !Number.isFinite(idInBook)) return false;
+      if (typeof chapterId !== 'number' || !Number.isFinite(chapterId)) return false;
+      if (typeof text !== 'string') return false;
+      // Optional 5th field: when present it must be a valid grades reference.
+      if (gradeIdx !== undefined) {
+        if (typeof gradeIdx !== 'number' || !Number.isInteger(gradeIdx) || gradeIdx < 0) return false;
+        if (gradeIdx >= (r.grades as unknown[]).length) return false;
+      }
+    }
+    return true;
+  }
+
+  // Shape B (legacy plain array of rows). `Array.isArray(raw)` alone is NOT
+  // enough — the rows themselves must be valid, otherwise a stray JSON array
+  // (error list, HTML-derived data) would be silently accepted as an index.
+  if (Array.isArray(raw)) {
+    for (const it of raw as unknown[]) {
+      if (!Array.isArray(it) || it.length < 4) return false;
+      const [book, idInBook, chapterId, text] = it as unknown[];
+      if (typeof book !== 'string' || !book) return false;
+      if (typeof idInBook !== 'number' || !Number.isFinite(idInBook)) return false;
+      if (typeof chapterId !== 'number' || !Number.isFinite(chapterId)) return false;
+      if (typeof text !== 'string') return false;
+    }
+    return true;
+  }
+
+  return false;
+}
 
 /**
  * Parses raw micro-index payload
@@ -29,7 +202,9 @@ export function parseMicroIndexPayload(raw: { books?: unknown; grades?: unknown;
         i: tuple[1],
         c: tuple[2] || 0,
         t: tuple[3] || '',
-        g: grades[tuple[4]] || 'غير محدد',
+        // Grade (5th tuple field) is OPTIONAL in the real dataset — when absent,
+        // grading falls back to the canonical source in `grade-engine`.
+        g: (typeof tuple[4] === 'number' ? grades[tuple[4]] : undefined) || 'غير محدد',
       };
     }
     return result;
@@ -54,52 +229,91 @@ export function parseMicroIndexPayload(raw: { books?: unknown; grades?: unknown;
 }
 
 export async function loadHadithMicroIndex(): Promise<MicroIndexEntry[]> {
-  if (microIndexCache) return microIndexCache;
+  const outcome = await loadHadithMicroIndexOutcome();
+  // Backward-compatible shape for legacy callers (scripts, diagnostics):
+  // failure degrades to `[]`. UI paths must use `loadHadithMicroIndexOutcome`
+  // or `searchAcrossAllBooks` (typed error) to distinguish failure from empty.
+  return outcome.status === 'loaded' ? outcome.entries : [];
+}
 
-  // 1. Node local FS (build-time / SSR / tests)
-  const isNode = typeof process !== 'undefined' && Boolean(process.versions?.node);
-  if (typeof window === 'undefined' || isNode) {
-    try {
-      const fs = await import('fs');
-      const path = await import('path');
-      const p = path.join(process.cwd(), 'public', 'data', 'hadith', 'hadiths_core_index.json');
-      if (fs.existsSync(p)) {
-        const parsed = JSON.parse(fs.readFileSync(p, 'utf-8'));
-        microIndexCache = parseMicroIndexPayload(parsed);
-        return microIndexCache;
+/**
+ * Loads the micro-index and reports a LOAD FAILURE (`status: 'failed'`) instead
+ * of silently returning `[]`. `searchAcrossAllBooks` and the store must branch
+ * on this: failure → retry affordance; a loaded-but-empty index → no-results.
+ * Success AND failure are single-flight shared: concurrent callers join the
+ * same in-flight attempt and observe the same outcome.
+ */
+export async function loadHadithMicroIndexOutcome(): Promise<MicroIndexLoadOutcome> {
+  if (microIndexCache) return Promise.resolve({ status: 'loaded', entries: microIndexCache });
+  if (microIndexInFlight) return microIndexInFlight;
+
+  microIndexInFlight = (async (): Promise<MicroIndexLoadOutcome> => {
+    // 1. Node local FS (build-time / SSR / tests)
+    const isNode = typeof process !== 'undefined' && Boolean(process.versions?.node);
+    let sawInvalidPayload = false;
+    if (typeof window === 'undefined' || isNode) {
+      try {
+        const fs = await import('fs');
+        const path = await import('path');
+        const p = path.join(process.cwd(), 'public', 'data', 'hadith', 'hadiths_core_index.json');
+        if (fs.existsSync(p)) {
+          const parsed: unknown = JSON.parse(fs.readFileSync(p, 'utf-8'));
+          // Same structural validation as the browser path: an invalid local
+          // artifact must NOT be cached as a successful load.
+          if (isValidMicroIndexPayload(parsed)) {
+            microIndexCache = parseMicroIndexPayload(parsed as { books?: unknown; grades?: unknown; items?: unknown });
+            microIndexLoadError = null;
+            return { status: 'loaded', entries: microIndexCache };
+          }
+          sawInvalidPayload = true;
+          console.warn('[hadith] local hadiths_core_index.json failed structural validation');
+        }
+      } catch {
+        /* fall through to network sources */
       }
-    } catch {
-      /* proceed */
     }
-  }
 
-  // 2. Browser relative URL (/data/hadith/hadiths_core_index.json)
+    // 2. Browser relative URL (/data/hadith/hadiths_core_index.json)
+    //    Bounded per attempt (headers + full body), single-flight shared.
+    //    A non-conforming payload (e.g. {"error":"unavailable"}) counts as a
+    //    source failure → fall through to the mirror; it is NEVER cached.
+    const local = await fetchJsonBounded('/data/hadith/hadiths_core_index.json');
+    if (local !== null && isValidMicroIndexPayload(local)) {
+      microIndexCache = parseMicroIndexPayload(local as { books?: unknown; grades?: unknown; items?: unknown });
+      microIndexLoadError = null;
+      return { status: 'loaded', entries: microIndexCache };
+    }
+    if (local !== null) sawInvalidPayload = true;
+
+    // 3. CDN / HF mirror (bounded as well, same per-attempt budget)
+    if (HADITH_BASE) {
+      const remote = await fetchJsonBounded(hadithUrl('data/hadith/hadiths_core_index.json'));
+      if (remote !== null && isValidMicroIndexPayload(remote)) {
+        microIndexCache = parseMicroIndexPayload(remote as { books?: unknown; grades?: unknown; items?: unknown });
+        microIndexLoadError = null;
+        return { status: 'loaded', entries: microIndexCache };
+      }
+      if (remote !== null) sawInvalidPayload = true;
+    }
+
+    // All sources failed: report failure — NOT an empty index. An invalid
+    // payload is distinguished from a transport failure in the typed reason.
+    // A failure must NEVER poison the cache: the next call retries fresh.
+    microIndexLoadError = {
+      status: 'failed',
+      reason: sawInvalidPayload ? 'invalid-payload' : lastFetchDiagnosis ?? 'network',
+    };
+    console.warn('[hadith] hadiths_core_index unavailable from all sources:', microIndexLoadError.reason);
+    return microIndexLoadError;
+  })();
+
   try {
-    const res = await fetch('/data/hadith/hadiths_core_index.json');
-    if (res.ok) {
-      const parsed = await res.json();
-      microIndexCache = parseMicroIndexPayload(parsed);
-      return microIndexCache;
-    }
-  } catch {
-    /* proceed */
+    return await microIndexInFlight;
+  } finally {
+    // Clear the in-flight slot AFTER settlement so later calls retry fresh.
+    // microIndexInFlight is deliberately NOT cached on failure.
+    microIndexInFlight = null;
   }
-
-  // 3. CDN / HF resolve
-  if (HADITH_BASE) {
-    try {
-      const res = await fetch(hadithUrl('data/hadith/hadiths_core_index.json'));
-      if (res.ok) {
-        const parsed = await res.json();
-        microIndexCache = parseMicroIndexPayload(parsed);
-        return microIndexCache;
-      }
-    } catch (err) {
-      console.warn('[hadith] hadiths_core_index fetch failed:', err);
-    }
-  }
-
-  return [];
 }
 
 /**
@@ -212,7 +426,21 @@ export function searchHadithsInBook(
 /**
  * Global Cross-Book Search Engine powered by the ultra-fast Micro-Index.
  * Executes in < 0.5ms and returns prioritized results (Sahihayn first).
+ *
+ * LOAD FAILURE vs EMPTY RESULTS: when the index cannot be loaded this throws
+ * `MicroIndexLoadError` instead of returning `[]` — callers MUST NOT confuse
+ * "the index failed to load" (retry affordance) with "no hadiths matched"
+ * (no-results state). The success path is unchanged.
  */
+export class MicroIndexLoadError extends Error {
+  readonly reason: 'timeout' | 'network' | 'invalid-payload';
+  constructor(reason: 'timeout' | 'network' | 'invalid-payload') {
+    super(`Hadith micro-index unavailable: ${reason}`);
+    this.name = 'MicroIndexLoadError';
+    this.reason = reason;
+  }
+}
+
 export async function searchAcrossAllBooks(
   query: string,
   maxResults = 100
@@ -228,7 +456,13 @@ export async function searchAcrossAllBooks(
   const normQuery = normalizeArabic(trimmed);
   if (!normQuery || normQuery.length <= 1) return [];
 
-  const micro = await loadHadithMicroIndex();
+  const micro = await loadHadithMicroIndexOutcome().then((outcome) => {
+    if (outcome.status === 'failed') {
+      // Propagate as a typed error: an index LOAD FAILURE is not "zero matches".
+      throw new MicroIndexLoadError(outcome.reason);
+    }
+    return outcome.entries;
+  });
   if (!micro || micro.length === 0) return [];
 
   // 1. Direct number search

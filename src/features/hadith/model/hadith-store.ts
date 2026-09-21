@@ -17,6 +17,7 @@ import {
   searchHadithsInBook,
   searchAcrossAllBooks,
   loadSunanGrades,
+  MicroIndexLoadError,
 } from '../infrastructure';
 
 export interface HadithState {
@@ -29,6 +30,13 @@ export interface HadithState {
   searchMode: 'in-book' | 'global';
   loadingBook: boolean;
   searchingGlobal: boolean;
+  /**
+   * Typed global-search index failure (null = no failure). Distinct from an
+   * EMPTY `globalResults` (genuine "no matches"): the UI shows a retry
+   * affordance on this state, never the "no results" copy. Cleared on every
+   * new search start and on success.
+   */
+  globalSearchError: 'timeout' | 'network' | 'invalid-payload' | null;
 
   // Global search results
   globalResults: GlobalSearchResultItem[];
@@ -58,6 +66,8 @@ export interface HadithState {
   loadBookData: (fileName: string) => Promise<void>;
   getFilteredHadiths: () => HadithItem[];
   runGlobalSearch: (q: string) => Promise<void>;
+  /** Re-run the current global query (used by the failure-state retry button). */
+  retryGlobalSearch: () => Promise<void>;
 }
 
 /**
@@ -79,6 +89,7 @@ export const useHadithStore = create<HadithState>((set, get) => ({
   searchMode: 'in-book',
   loadingBook: false,
   searchingGlobal: false,
+  globalSearchError: null,
 
   globalResults: [],
 
@@ -132,16 +143,32 @@ export const useHadithStore = create<HadithState>((set, get) => ({
   runGlobalSearch: async (q: string) => {
     const trimmed = q.trim();
     if (!trimmed) {
-      set({ globalResults: [], searchingGlobal: false });
+      set({ globalResults: [], searchingGlobal: false, globalSearchError: null });
       return;
     }
-    set({ searchingGlobal: true });
+    set({ searchingGlobal: true, globalSearchError: null });
     try {
       const res = await searchAcrossAllBooks(trimmed);
-      set({ globalResults: res, searchingGlobal: false });
-    } catch {
-      set({ searchingGlobal: false });
+      // A load failure never reaches here as data: it throws
+      // MicroIndexLoadError and is handled in the dedicated branch below.
+      set({ globalResults: res, searchingGlobal: false, globalSearchError: null });
+    } catch (err) {
+      if (err instanceof MicroIndexLoadError) {
+        // Index unavailable (timeout/network): keep the spinner off, preserve
+        // any previous results, and surface the typed error for the retry UI.
+        // The in-flight slot was already cleared, so retry refetches fresh.
+        set({ searchingGlobal: false, globalSearchError: err.reason === 'timeout' ? 'timeout' : err.reason });
+      } else {
+        set({ searchingGlobal: false });
+      }
     }
+  },
+
+  retryGlobalSearch: async () => {
+    const { searchQuery, searchMode } = get();
+    if (searchMode !== 'global' || !searchQuery.trim()) return;
+    // Explicit retry: force a fresh load attempt through the same path.
+    await get().runGlobalSearch(searchQuery);
   },
 
   openHadithDetail: async (
