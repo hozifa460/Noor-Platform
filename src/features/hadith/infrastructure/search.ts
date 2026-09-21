@@ -125,18 +125,61 @@ async function fetchJsonBounded(url: string): Promise<unknown> {
  * cached — so the loader falls through to the next source and, if all sources
  * deliver invalid payloads, reports a typed failure instead of an empty index.
  *
+ * REAL DATA SHAPE (verified against public/data/hadith/hadiths_core_index.json,
+ * 41,676 items): the dictionary form is
+ *   { books: string[], grades: string[], items: [bookIdx, idInBook, chapterId, text][] }
+ * i.e. every row carries exactly FOUR fields; the 5th (grade index) is OPTIONAL
+ * and usually absent — grading is resolved elsewhere (getHadithGrade). Validation
+ * therefore MUST accept 4-field rows and must NOT demand a 5th.
+ *
  * A structurally-correct EMPTY index (`books/grades/items` all empty arrays)
  * is a VALID load (returns true) — emptiness is data, not corruption.
  */
 export function isValidMicroIndexPayload(raw: unknown): boolean {
   if (!raw || typeof raw !== 'object') return false;
+
+  // Shape A (current dictionary form): books/grades/items.
   const r = raw as { books?: unknown; grades?: unknown; items?: unknown };
   if (Array.isArray(r.books) && Array.isArray(r.grades) && Array.isArray(r.items)) {
-    // tuple-schema sanity: every item must be a tuple of >=5 fields when present
-    return r.items.every((it: unknown) => Array.isArray(it) && it.length >= 5);
+    const books = r.books as unknown[];
+    const items = r.items as unknown[];
+    if (!books.every((b) => typeof b === 'string')) return false;
+    if (!(r.grades as unknown[]).every((g) => typeof g === 'string')) return false;
+
+    for (const it of items) {
+      // Every row must be a tuple with >= 4 fields: [bookIdx, idInBook, chapterId, text].
+      if (!Array.isArray(it) || it.length < 4) return false;
+      const [bookIdx, idInBook, chapterId, text, gradeIdx] = it as unknown[];
+      if (typeof bookIdx !== 'number' || !Number.isInteger(bookIdx)) return false;
+      // Book reference must resolve inside `books` (guards against corrupted/misaligned data).
+      if (bookIdx < 0 || bookIdx >= books.length) return false;
+      if (typeof idInBook !== 'number' || !Number.isFinite(idInBook)) return false;
+      if (typeof chapterId !== 'number' || !Number.isFinite(chapterId)) return false;
+      if (typeof text !== 'string') return false;
+      // Optional 5th field: when present it must be a valid grades reference.
+      if (gradeIdx !== undefined) {
+        if (typeof gradeIdx !== 'number' || !Number.isInteger(gradeIdx) || gradeIdx < 0) return false;
+        if (gradeIdx >= (r.grades as unknown[]).length) return false;
+      }
+    }
+    return true;
   }
-  // legacy array-of-entries shape
-  if (Array.isArray(raw)) return true;
+
+  // Shape B (legacy plain array of rows). `Array.isArray(raw)` alone is NOT
+  // enough — the rows themselves must be valid, otherwise a stray JSON array
+  // (error list, HTML-derived data) would be silently accepted as an index.
+  if (Array.isArray(raw)) {
+    for (const it of raw as unknown[]) {
+      if (!Array.isArray(it) || it.length < 4) return false;
+      const [book, idInBook, chapterId, text] = it as unknown[];
+      if (typeof book !== 'string' || !book) return false;
+      if (typeof idInBook !== 'number' || !Number.isFinite(idInBook)) return false;
+      if (typeof chapterId !== 'number' || !Number.isFinite(chapterId)) return false;
+      if (typeof text !== 'string') return false;
+    }
+    return true;
+  }
+
   return false;
 }
 
@@ -158,7 +201,9 @@ export function parseMicroIndexPayload(raw: { books?: unknown; grades?: unknown;
         i: tuple[1],
         c: tuple[2] || 0,
         t: tuple[3] || '',
-        g: grades[tuple[4]] || 'غير محدد',
+        // Grade (5th tuple field) is OPTIONAL in the real dataset — when absent,
+        // grading falls back to the canonical source in `grade-engine`.
+        g: (typeof tuple[4] === 'number' ? grades[tuple[4]] : undefined) || 'غير محدد',
       };
     }
     return result;
@@ -204,6 +249,7 @@ export async function loadHadithMicroIndexOutcome(): Promise<MicroIndexLoadOutco
   microIndexInFlight = (async (): Promise<MicroIndexLoadOutcome> => {
     // 1. Node local FS (build-time / SSR / tests)
     const isNode = typeof process !== 'undefined' && Boolean(process.versions?.node);
+    let sawInvalidPayload = false;
     if (typeof window === 'undefined' || isNode) {
       try {
         const fs = await import('fs');
@@ -211,9 +257,15 @@ export async function loadHadithMicroIndexOutcome(): Promise<MicroIndexLoadOutco
         const p = path.join(process.cwd(), 'public', 'data', 'hadith', 'hadiths_core_index.json');
         if (fs.existsSync(p)) {
           const parsed: unknown = JSON.parse(fs.readFileSync(p, 'utf-8'));
-          microIndexCache = parseMicroIndexPayload(parsed as { books?: unknown; grades?: unknown; items?: unknown });
-          microIndexLoadError = null;
-          return { status: 'loaded', entries: microIndexCache };
+          // Same structural validation as the browser path: an invalid local
+          // artifact must NOT be cached as a successful load.
+          if (isValidMicroIndexPayload(parsed)) {
+            microIndexCache = parseMicroIndexPayload(parsed as { books?: unknown; grades?: unknown; items?: unknown });
+            microIndexLoadError = null;
+            return { status: 'loaded', entries: microIndexCache };
+          }
+          sawInvalidPayload = true;
+          console.warn('[hadith] local hadiths_core_index.json failed structural validation');
         }
       } catch {
         /* fall through to network sources */
@@ -224,7 +276,6 @@ export async function loadHadithMicroIndexOutcome(): Promise<MicroIndexLoadOutco
     //    Bounded per attempt (headers + full body), single-flight shared.
     //    A non-conforming payload (e.g. {"error":"unavailable"}) counts as a
     //    source failure → fall through to the mirror; it is NEVER cached.
-    let sawInvalidPayload = false;
     const local = await fetchJsonBounded('/data/hadith/hadiths_core_index.json');
     if (local !== null && isValidMicroIndexPayload(local)) {
       microIndexCache = parseMicroIndexPayload(local as { books?: unknown; grades?: unknown; items?: unknown });
