@@ -142,7 +142,7 @@ describe('loadHadithMicroIndex — stalled-fetch races (global search hang)', ()
       void p.then(() => { settled = true; }, () => { settled = true; });
 
       // Advance past the bounded-fetch timeouts (all fallback attempts).
-      await vi.advanceTimersByTimeAsync(70_000);
+      await vi.advanceTimersByTimeAsync(190_000);
 
       expect(settled).toBe(true);
       await expect(p).resolves.toEqual([]);
@@ -169,7 +169,7 @@ describe('loadHadithMicroIndex — stalled-fetch races (global search hang)', ()
       expect(indexCalls.length).toBe(1);
 
       // Let bounded timeouts fire so pending promises settle (no dangling timers).
-      await vi.advanceTimersByTimeAsync(70_000);
+      await vi.advanceTimersByTimeAsync(190_000);
     } finally {
       vi.useRealTimers();
     }
@@ -193,7 +193,7 @@ describe('loadHadithMicroIndex — stalled-fetch races (global search hang)', ()
       void p.then((o) => { outcome = o; });
 
       // Past BOTH per-attempt budgets (same-origin source, then HF mirror).
-      await vi.advanceTimersByTimeAsync(65_000);
+      await vi.advanceTimersByTimeAsync(190_000);
 
       expect(outcome).toEqual({ status: 'failed', reason: 'timeout' });
       expect(getMicroIndexLoadError()).toEqual({ status: 'failed', reason: 'timeout' });
@@ -214,7 +214,7 @@ describe('loadHadithMicroIndex — stalled-fetch races (global search hang)', ()
       expect(indexCalls.length).toBe(1); // three callers, ONE fetch
 
       void Promise.all(ps).then(() => {});
-      await vi.advanceTimersByTimeAsync(65_000);
+      await vi.advanceTimersByTimeAsync(190_000);
       const results = await Promise.all(ps);
       expect(results[0]).toEqual({ status: 'failed', reason: 'timeout' });
       expect(results[1]).toEqual(results[0]);
@@ -243,7 +243,7 @@ describe('loadHadithMicroIndex — stalled-fetch races (global search hang)', ()
     try {
       const mod = await import('../infrastructure/search');
       const attempt1 = mod.loadHadithMicroIndexOutcome();
-      await vi.advanceTimersByTimeAsync(65_000);
+      await vi.advanceTimersByTimeAsync(190_000);
       await expect(attempt1).resolves.toEqual({ status: 'failed', reason: 'timeout' });
 
       // The source recovers: the NEXT call must fetch again (not replay failure).
@@ -268,7 +268,7 @@ describe('loadHadithMicroIndex — stalled-fetch races (global search hang)', ()
       const mod = await import('../infrastructure/search');
       const p = mod.searchAcrossAllBooks('النيات');
       const assertion = expect(p).rejects.toMatchObject({ name: 'MicroIndexLoadError', reason: 'timeout' });
-      await vi.advanceTimersByTimeAsync(65_000);
+      await vi.advanceTimersByTimeAsync(190_000);
       await assertion;
     } finally {
       vi.useRealTimers();

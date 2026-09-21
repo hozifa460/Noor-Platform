@@ -43,13 +43,14 @@ const globalSearchResultCache = new Map<string, GlobalSearchResultItem[]>();
  *
  *  Scope of the timeout (per ATTEMPT, not per process): the sources are tried
  *  SEQUENTIALLY — same-origin first (step 2), then the CDN/HF mirror (step 3).
- *  Each attempt gets its own 30s budget, so the worst-case wait before the UI
- *  settles is ~60s (2 × 30s) when BOTH stall. This is a deliberate, bounded
- *  trade-off: after it expires the loader returns `[]` (cache stays empty),
- *  the store exposes `globalSearchError`, and the UI shows a retry affordance
- *  instead of spinning forever. The next search call retries fresh.
- *  No debounce is added anywhere; successful loads are cached as before. */
-const MICRO_INDEX_SOURCE_TIMEOUT_MS = 30_000;
+ *  Each attempt gets its own 90s budget — sized from the measured production
+ *  download of the 21.5MB index (76.1s on a slow link, verified 2026-09);
+ *  a 30s budget was tried first and killed slow-but-successful downloads,
+ *  turning them into a false failure (preview-verified). Worst case before the
+ *  UI settles is ~180s (2 × 90s) when BOTH stall, after which the failure
+ *  state + retry appear instead of spinning forever. The next search call
+ *  retries fresh. No debounce is added anywhere; successful loads are cached. */
+const MICRO_INDEX_SOURCE_TIMEOUT_MS = 90_000;
 
 /** Diagnosis of the most recent bounded fetch: set by `fetchJsonBounded`
  *  on EVERY attempt (success clears it). Used only to label the final
