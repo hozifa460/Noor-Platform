@@ -62,6 +62,30 @@ function stalledBodyResponse(headers?: Record<string, string>): Response {
   return new Response(neverYields, { status: 200, headers });
 }
 
+/** A streaming Response over RAW text (for malformed-body cases). */
+function streamingRawResponse(raw: string, headers?: Record<string, string>): Response {
+  return new Response(new TextEncoder().encode(raw), { status: 200, headers });
+}
+
+/** Await one REAL macrotask (MessageChannel is not owned by fake timers). */
+function macrotaskTick(): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const mc = new MessageChannel();
+    mc.port1.onmessage = () => resolve();
+    mc.port2.postMessage(null);
+  });
+}
+
+const MULTI_ITEM_PAYLOAD = {
+  books: ['bukhari'],
+  grades: ['صحيح'],
+  items: [
+    [0, 1, 1, 'حديث أول', 0],
+    [0, 2, 1, 'حديث ثانٍ', 0],
+    [0, 3, 1, 'حديث ثالث', 0],
+  ],
+};
+
 const VALID_PAYLOAD = { books: ['bukhari'], grades: ['صحيح'], items: [[0, 1, 1, 'متن الحديث', 0]] };
 
 describe('payload structure validation (invalid payload = source failure)', () => {
@@ -410,12 +434,134 @@ describe('micro-index load progress (waiting-UX only)', () => {
         const outcome2 = await p2;
         expect(outcome2.status).toBe('loaded');
         const phases = events.map((e) => e.phase);
-        expect(phases.filter((p) => p === 'preparing').length).toBeGreaterThanOrEqual(2);
+        // Attempt 1 never finished reading a body, so it must NOT claim the
+        // `preparing` stage — that stage now means "every byte has been read".
+        const preparingAt = phases.indexOf('preparing');
+        expect(phases.filter((p) => p === 'preparing')).toHaveLength(1);
+        // Progress resumed for the retry: a fresh `connect` per attempt…
+        expect(phases.filter((p) => p === 'connect').length).toBeGreaterThanOrEqual(2);
+        // …and the only `preparing` follows the retry's own download.
+        expect(phases.lastIndexOf('download')).toBeLessThan(preparingAt);
       } finally {
         stop();
       }
     } finally {
       vi.useRealTimers();
+    }
+  });
+
+  it('keeps reading past a Content-Length that is SMALLER than the body (header is display-only)', async () => {
+    vi.useFakeTimers();
+    try {
+      const { onMicroIndexProgress, loadHadithMicroIndexOutcome } = await import('../infrastructure/search');
+      const events: { phase: string; totalBytes?: number | null; loadedBytes?: number }[] = [];
+      const stop = onMicroIndexProgress((p) => events.push(p));
+      try {
+        const full = new TextEncoder().encode(JSON.stringify(MULTI_ITEM_PAYLOAD));
+        // A proxy/CDN that under-reports the length (half the real body).
+        const liedTotal = Math.floor(full.byteLength / 2);
+        fetchImpl = () =>
+          Promise.resolve(
+            streamingResponse(MULTI_ITEM_PAYLOAD, { 'content-length': String(liedTotal) })
+          );
+
+        const outcome = await loadHadithMicroIndexOutcome();
+        expect(outcome.status).toBe('loaded');
+        if (outcome.status === 'loaded') {
+          // The WHOLE index was read — nothing was truncated at the header value.
+          expect(outcome.entries).toHaveLength(3);
+          expect(outcome.entries.map((e) => e.i)).toEqual([1, 2, 3]);
+        }
+        // The header is reported for display only…
+        const downloadEvents = events.filter((e) => e.phase === 'download');
+        expect(downloadEvents.every((e) => e.totalBytes === liedTotal)).toBe(true);
+        // …while the read plainly continued beyond it.
+        const maxLoaded = Math.max(...downloadEvents.map((e) => e.loadedBytes || 0));
+        expect(maxLoaded).toBeGreaterThan(liedTotal);
+        expect(maxLoaded).toBeGreaterThanOrEqual(full.byteLength);
+      } finally {
+        stop();
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('declares `preparing` the moment the body is fully read — BEFORE JSON.parse', async () => {
+    vi.useFakeTimers();
+    try {
+      const { onMicroIndexProgress, loadHadithMicroIndexOutcome, getMicroIndexLoadError } =
+        await import('../infrastructure/search');
+      const events: { phase: string; loadedBytes?: number }[] = [];
+      let settled = false;
+      let preparingBeforeSettle = false;
+      const stop = onMicroIndexProgress((p) => {
+        if (p.phase === 'preparing' && !settled) preparingBeforeSettle = true;
+        events.push(p);
+      });
+      try {
+        // A body that is NOT parseable JSON: if `preparing` were still emitted
+        // only AFTER the parse, it could never appear here at all.
+        const raw = '{"books": ["bukhari"], "items": [[0, 1, 1, "نص"'; // truncated JSON
+        const rawLen = new TextEncoder().encode(raw).byteLength;
+        fetchImpl = () =>
+          Promise.resolve(streamingRawResponse(raw, { 'content-length': String(rawLen) }));
+        const promise = loadHadithMicroIndexOutcome();
+        promise.then(() => {
+          settled = true;
+        });
+        const outcome = await promise;
+
+        // The load legitimately FAILS (the body can never be parsed)…
+        expect(outcome.status).toBe('failed');
+        expect(getMicroIndexLoadError()).not.toBeNull();
+        // …yet the handoff stage was declared: proof it precedes the parse.
+        const phases = events.map((e) => e.phase);
+        expect(phases).toContain('preparing');
+        expect(preparingBeforeSettle).toBe(true);
+        // And it followed a COMPLETE read of the body, not the request start.
+        const firstPreparing = phases.indexOf('preparing');
+        const downloadBeforePreparing = events
+          .slice(0, firstPreparing)
+          .filter((e) => e.phase === 'download');
+        expect(downloadBeforePreparing.some((e) => (e.loadedBytes || 0) === rawLen)).toBe(true);
+      } finally {
+        stop();
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('yields a real macrotask between `preparing` and the parse, so the browser can paint it', async () => {
+    const { onMicroIndexProgress, loadHadithMicroIndexOutcome } = await import('../infrastructure/search');
+    let settled = false;
+    let scheduled = false;
+    let macrotaskRanBeforeSettle = false;
+    const stop = onMicroIndexProgress((p) => {
+      if (p.phase !== 'preparing' || scheduled) return;
+      scheduled = true;
+      // Same task source as the engine's own yield → FIFO, so this runs first
+      // only if the engine really breaks the synchronous parse with a macrotask.
+      macrotaskTick().then(() => {
+        if (!settled) macrotaskRanBeforeSettle = true;
+      });
+    });
+    try {
+      const bytes = new TextEncoder().encode(JSON.stringify(VALID_PAYLOAD));
+      fetchImpl = () =>
+        Promise.resolve(streamingResponse(VALID_PAYLOAD, { 'content-length': String(bytes.length) }));
+      const promise = loadHadithMicroIndexOutcome();
+      promise.then(() => {
+        settled = true;
+      });
+      const outcome = await promise;
+      expect(outcome.status).toBe('loaded');
+      await macrotaskTick(); // let the tick we scheduled during `preparing` land
+      expect(scheduled).toBe(true);
+      expect(macrotaskRanBeforeSettle).toBe(true);
+    } finally {
+      stop();
     }
   });
 });
