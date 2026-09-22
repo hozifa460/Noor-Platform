@@ -58,6 +58,7 @@ export {
   loadHadithMicroIndexOutcome,
   getMicroIndexLoadError,
   MicroIndexLoadError,
+  onMicroIndexProgress,
   searchHadithsInBook,
   searchAcrossAllBooks,
   loadSunanGrades,
@@ -87,7 +88,7 @@ export {
   BUILTIN_SEED_SHARH,
 } from './infrastructure';
 
-export type { ConcordanceEvidenceItem, DocumentedSharhTarget } from './infrastructure';
+export type { ConcordanceEvidenceItem, DocumentedSharhTarget, MicroIndexProgress, MicroIndexProgressListener } from './infrastructure';
 
 // Model Layer
 export {

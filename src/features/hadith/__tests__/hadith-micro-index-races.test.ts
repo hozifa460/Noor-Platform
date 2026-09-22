@@ -50,6 +50,18 @@ function okJson(payload: unknown): Response {
   } as Response;
 }
 
+/** A real streaming Response so the progress path exercises a live body. */
+function streamingResponse(payload: unknown, headers?: Record<string, string>): Response {
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  return new Response(bytes, { status: 200, headers });
+}
+
+/** Headers arrive (200) but the body NEVER produces a byte — a stalled download. */
+function stalledBodyResponse(headers?: Record<string, string>): Response {
+  const neverYields = new ReadableStream<Uint8Array>({ start() { /* no chunks, no close */ } });
+  return new Response(neverYields, { status: 200, headers });
+}
+
 const VALID_PAYLOAD = { books: ['bukhari'], grades: ['صحيح'], items: [[0, 1, 1, 'متن الحديث', 0]] };
 
 describe('payload structure validation (invalid payload = source failure)', () => {
@@ -287,3 +299,124 @@ describe('loadHadithMicroIndex — stalled-fetch races (global search hang)', ()
     }
   });
 });
+describe('micro-index load progress (waiting-UX only)', () => {
+  it('reports download progress with a trustworthy total for an un-encoded response', async () => {
+    vi.useFakeTimers();
+    try {
+      const { onMicroIndexProgress, loadHadithMicroIndexOutcome } = await import('../infrastructure/search');
+      const events: { phase: string; totalBytes?: number | null; loadedBytes?: number }[] = [];
+      const stop = onMicroIndexProgress((p) => events.push(p));
+      const bytes = new TextEncoder().encode(JSON.stringify(VALID_PAYLOAD));
+      try {
+        // Un-encoded response with a truthful Content-Length → determinate progress.
+        fetchImpl = () =>
+          Promise.resolve(streamingResponse(VALID_PAYLOAD, { 'content-length': String(bytes.length) }));
+        const outcome = await loadHadithMicroIndexOutcome();
+        expect(outcome.status).toBe('loaded');
+        expect(events.some((e) => e.phase === 'connect')).toBe(true);
+        expect(events.some((e) => e.phase === 'download')).toBe(true);
+        expect(events.some((e) => e.phase === 'preparing')).toBe(true);
+        // A reliable total exists (un-encoded), so a determinate percentage is allowed.
+        const totalEvent = events.find((e) => e.phase === 'download');
+        expect(totalEvent && typeof totalEvent.totalBytes === 'number').toBe(true);
+      } finally {
+        stop();
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps progress INDETERMINATE for a compressed (br) response — never invents a percentage', async () => {
+    vi.useFakeTimers();
+    try {
+      const { onMicroIndexProgress, loadHadithMicroIndexOutcome } = await import('../infrastructure/search');
+      const events: { phase: string; totalBytes?: number | null }[] = [];
+      const stop = onMicroIndexProgress((p) => events.push(p));
+      try {
+        // content-encoding: br makes Content-Length (if present) unreliable → indeterminate.
+        fetchImpl = () => Promise.resolve(streamingResponse(VALID_PAYLOAD, { 'content-encoding': 'br' }));
+        const outcome = await loadHadithMicroIndexOutcome();
+        expect(outcome.status).toBe('loaded');
+        const downloadEvents = events.filter((e) => e.phase === 'download');
+        expect(downloadEvents.length).toBeGreaterThan(0);
+        expect(downloadEvents.every((e) => e.totalBytes === null)).toBe(true);
+      } finally {
+        stop();
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps progress INDETERMINATE when Content-Length is absent', async () => {
+    vi.useFakeTimers();
+    try {
+      const { onMicroIndexProgress, loadHadithMicroIndexOutcome } = await import('../infrastructure/search');
+      const events: { phase: string; totalBytes?: number | null }[] = [];
+      const stop = onMicroIndexProgress((p) => events.push(p));
+      try {
+        fetchImpl = () => Promise.resolve(streamingResponse(VALID_PAYLOAD)); // no headers at all
+        const outcome = await loadHadithMicroIndexOutcome();
+        expect(outcome.status).toBe('loaded');
+        const downloadEvents = events.filter((e) => e.phase === 'download');
+        expect(downloadEvents.every((e) => e.totalBytes === null)).toBe(true);
+      } finally {
+        stop();
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('reports failure after a stalled body via the bounded timeout (no hang)', async () => {
+    vi.useFakeTimers();
+    try {
+      const { onMicroIndexProgress, loadHadithMicroIndexOutcome, getMicroIndexLoadError } = await import('../infrastructure/search');
+      const events: { phase: string }[] = [];
+      const stop = onMicroIndexProgress((p) => events.push(p));
+      try {
+        // Headers arrive; the body stalls → per-attempt timeout must end it.
+        fetchImpl = () => Promise.resolve(stalledBodyResponse({ 'content-encoding': 'br' }));
+        const p = loadHadithMicroIndexOutcome();
+        await vi.advanceTimersByTimeAsync(190_000);
+        const outcome = await p;
+        expect(outcome).toEqual({ status: 'failed', reason: 'timeout' });
+        expect(getMicroIndexLoadError()).toEqual({ status: 'failed', reason: 'timeout' });
+      } finally {
+        stop();
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('recovers on retry after a failure — progress resumes and the next attempt succeeds', async () => {
+    vi.useFakeTimers();
+    try {
+      const mod = await import('../infrastructure/search');
+      const events: { phase: string }[] = [];
+      const stop = mod.onMicroIndexProgress((p: { phase: string }) => events.push(p));
+      try {
+        // Attempt 1: stalled body → timeout.
+        fetchImpl = () => Promise.resolve(stalledBodyResponse({ 'content-encoding': 'br' }));
+        const p1 = mod.loadHadithMicroIndexOutcome();
+        await vi.advanceTimersByTimeAsync(190_000);
+        await expect(p1).resolves.toEqual({ status: 'failed', reason: 'timeout' });
+
+        // Attempt 2: valid payload via the streaming path → loaded.
+        fetchImpl = () => Promise.resolve(streamingResponse(VALID_PAYLOAD));
+        const p2 = mod.loadHadithMicroIndexOutcome();
+        const outcome2 = await p2;
+        expect(outcome2.status).toBe('loaded');
+        const phases = events.map((e) => e.phase);
+        expect(phases.filter((p) => p === 'preparing').length).toBeGreaterThanOrEqual(2);
+      } finally {
+        stop();
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+

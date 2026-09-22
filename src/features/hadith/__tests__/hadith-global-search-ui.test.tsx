@@ -13,6 +13,11 @@ import type { GlobalSearchResultItem, HadithBookData, HadithBookMeta, HadithItem
 
 const searchAcrossAllBooksMock = vi.fn();
 const loadHadithBookMock = vi.fn();
+/** Captured micro-index progress listeners (the store subscribes via the mock). */
+const progressListeners: Array<(p: { phase: string }) => void> = [];
+function emitProgressForTest(p: { phase: 'connect' | 'download' | 'preparing' }) {
+  for (const l of [...progressListeners]) l(p);
+}
 
 vi.mock('../infrastructure', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../infrastructure')>();
@@ -20,6 +25,13 @@ vi.mock('../infrastructure', async (importOriginal) => {
     ...actual,
     searchAcrossAllBooks: (...args: unknown[]) => searchAcrossAllBooksMock(...args),
     loadHadithBook: (...args: unknown[]) => loadHadithBookMock(...args),
+    onMicroIndexProgress: (listener: (p: { phase: string }) => void) => {
+      progressListeners.push(listener);
+      return () => {
+        const i = progressListeners.indexOf(listener);
+        if (i >= 0) progressListeners.splice(i, 1);
+      };
+    },
   };
 });
 
@@ -153,5 +165,48 @@ describe('HadithHubView — global search failure → retry → results', () => 
     const text = container.textContent || '';
     expect(text).toContain('لم نعثر على أحاديث مطابقة');
     expect(text).not.toContain('تعذّر تحميل فهرس البحث الشامل');
+  });
+
+  it('shows the two loading stages and never claims completion before results render', async () => {
+    // Keep the search unresolved so the loading state stays observable.
+    let resolveSearch: (v: GlobalSearchResultItem[]) => void = () => {};
+    searchAcrossAllBooksMock.mockImplementationOnce(
+      () => new Promise<GlobalSearchResultItem[]>((res) => { resolveSearch = res; })
+    );
+
+    renderHub();
+    let pending!: Promise<void>;
+    await act(async () => {
+      // Kick off the search but DO NOT await it — the loading state must be observable.
+      pending = useHadithStore.getState().runGlobalSearch('النيات');
+      await Promise.resolve();
+    });
+
+    // Stage 1 (no progress event yet) → the load stage copy is shown.
+    let text = container.textContent || '';
+    expect(text).toContain('جارٍ تحميل فهرس البحث');
+    expect(text).not.toContain('جارٍ تجهيز النتائج');
+
+    // Engine reports bytes complete → stage 2 copy replaces stage 1.
+    await act(async () => {
+      emitProgressForTest({ phase: 'preparing' });
+    });
+    text = container.textContent || '';
+    expect(text).toContain('جارٍ تجهيز النتائج');
+    expect(text).not.toContain('جارٍ تحميل فهرس البحث');
+
+    // CRITICAL: results are NOT on screen yet — no false completion.
+    expect(text).not.toContain('نتائج البحث الشامل');
+    expect(text).not.toContain('إنما الأعمال بالنيات');
+
+    // Now the search resolves → results appear, loading copy disappears.
+    await act(async () => {
+      resolveSearch(RESULTS);
+      await Promise.resolve();
+    });
+    await pending;
+    text = container.textContent || '';
+    expect(text).toContain('نتائج البحث الشامل');
+    expect(text).not.toContain('جارٍ تجهيز النتائج');
   });
 });
