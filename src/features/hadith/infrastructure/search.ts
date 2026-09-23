@@ -119,13 +119,16 @@ function resolveProgressTotal(res: Response): number | null {
 }
 
 /**
- * Yields ONE real macrotask so the browser can actually PAINT the
+ * Yields ONE real macrotask so the browser gets an OPPORTUNITY to paint the
  * `preparing` stage before the synchronous `JSON.parse` + validation of the
- * multi-MB index blocks the main thread. `MessageChannel` is used because it is
- * a genuine macrotask that rendering may interleave with (the same primitive
- * React's scheduler relies on) and because fake timers do NOT own it, so tests
- * never stall on this yield. `setTimeout(0)` is only a fallback for runtimes
- * without MessageChannel.
+ * multi-MB index blocks the main thread. This is an opportunity, NOT a
+ * guarantee: what the tests can prove is that the stage is committed to the
+ * DOM and that a real macrotask boundary precedes the parse — never that the
+ * browser actually painted a frame.
+ * `MessageChannel` is used because it is a genuine macrotask that rendering
+ * may interleave with (the same primitive React's scheduler relies on) and
+ * because fake timers do NOT own it, so tests never stall on this yield.
+ * `setTimeout(0)` is only a fallback for runtimes without MessageChannel.
  *
  * Scope: ONE extra macrotask boundary. No extra network request, no change to
  * the per-attempt timeout budget (its timer simply keeps running), no change to
@@ -240,7 +243,9 @@ async function fetchJsonBounded(url: string): Promise<unknown> {
           // may report a Content-Length SMALLER than the real body (or lie
           // outright); breaking on it truncated the payload and yielded a
           // structurally-invalid index. We therefore always keep reading until
-          // `done === true`; the UI clamps the bar at 100% on its own.
+          // `done === true`; while the read is unfinished the UI keeps the
+          // visible ratio BELOW 100% and turns the bar indeterminate once
+          // `loaded` passes `total` (the header proved itself a lie).
           emitProgress({
             phase: 'download',
             loadedBytes: loaded,
@@ -258,11 +263,12 @@ async function fetchJsonBounded(url: string): Promise<unknown> {
       text = new TextDecoder().decode(concatBytes(chunks));
       // The body is COMPLETE (done === true). Declare the handoff to
       // `preparing` here — BEFORE JSON.parse and before validation, which are
-      // the expensive steps — then yield one macrotask so the browser can paint
-      // that stage instead of jumping straight from "downloading" to results.
+      // the expensive steps — then yield one macrotask so the browser has an
+      // OPPORTUNITY to paint that stage instead of jumping straight from
+      // "downloading" to results (an opportunity, NOT a guaranteed paint).
       emitProgress({ phase: 'preparing' });
       await yieldForPaint();
-      if (settled) return null; // the timeout may have fired while we painted
+      if (settled) return null; // the timeout may have fired while we yielded
     } else {
       // No streaming surface (mocked Response in tests, old engines): report an
       // indeterminate download so the UI never invents a percentage.
@@ -477,7 +483,7 @@ export async function loadHadithMicroIndexOutcome(): Promise<MicroIndexLoadOutco
     const local = await fetchJsonBounded('/data/hadith/hadiths_core_index.json');
     // NOTE: the `preparing` stage is emitted INSIDE fetchJsonBounded, the moment
     // the body is fully read (before JSON.parse/validate) — not here, so the
-    // browser can paint it while the heavy work runs.
+    // browser gets a chance to paint it while the heavy work runs.
     if (local !== null && isValidMicroIndexPayload(local)) {
       microIndexCache = parseMicroIndexPayload(local as { books?: unknown; grades?: unknown; items?: unknown });
       microIndexLoadError = null;

@@ -41,7 +41,9 @@ export interface HadithState {
 
   /**
    * Live load-progress of the micro-index while a global search is running
-   * (waiting-UX only; null when idle). `totalBytes` is null ⇒ indeterminate.
+   * (waiting-UX only; null when idle). `totalBytes` is null ⇒ indeterminate;
+   * the bar also turns indeterminate when `loadedBytes` exceeds an announced
+   * total (the header under-reported the body and can no longer be trusted).
    */
   globalSearchProgress: {
     phase: 'connect' | 'download' | 'preparing';

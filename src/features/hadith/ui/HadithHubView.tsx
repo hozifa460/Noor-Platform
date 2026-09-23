@@ -241,14 +241,19 @@ export function HadithHubView() {
                 {searchingGlobal && globalSearchProgress?.phase === 'download' && (
                   <div className="max-w-xs mx-auto space-y-1">
                     {typeof globalSearchProgress.totalBytes === 'number' &&
-                    globalSearchProgress.totalBytes > 0 ? (
+                    globalSearchProgress.totalBytes > 0 &&
+                    (globalSearchProgress.loadedBytes || 0) <= globalSearchProgress.totalBytes ? (
                       <>
                         <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
                           <div
                             className="h-full bg-primary transition-all duration-300"
                             style={{
+                              // While the `download` phase is visible the stream has NOT
+                              // reached `done === true` (the engine declares `preparing`
+                              // only afterwards), so a raw 100% would claim completion
+                              // early — keep the visible ratio strictly BELOW 100%.
                               width: `${Math.min(
-                                100,
+                                99,
                                 Math.round(
                                   ((globalSearchProgress.loadedBytes || 0) /
                                     globalSearchProgress.totalBytes) *
@@ -266,8 +271,10 @@ export function HadithHubView() {
                         </p>
                       </>
                     ) : (
-                      // Indeterminate: no trustworthy total (compressed or missing length) —
-                      // never invent a percentage.
+                      // Indeterminate: either there is no trustworthy total (compressed
+                      // or missing length) or the bytes read have already EXCEEDED the
+                      // announced Content-Length (an under-reporting proxy) — the header
+                      // proved itself a lie, so never invent a percentage from it.
                       <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
                         <div className="h-full w-1/3 bg-primary rounded-full animate-pulse" />
                       </div>
