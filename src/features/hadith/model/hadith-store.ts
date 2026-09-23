@@ -18,6 +18,7 @@ import {
   searchAcrossAllBooks,
   loadSunanGrades,
   MicroIndexLoadError,
+  onMicroIndexProgress,
 } from '../infrastructure';
 
 export interface HadithState {
@@ -37,6 +38,18 @@ export interface HadithState {
    * new search start and on success.
    */
   globalSearchError: 'timeout' | 'network' | 'invalid-payload' | null;
+
+  /**
+   * Live load-progress of the micro-index while a global search is running
+   * (waiting-UX only; null when idle). `totalBytes` is null ⇒ indeterminate;
+   * the bar also turns indeterminate when `loadedBytes` exceeds an announced
+   * total (the header under-reported the body and can no longer be trusted).
+   */
+  globalSearchProgress: {
+    phase: 'connect' | 'download' | 'preparing';
+    loadedBytes?: number;
+    totalBytes?: number | null;
+  } | null;
 
   // Global search results
   globalResults: GlobalSearchResultItem[];
@@ -90,6 +103,7 @@ export const useHadithStore = create<HadithState>((set, get) => ({
   loadingBook: false,
   searchingGlobal: false,
   globalSearchError: null,
+  globalSearchProgress: null,
 
   globalResults: [],
 
@@ -143,24 +157,34 @@ export const useHadithStore = create<HadithState>((set, get) => ({
   runGlobalSearch: async (q: string) => {
     const trimmed = q.trim();
     if (!trimmed) {
-      set({ globalResults: [], searchingGlobal: false, globalSearchError: null });
+      set({ globalResults: [], searchingGlobal: false, globalSearchError: null, globalSearchProgress: null });
       return;
     }
-    set({ searchingGlobal: true, globalSearchError: null });
+    set({ searchingGlobal: true, globalSearchError: null, globalSearchProgress: null });
+    const stopProgress = onMicroIndexProgress((p) => {
+      // Only surface progress while this search is the active one.
+      if (get().searchingGlobal) set({ globalSearchProgress: p });
+    });
     try {
       const res = await searchAcrossAllBooks(trimmed);
       // A load failure never reaches here as data: it throws
       // MicroIndexLoadError and is handled in the dedicated branch below.
-      set({ globalResults: res, searchingGlobal: false, globalSearchError: null });
+      set({ globalResults: res, searchingGlobal: false, globalSearchError: null, globalSearchProgress: null });
     } catch (err) {
       if (err instanceof MicroIndexLoadError) {
         // Index unavailable (timeout/network): keep the spinner off, preserve
         // any previous results, and surface the typed error for the retry UI.
         // The in-flight slot was already cleared, so retry refetches fresh.
-        set({ searchingGlobal: false, globalSearchError: err.reason === 'timeout' ? 'timeout' : err.reason });
+        set({
+          searchingGlobal: false,
+          globalSearchError: err.reason === 'timeout' ? 'timeout' : err.reason,
+          globalSearchProgress: null,
+        });
       } else {
-        set({ searchingGlobal: false });
+        set({ searchingGlobal: false, globalSearchProgress: null });
       }
+    } finally {
+      stopProgress();
     }
   },
 

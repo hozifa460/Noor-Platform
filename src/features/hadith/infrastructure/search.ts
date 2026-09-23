@@ -58,6 +58,117 @@ const MICRO_INDEX_SOURCE_TIMEOUT_MS = 90_000;
 let lastFetchDiagnosis: 'timeout' | 'network' | null = null;
 
 /**
+ * Loading-progress protocol for the micro-index fetch (waiting-UX only —
+ * this changes nothing about download speed, caching, or results).
+ *
+ * Phases: `connect` (request sent) → `download` (bytes arriving) →
+ * `preparing` (body FULLY read — every byte, `done === true`; JSON.parse and
+ * the structural validation are what runs next).
+ * `totalBytes` is emitted ONLY when it is trustworthy, per this rule:
+ *   - `Content-Length` is reliable ONLY when the response is NOT transformed
+ *     on the wire (`content-encoding` absent or `identity`). With `br`/`gzip`
+ *     the header counts COMPRESSED bytes while `fetch` hands us DECODED bytes,
+ *     so a percentage against it would be meaningless → indeterminate
+ *     (`totalBytes: null`). Same when the header is missing/invalid.
+ * Callers must render a determinate bar ONLY when `totalBytes` is a finite
+ * positive number; otherwise an indeterminate indicator.
+ *
+ * `totalBytes` is DISPLAY-ONLY: it is never used to stop the body read. The
+ * read always runs to `done === true`, so a proxy reporting a smaller
+ * Content-Length can never truncate the payload.
+ */
+export interface MicroIndexProgress {
+  phase: 'connect' | 'download' | 'preparing';
+  loadedBytes?: number;
+  totalBytes?: number | null;
+}
+
+export type MicroIndexProgressListener = (p: MicroIndexProgress) => void;
+
+const microIndexProgressListeners = new Set<MicroIndexProgressListener>();
+
+/** Subscribe to micro-index load progress; returns an unsubscribe function. */
+export function onMicroIndexProgress(listener: MicroIndexProgressListener): () => void {
+  microIndexProgressListeners.add(listener);
+  return () => {
+    microIndexProgressListeners.delete(listener);
+  };
+}
+
+function emitProgress(p: MicroIndexProgress): void {
+  for (const listener of [...microIndexProgressListeners]) {
+    try {
+      listener(p);
+    } catch {
+      /* a progress listener must never break the load */
+    }
+  }
+}
+
+/** Trustworthy total or null (indeterminate), per the rule documented above. */
+function resolveProgressTotal(res: Response): number | null {
+  const headers = (res as { headers?: { get?: (name: string) => string | null } }).headers;
+  const get = typeof headers?.get === 'function' ? headers.get.bind(headers) : null;
+  if (!get) return null;
+  const encoding = (get('content-encoding') || '').toLowerCase().trim();
+  const length = Number(get('content-length'));
+  if ((!encoding || encoding === 'identity') && Number.isFinite(length) && length > 0) {
+    return length;
+  }
+  return null;
+}
+
+/**
+ * Yields ONE real macrotask so the browser gets an OPPORTUNITY to paint the
+ * `preparing` stage before the synchronous `JSON.parse` + validation of the
+ * multi-MB index blocks the main thread. This is an opportunity, NOT a
+ * guarantee: what the tests can prove is that the stage is committed to the
+ * DOM and that a real macrotask boundary precedes the parse — never that the
+ * browser actually painted a frame.
+ * `MessageChannel` is used because it is a genuine macrotask that rendering
+ * may interleave with (the same primitive React's scheduler relies on) and
+ * because fake timers do NOT own it, so tests never stall on this yield.
+ * `setTimeout(0)` is only a fallback for runtimes without MessageChannel.
+ *
+ * Scope: ONE extra macrotask boundary. No extra network request, no change to
+ * the per-attempt timeout budget (its timer simply keeps running), no change to
+ * the bytes read or to the parsed result.
+ */
+function yieldForPaint(): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const MessageChannelCtor = (globalThis as { MessageChannel?: typeof MessageChannel })
+      .MessageChannel;
+    if (typeof MessageChannelCtor === 'function') {
+      const channel = new MessageChannelCtor();
+      channel.port1.onmessage = () => {
+        try {
+          channel.port1.close();
+          channel.port2.close();
+        } catch {
+          /* noop */
+        }
+        resolve();
+      };
+      channel.port2.postMessage(null);
+      return;
+    }
+    setTimeout(resolve, 0);
+  });
+}
+
+function concatBytes(chunks: Uint8Array[]): Uint8Array {
+  let size = 0;
+  for (const c of chunks) size += c.byteLength;
+  const out = new Uint8Array(size);
+  let offset = 0;
+  for (const c of chunks) {
+    out.set(c, offset);
+    offset += c.byteLength;
+  }
+  return out;
+}
+
+/**
  * Fetches one JSON source with a per-ATTEMPT timeout that covers headers AND
  * the full body read (`res.json()`), then aborts so a stalled socket is
  * released. Returning `null` means "this source failed" (timeout, abort,
@@ -66,7 +177,7 @@ let lastFetchDiagnosis: 'timeout' | 'network' | null = null;
 async function fetchJsonBounded(url: string): Promise<unknown> {
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
   let settled = false;
-  // The SAME timer object also bounds the body read (`res.json()`): headers
+  // The SAME timer object also bounds the body read (streamed below): headers
   // arriving fast must not exempt a body that then stalls mid-download.
   let timer: ReturnType<typeof setTimeout>;
   const cleanup = () => clearTimeout(timer);
@@ -94,17 +205,109 @@ async function fetchJsonBounded(url: string): Promise<unknown> {
       if (lastFetchDiagnosis !== 'timeout') lastFetchDiagnosis = 'network';
       throw err;
     });
-    const parsed = await Promise.race([res.json(), timeout]).catch((err) => {
+    if (!res.ok) {
+      if (!settled) {
+        settled = true;
+        cleanup();
+        lastFetchDiagnosis = 'network';
+      }
+      return null;
+    }
+    // Stream the body so long downloads surface progress (waiting-UX only —
+    // byte-identical result to res.json(); the reader loop yields no extra
+    // request and changes neither caching nor the timeout budget).
+    emitProgress({ phase: 'connect' });
+    const canStream =
+      typeof (res as unknown as { body?: unknown }).body !== 'undefined' &&
+      (res as unknown as { body?: { getReader?: unknown } | null }).body !== null &&
+      typeof (res as unknown as { body?: { getReader?: unknown } }).body?.getReader === 'function';
+    let text: string;
+    if (canStream) {
+      const total = resolveProgressTotal(res);
+      const reader = (
+        res as unknown as { body: { getReader: () => { read: () => Promise<{ done: boolean; value?: Uint8Array }>; cancel: () => Promise<void> } } }
+      ).body.getReader();
+      const chunks: Uint8Array[] = [];
+      let loaded = 0;
+      try {
+        for (;;) {
+          // Race every read against the SAME timeout so a stalled body still fails.
+          const chunk = await Promise.race([reader.read(), timeout]);
+          if (chunk.done) break;
+          const value = chunk.value;
+          if (value) {
+            chunks.push(value);
+            loaded += value.byteLength;
+          }
+          // `total` is DISPLAY-ONLY — it never terminates the read. A proxy/CDN
+          // may report a Content-Length SMALLER than the real body (or lie
+          // outright); breaking on it truncated the payload and yielded a
+          // structurally-invalid index. We therefore always keep reading until
+          // `done === true`; while the read is unfinished the UI keeps the
+          // visible ratio BELOW 100% and turns the bar indeterminate once
+          // `loaded` passes `total` (the header proved itself a lie).
+          emitProgress({
+            phase: 'download',
+            loadedBytes: loaded,
+            totalBytes: total === null ? null : total,
+          });
+        }
+      } finally {
+        // Always release the reader lock; abort-on-timeout already releases the socket.
+        try {
+          await reader.cancel();
+        } catch {
+          /* noop */
+        }
+      }
+      text = new TextDecoder().decode(concatBytes(chunks));
+      // The body is COMPLETE (done === true). Declare the handoff to
+      // `preparing` here — BEFORE JSON.parse and before validation, which are
+      // the expensive steps — then yield one macrotask so the browser has an
+      // OPPORTUNITY to paint that stage instead of jumping straight from
+      // "downloading" to results (an opportunity, NOT a guaranteed paint).
+      emitProgress({ phase: 'preparing' });
+      await yieldForPaint();
+      if (settled) return null; // the timeout may have fired while we yielded
+    } else {
+      // No streaming surface (mocked Response in tests, old engines): report an
+      // indeterminate download so the UI never invents a percentage.
+      emitProgress({ phase: 'download', totalBytes: null });
+      // Without a readable body the read and the parse are inseparable
+      // (`res.json()` does both), so the handoff is declared immediately before
+      // it, with the same paint yield.
+      emitProgress({ phase: 'preparing' });
+      await yieldForPaint();
+      if (settled) return null;
+      if (typeof (res as { json?: unknown }).json === 'function') {
+        const parsed = await Promise.race([res.json(), timeout]).catch((err) => {
+          if (lastFetchDiagnosis !== 'timeout') lastFetchDiagnosis = 'network';
+          throw err;
+        });
+        if (settled) return null;
+        settled = true;
+        cleanup();
+        lastFetchDiagnosis = null;
+        return parsed;
+      }
+      text = await Promise.race([
+        res.text().catch(() => ''),
+        timeout,
+      ]).catch((err) => {
+        if (lastFetchDiagnosis !== 'timeout') lastFetchDiagnosis = 'network';
+        throw err;
+      });
+    }
+    const parsed: unknown = await Promise.race([
+      (async () => JSON.parse(text))(),
+      timeout,
+    ]).catch((err) => {
       if (lastFetchDiagnosis !== 'timeout') lastFetchDiagnosis = 'network';
       throw err;
     });
     if (settled) return null;
     settled = true;
     cleanup();
-    if (!res.ok) {
-      lastFetchDiagnosis = 'network';
-      return null;
-    }
     lastFetchDiagnosis = null;
     return parsed;
   } catch {
@@ -278,6 +481,9 @@ export async function loadHadithMicroIndexOutcome(): Promise<MicroIndexLoadOutco
     //    A non-conforming payload (e.g. {"error":"unavailable"}) counts as a
     //    source failure → fall through to the mirror; it is NEVER cached.
     const local = await fetchJsonBounded('/data/hadith/hadiths_core_index.json');
+    // NOTE: the `preparing` stage is emitted INSIDE fetchJsonBounded, the moment
+    // the body is fully read (before JSON.parse/validate) — not here, so the
+    // browser gets a chance to paint it while the heavy work runs.
     if (local !== null && isValidMicroIndexPayload(local)) {
       microIndexCache = parseMicroIndexPayload(local as { books?: unknown; grades?: unknown; items?: unknown });
       microIndexLoadError = null;

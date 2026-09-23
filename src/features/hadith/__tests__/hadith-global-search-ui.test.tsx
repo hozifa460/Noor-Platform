@@ -154,4 +154,7 @@ describe('HadithHubView — global search failure → retry → results', () => 
     expect(text).toContain('لم نعثر على أحاديث مطابقة');
     expect(text).not.toContain('تعذّر تحميل فهرس البحث الشامل');
   });
+  // NOTE: the loading-STAGE behaviour (and its transition) is covered
+  // end-to-end against the REAL engine in hadith-global-search-stages-ui.test.tsx
+  // — deliberately not by emitting a synthetic progress event from here.
 });

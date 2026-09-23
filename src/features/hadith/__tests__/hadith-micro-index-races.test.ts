@@ -50,6 +50,42 @@ function okJson(payload: unknown): Response {
   } as Response;
 }
 
+/** A real streaming Response so the progress path exercises a live body. */
+function streamingResponse(payload: unknown, headers?: Record<string, string>): Response {
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  return new Response(bytes, { status: 200, headers });
+}
+
+/** Headers arrive (200) but the body NEVER produces a byte — a stalled download. */
+function stalledBodyResponse(headers?: Record<string, string>): Response {
+  const neverYields = new ReadableStream<Uint8Array>({ start() { /* no chunks, no close */ } });
+  return new Response(neverYields, { status: 200, headers });
+}
+
+/** A streaming Response over RAW text (for malformed-body cases). */
+function streamingRawResponse(raw: string, headers?: Record<string, string>): Response {
+  return new Response(new TextEncoder().encode(raw), { status: 200, headers });
+}
+
+/** Await one REAL macrotask (MessageChannel is not owned by fake timers). */
+function macrotaskTick(): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const mc = new MessageChannel();
+    mc.port1.onmessage = () => resolve();
+    mc.port2.postMessage(null);
+  });
+}
+
+const MULTI_ITEM_PAYLOAD = {
+  books: ['bukhari'],
+  grades: ['صحيح'],
+  items: [
+    [0, 1, 1, 'حديث أول', 0],
+    [0, 2, 1, 'حديث ثانٍ', 0],
+    [0, 3, 1, 'حديث ثالث', 0],
+  ],
+};
+
 const VALID_PAYLOAD = { books: ['bukhari'], grades: ['صحيح'], items: [[0, 1, 1, 'متن الحديث', 0]] };
 
 describe('payload structure validation (invalid payload = source failure)', () => {
@@ -287,3 +323,246 @@ describe('loadHadithMicroIndex — stalled-fetch races (global search hang)', ()
     }
   });
 });
+describe('micro-index load progress (waiting-UX only)', () => {
+  it('reports download progress with a trustworthy total for an un-encoded response', async () => {
+    vi.useFakeTimers();
+    try {
+      const { onMicroIndexProgress, loadHadithMicroIndexOutcome } = await import('../infrastructure/search');
+      const events: { phase: string; totalBytes?: number | null; loadedBytes?: number }[] = [];
+      const stop = onMicroIndexProgress((p) => events.push(p));
+      const bytes = new TextEncoder().encode(JSON.stringify(VALID_PAYLOAD));
+      try {
+        // Un-encoded response with a truthful Content-Length → determinate progress.
+        fetchImpl = () =>
+          Promise.resolve(streamingResponse(VALID_PAYLOAD, { 'content-length': String(bytes.length) }));
+        const outcome = await loadHadithMicroIndexOutcome();
+        expect(outcome.status).toBe('loaded');
+        expect(events.some((e) => e.phase === 'connect')).toBe(true);
+        expect(events.some((e) => e.phase === 'download')).toBe(true);
+        expect(events.some((e) => e.phase === 'preparing')).toBe(true);
+        // A reliable total exists (un-encoded), so a determinate percentage is allowed.
+        const totalEvent = events.find((e) => e.phase === 'download');
+        expect(totalEvent && typeof totalEvent.totalBytes === 'number').toBe(true);
+      } finally {
+        stop();
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps progress INDETERMINATE for a compressed (br) response — never invents a percentage', async () => {
+    vi.useFakeTimers();
+    try {
+      const { onMicroIndexProgress, loadHadithMicroIndexOutcome } = await import('../infrastructure/search');
+      const events: { phase: string; totalBytes?: number | null }[] = [];
+      const stop = onMicroIndexProgress((p) => events.push(p));
+      try {
+        // content-encoding: br makes Content-Length (if present) unreliable → indeterminate.
+        fetchImpl = () => Promise.resolve(streamingResponse(VALID_PAYLOAD, { 'content-encoding': 'br' }));
+        const outcome = await loadHadithMicroIndexOutcome();
+        expect(outcome.status).toBe('loaded');
+        const downloadEvents = events.filter((e) => e.phase === 'download');
+        expect(downloadEvents.length).toBeGreaterThan(0);
+        expect(downloadEvents.every((e) => e.totalBytes === null)).toBe(true);
+      } finally {
+        stop();
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps progress INDETERMINATE when Content-Length is absent', async () => {
+    vi.useFakeTimers();
+    try {
+      const { onMicroIndexProgress, loadHadithMicroIndexOutcome } = await import('../infrastructure/search');
+      const events: { phase: string; totalBytes?: number | null }[] = [];
+      const stop = onMicroIndexProgress((p) => events.push(p));
+      try {
+        fetchImpl = () => Promise.resolve(streamingResponse(VALID_PAYLOAD)); // no headers at all
+        const outcome = await loadHadithMicroIndexOutcome();
+        expect(outcome.status).toBe('loaded');
+        const downloadEvents = events.filter((e) => e.phase === 'download');
+        expect(downloadEvents.every((e) => e.totalBytes === null)).toBe(true);
+      } finally {
+        stop();
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('reports failure after a stalled body via the bounded timeout (no hang)', async () => {
+    vi.useFakeTimers();
+    try {
+      const { onMicroIndexProgress, loadHadithMicroIndexOutcome, getMicroIndexLoadError } = await import('../infrastructure/search');
+      const events: { phase: string }[] = [];
+      const stop = onMicroIndexProgress((p) => events.push(p));
+      try {
+        // Headers arrive; the body stalls → per-attempt timeout must end it.
+        fetchImpl = () => Promise.resolve(stalledBodyResponse({ 'content-encoding': 'br' }));
+        const p = loadHadithMicroIndexOutcome();
+        await vi.advanceTimersByTimeAsync(190_000);
+        const outcome = await p;
+        expect(outcome).toEqual({ status: 'failed', reason: 'timeout' });
+        expect(getMicroIndexLoadError()).toEqual({ status: 'failed', reason: 'timeout' });
+      } finally {
+        stop();
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('recovers on retry after a failure — progress resumes and the next attempt succeeds', async () => {
+    vi.useFakeTimers();
+    try {
+      const mod = await import('../infrastructure/search');
+      const events: { phase: string }[] = [];
+      const stop = mod.onMicroIndexProgress((p: { phase: string }) => events.push(p));
+      try {
+        // Attempt 1: stalled body → timeout.
+        fetchImpl = () => Promise.resolve(stalledBodyResponse({ 'content-encoding': 'br' }));
+        const p1 = mod.loadHadithMicroIndexOutcome();
+        await vi.advanceTimersByTimeAsync(190_000);
+        await expect(p1).resolves.toEqual({ status: 'failed', reason: 'timeout' });
+
+        // Attempt 2: valid payload via the streaming path → loaded.
+        fetchImpl = () => Promise.resolve(streamingResponse(VALID_PAYLOAD));
+        const p2 = mod.loadHadithMicroIndexOutcome();
+        const outcome2 = await p2;
+        expect(outcome2.status).toBe('loaded');
+        const phases = events.map((e) => e.phase);
+        // Attempt 1 never finished reading a body, so it must NOT claim the
+        // `preparing` stage — that stage now means "every byte has been read".
+        const preparingAt = phases.indexOf('preparing');
+        expect(phases.filter((p) => p === 'preparing')).toHaveLength(1);
+        // Progress resumed for the retry: a fresh `connect` per attempt…
+        expect(phases.filter((p) => p === 'connect').length).toBeGreaterThanOrEqual(2);
+        // …and the only `preparing` follows the retry's own download.
+        expect(phases.lastIndexOf('download')).toBeLessThan(preparingAt);
+      } finally {
+        stop();
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps reading past a Content-Length that is SMALLER than the body (header is display-only)', async () => {
+    vi.useFakeTimers();
+    try {
+      const { onMicroIndexProgress, loadHadithMicroIndexOutcome } = await import('../infrastructure/search');
+      const events: { phase: string; totalBytes?: number | null; loadedBytes?: number }[] = [];
+      const stop = onMicroIndexProgress((p) => events.push(p));
+      try {
+        const full = new TextEncoder().encode(JSON.stringify(MULTI_ITEM_PAYLOAD));
+        // A proxy/CDN that under-reports the length (half the real body).
+        const liedTotal = Math.floor(full.byteLength / 2);
+        fetchImpl = () =>
+          Promise.resolve(
+            streamingResponse(MULTI_ITEM_PAYLOAD, { 'content-length': String(liedTotal) })
+          );
+
+        const outcome = await loadHadithMicroIndexOutcome();
+        expect(outcome.status).toBe('loaded');
+        if (outcome.status === 'loaded') {
+          // The WHOLE index was read — nothing was truncated at the header value.
+          expect(outcome.entries).toHaveLength(3);
+          expect(outcome.entries.map((e) => e.i)).toEqual([1, 2, 3]);
+        }
+        // The header is reported for display only…
+        const downloadEvents = events.filter((e) => e.phase === 'download');
+        expect(downloadEvents.every((e) => e.totalBytes === liedTotal)).toBe(true);
+        // …while the read plainly continued beyond it.
+        const maxLoaded = Math.max(...downloadEvents.map((e) => e.loadedBytes || 0));
+        expect(maxLoaded).toBeGreaterThan(liedTotal);
+        expect(maxLoaded).toBeGreaterThanOrEqual(full.byteLength);
+      } finally {
+        stop();
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('declares `preparing` the moment the body is fully read — BEFORE JSON.parse', async () => {
+    vi.useFakeTimers();
+    try {
+      const { onMicroIndexProgress, loadHadithMicroIndexOutcome, getMicroIndexLoadError } =
+        await import('../infrastructure/search');
+      const events: { phase: string; loadedBytes?: number }[] = [];
+      let settled = false;
+      let preparingBeforeSettle = false;
+      const stop = onMicroIndexProgress((p) => {
+        if (p.phase === 'preparing' && !settled) preparingBeforeSettle = true;
+        events.push(p);
+      });
+      try {
+        // A body that is NOT parseable JSON: if `preparing` were still emitted
+        // only AFTER the parse, it could never appear here at all.
+        const raw = '{"books": ["bukhari"], "items": [[0, 1, 1, "نص"'; // truncated JSON
+        const rawLen = new TextEncoder().encode(raw).byteLength;
+        fetchImpl = () =>
+          Promise.resolve(streamingRawResponse(raw, { 'content-length': String(rawLen) }));
+        const promise = loadHadithMicroIndexOutcome();
+        promise.then(() => {
+          settled = true;
+        });
+        const outcome = await promise;
+
+        // The load legitimately FAILS (the body can never be parsed)…
+        expect(outcome.status).toBe('failed');
+        expect(getMicroIndexLoadError()).not.toBeNull();
+        // …yet the handoff stage was declared: proof it precedes the parse.
+        const phases = events.map((e) => e.phase);
+        expect(phases).toContain('preparing');
+        expect(preparingBeforeSettle).toBe(true);
+        // And it followed a COMPLETE read of the body, not the request start.
+        const firstPreparing = phases.indexOf('preparing');
+        const downloadBeforePreparing = events
+          .slice(0, firstPreparing)
+          .filter((e) => e.phase === 'download');
+        expect(downloadBeforePreparing.some((e) => (e.loadedBytes || 0) === rawLen)).toBe(true);
+      } finally {
+        stop();
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('yields a real macrotask between `preparing` and the parse, so the browser can paint it', async () => {
+    const { onMicroIndexProgress, loadHadithMicroIndexOutcome } = await import('../infrastructure/search');
+    let settled = false;
+    let scheduled = false;
+    let macrotaskRanBeforeSettle = false;
+    const stop = onMicroIndexProgress((p) => {
+      if (p.phase !== 'preparing' || scheduled) return;
+      scheduled = true;
+      // Same task source as the engine's own yield → FIFO, so this runs first
+      // only if the engine really breaks the synchronous parse with a macrotask.
+      macrotaskTick().then(() => {
+        if (!settled) macrotaskRanBeforeSettle = true;
+      });
+    });
+    try {
+      const bytes = new TextEncoder().encode(JSON.stringify(VALID_PAYLOAD));
+      fetchImpl = () =>
+        Promise.resolve(streamingResponse(VALID_PAYLOAD, { 'content-length': String(bytes.length) }));
+      const promise = loadHadithMicroIndexOutcome();
+      promise.then(() => {
+        settled = true;
+      });
+      const outcome = await promise;
+      expect(outcome.status).toBe('loaded');
+      await macrotaskTick(); // let the tick we scheduled during `preparing` land
+      expect(scheduled).toBe(true);
+      expect(macrotaskRanBeforeSettle).toBe(true);
+    } finally {
+      stop();
+    }
+  });
+});
+

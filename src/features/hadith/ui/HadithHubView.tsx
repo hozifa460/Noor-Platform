@@ -36,6 +36,7 @@ export function HadithHubView() {
   const searchingGlobal = useHadithStore((s) => s.searchingGlobal);
   const globalResults = useHadithStore((s) => s.globalResults);
   const globalSearchError = useHadithStore((s) => s.globalSearchError);
+  const globalSearchProgress = useHadithStore((s) => s.globalSearchProgress);
   const retryGlobalSearch = useHadithStore((s) => s.retryGlobalSearch);
 
   const selectedHadith = useHadithStore((s) => s.selectedHadith);
@@ -232,9 +233,54 @@ export function HadithHubView() {
                 <div className="size-10 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
                 <p className="text-sm font-bold text-muted-foreground animate-pulse">
                   {searchingGlobal
-                    ? 'جاري البحث في دواوين السنة الـ 17 وترتيب النتائج...'
+                    ? globalSearchProgress?.phase === 'preparing'
+                      ? 'جارٍ تجهيز النتائج...'
+                      : 'جارٍ تحميل فهرس البحث...'
                     : `جاري فتح ديوان ${activeBook.nameAr}...`}
                 </p>
+                {searchingGlobal && globalSearchProgress?.phase === 'download' && (
+                  <div className="max-w-xs mx-auto space-y-1">
+                    {typeof globalSearchProgress.totalBytes === 'number' &&
+                    globalSearchProgress.totalBytes > 0 &&
+                    (globalSearchProgress.loadedBytes || 0) <= globalSearchProgress.totalBytes ? (
+                      <>
+                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full bg-primary transition-all duration-300"
+                            style={{
+                              // While the `download` phase is visible the stream has NOT
+                              // reached `done === true` (the engine declares `preparing`
+                              // only afterwards), so a raw 100% would claim completion
+                              // early — keep the visible ratio strictly BELOW 100%.
+                              width: `${Math.min(
+                                99,
+                                Math.round(
+                                  ((globalSearchProgress.loadedBytes || 0) /
+                                    globalSearchProgress.totalBytes) *
+                                    100
+                                )
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          {(
+                            (globalSearchProgress.loadedBytes || 0) / (1024 * 1024)
+                          ).toFixed(1)}{' '}
+                          م.ب من {(globalSearchProgress.totalBytes / (1024 * 1024)).toFixed(1)} م.ب
+                        </p>
+                      </>
+                    ) : (
+                      // Indeterminate: either there is no trustworthy total (compressed
+                      // or missing length) or the bytes read have already EXCEEDED the
+                      // announced Content-Length (an under-reporting proxy) — the header
+                      // proved itself a lie, so never invent a percentage from it.
+                      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                        <div className="h-full w-1/3 bg-primary rounded-full animate-pulse" />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
