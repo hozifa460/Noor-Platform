@@ -32,7 +32,11 @@ async function runHuggingFaceSyncTests() {
   console.log('\n--- Test Suite 2: URL Construction & Security Whitelist ---');
   const sampleUrl = fileUrl(dawahRepo, 'AL-HAFEZ/AL-HAFEZ.videos.json');
   console.log('  Sample Dawah URL:', sampleUrl);
-  assert(sampleUrl.startsWith('https://huggingface.co/datasets/hozifa1/Telewat_Daawa_And_Channels/resolve/main/Dawah_And_Channels/AL-HAFEZ/AL-HAFEZ.videos.json'), 'Generates valid HF resolve URL');
+  assert(
+    sampleUrl.startsWith('https://huggingface.co/datasets/hozifa1/Telewat_Daawa_And_Channels/raw/main/Dawah_And_Channels/AL-HAFEZ/AL-HAFEZ.videos.json'),
+    'Generates the expected HF raw URL',
+    `(got ${sampleUrl})`,
+  );
 
   const isSafe = await validateSafeUrl(sampleUrl);
   assert(isSafe, 'Hugging Face resolve URL is allowed through SSRF security guard');
@@ -48,6 +52,28 @@ async function runHuggingFaceSyncTests() {
   assert(files.length > 50, `Fetched merged index with ${files.length} files (expected > 50)`);
   assert(perRepo.some((r) => r.repoId === 'hf-telewat-dawah' && r.ok && r.fileCount > 0), 'Dawah repo index fetched successfully');
   assert(perRepo.some((r) => r.repoId === 'hf-fatawa' && r.ok && r.fileCount > 0), 'Fatawa repo index/tree fetched successfully');
+  assert(
+    perRepo.some((r) => r.repoId === 'hf-islamic-books' && r.ok && r.fileCount > 0),
+    'Islamic books tree-only repo discovers real JSON files',
+    `(got ${JSON.stringify(perRepo.find((r) => r.repoId === 'hf-islamic-books'))})`,
+  );
+
+  // 3b. Static index.json must never be requested for tree-only repositories
+  console.log('\n--- Test Suite 3b: Index Mode Contract (no 404 index.json guesses) ---');
+  const booksRepo = DEFAULT_REPOSITORIES.find((r) => r.id === 'hf-islamic-books');
+  for (const repo of [fatwaRepo, booksRepo]) {
+    const urls = candidateIndexUrls(repo);
+    console.log(`  [${repo?.id}] indexMode=${repo?.indexMode} candidates=${urls.length}`);
+    assert(
+      !urls.some((u) => u.includes('index.json')),
+      `${repo?.id} generates no static index.json candidate`,
+      `(got ${JSON.stringify(urls)})`,
+    );
+  }
+  assert(
+    candidateIndexUrls(dawahRepo).some((u) => u.endsWith('/index.json')),
+    'Static-mode Dawah repo keeps its index.json candidate',
+  );
 
   // 4. Fetch and Normalize Sample Dawah File
   console.log('\n--- Test Suite 4: Fetch & Normalize Sample Dawah File ---');
@@ -64,12 +90,35 @@ async function runHuggingFaceSyncTests() {
 
   // 5. Fetch and Normalize Sample Fatwa File
   console.log('\n--- Test Suite 5: Fetch & Normalize Sample Fatwa File ---');
-  const sampleFatwaFile = files.find((f) => f.includes('fatawa') || f.includes('فتاوى')) || 'fatawa_binbaz.json';
-  console.log(`  Fetching sample fatwa file: ${sampleFatwaFile}`);
-  const fatwaRes = await fetchJsonWithFallback(DEFAULT_REPOSITORIES, sampleFatwaFile, 25000);
-  assert(fatwaRes.ok && fatwaRes.data !== null, 'Fetched sample Fatwa JSON file from Hugging Face');
+  // NOTE: several fatawa payloads are Git LFS objects (e.g. fatawa_01_1.json, 68MB).
+  // Under /raw/main Hugging Face returns the 3-line LFS pointer instead of the JSON
+  // body, so this suite deliberately prefers a non-LFS payload to validate parsing.
+  const NON_LFS_FATWA_CANDIDATES = [
+    'fatawa_binbaz.json',
+    'fatawaa_aljamie_alkabir.json',
+    'islamhouse_fatwa_ar.json',
+    'nur_ealaa_aldarb2.json',
+  ];
+  const fatwaCandidates = [
+    ...NON_LFS_FATWA_CANDIDATES.filter((name) => files.includes(name)),
+    ...files.filter((f) => f.includes('fatawa') && f.endsWith('.json')).filter((f) => !NON_LFS_FATWA_CANDIDATES.includes(f)),
+  ];
 
-  if (fatwaRes.data) {
+  let fatwaRes = null;
+  let sampleFatwaFile = '';
+  for (const candidate of fatwaCandidates.slice(0, 5)) {
+    sampleFatwaFile = candidate;
+    const attempt = await fetchJsonWithFallback(DEFAULT_REPOSITORIES, candidate, 25000);
+    if (attempt.ok && attempt.data !== null) {
+      fatwaRes = attempt;
+      break;
+    }
+  }
+
+  console.log(`  Fetching sample fatwa file: ${sampleFatwaFile}`);
+  assert(fatwaRes !== null, 'Fetched sample Fatwa JSON file from Hugging Face');
+
+  if (fatwaRes?.data) {
     const { items } = normalizeContentFile(fatwaRes.data, sampleFatwaFile, fatwaRes.sourceId);
     assert(items.length > 0, `Normalized ${items.length} fatwa items`);
     assert(items[0]?.section === 'fatwa', `Correctly classified as 'fatwa' section (got ${items[0]?.section})`);

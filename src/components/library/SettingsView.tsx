@@ -156,6 +156,26 @@ export function SettingsView() {
                     dir="ltr"
                   />
                 </div>
+
+                {repo.provider === 'huggingface' && (
+                  <div>
+                    <Label className="text-xs">طريقة الفهرسة</Label>
+                    <Select
+                      value={repo.indexMode || 'auto'}
+                      onValueChange={(v) => updateRepo(repo.id, { indexMode: v as 'auto' | 'static' | 'tree' })}
+                    >
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">تلقائي (index.json ثم شجرة الملفات)</SelectItem>
+                        <SelectItem value="static">ملف index.json فقط</SelectItem>
+                        <SelectItem value="tree">شجرة Hugging Face فقط</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      استخدم «شجرة Hugging Face فقط» للمستودعات التي لا تحتوي على index.json لتفادي طلبات 404.
+                    </p>
+                  </div>
+                )}
               </div>
             );
           })}

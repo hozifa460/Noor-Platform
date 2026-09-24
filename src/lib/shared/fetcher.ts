@@ -1,5 +1,12 @@
 import type { IndexFile, RepositorySource } from '../types';
-import { fileUrl, candidateIndexUrls, filterReposForPath } from './repositories';
+import {
+  fileUrl,
+  candidateIndexUrls,
+  filterReposForPath,
+  huggingfaceTreeUrl,
+  isHuggingFaceTreeUrl,
+  parseNextLink,
+} from './repositories';
 
 /**
  * Smart fetcher with retry, timeout, and automatic GitHub → GitLab mirror
@@ -189,6 +196,184 @@ export async function fetchJsonWithFallback<T>(
 }
 
 /**
+ * Maximum number of Tree API pages followed for a single directory listing.
+ * Hugging Face returns 1,000 entries per page, so 5 pages caps a listing at
+ * 5,000 entries while still covering realistically sized datasets.
+ */
+const MAX_TREE_PAGES = 5;
+
+/**
+ * Maximum number of directory listings issued for a single repository scan.
+ * Keeps the global sync polite for repositories with tens of thousands of
+ * nested book folders (e.g. `islamic_books/books/shamela_liberary`).
+ */
+const MAX_TREE_DIRECTORIES = 8;
+
+/**
+ * Maximum number of recursive pages followed before the cheap shallow scan
+ * takes over. A recursive listing of a large nested dataset is dominated by
+ * directory entries, so following many pages of it wastes requests that the
+ * shallow scan resolves in one.
+ */
+const MAX_RECURSIVE_TREE_PAGES = 2;
+
+/** A single entry from a Hugging Face Tree API listing. */
+interface HfTreeEntry {
+  path: string;
+  type?: string;
+}
+
+/** Extracts JSON file paths from either a Hugging Face tree listing or an index payload. */
+function extractJsonFilePaths(data: unknown): string[] {
+  if (Array.isArray(data)) {
+    // Either an array of strings or an array of Hugging Face tree objects
+    return data
+      .map((item: unknown) => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object' && 'path' in item) {
+          const node = item as { path: string; type?: string };
+          if (node.type === 'directory') return '';
+          return typeof node.path === 'string' ? node.path : '';
+        }
+        return '';
+      })
+      .filter((p) => Boolean(p) && p.endsWith('.json'));
+  }
+
+  if (data && typeof data === 'object' && Array.isArray((data as IndexFile).files)) {
+    return (data as IndexFile).files;
+  }
+
+  return [];
+}
+
+/**
+ * Fetches one directory listing from the Hugging Face Tree API, following the
+ * cursor pagination advertised in the `Link` response header.
+ *
+ * Without this loop a repository with more than 1,000 entries under a path
+ * would be silently truncated to the first page.
+ */
+async function fetchTreeListing(
+  url: string,
+  timeoutMs?: number,
+  maxPages: number = MAX_TREE_PAGES,
+): Promise<HfTreeEntry[]> {
+  const entries: HfTreeEntry[] = [];
+  let nextUrl: string | null = url;
+  let pages = 0;
+
+  while (nextUrl && pages < maxPages) {
+    const currentUrl: string = nextUrl;
+    pages += 1;
+    const res = await fetchWithTimeout(currentUrl, { method: 'GET' }, timeoutMs);
+    if (!res.ok) throw new HttpError(res.status, currentUrl);
+
+    const raw = await res.text();
+    let data: unknown;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      throw new Error(`Failed to parse Tree API response from ${currentUrl}`);
+    }
+    if (!Array.isArray(data)) throw new Error(`Unexpected Tree API response from ${currentUrl}`);
+
+    for (const item of data) {
+      if (item && typeof item === 'object' && 'path' in item) {
+        const node = item as HfTreeEntry;
+        if (typeof node.path === 'string') entries.push({ path: node.path, type: node.type });
+      }
+    }
+
+    nextUrl = parseNextLink(res.headers.get('link'));
+  }
+
+  return entries;
+}
+
+/**
+ * Discovers JSON files for a tree-only repository.
+ *
+ * Strategy (adaptive and bounded):
+ *  1. List the configured path recursively with pagination — cheap (a single
+ *     request) and complete for datasets whose files fit in one page
+ *     (e.g. `fatawaset/fatawa` → 37 files).
+ *  2. If the recursive listing exposes no JSON files within the page budget,
+ *     fall back to bounded non-recursive directory listings. This is what makes
+ *     large nested datasets such as `islamic_books/books` discoverable: their
+ *     recursive listing is dominated by tens of thousands of Shamela folders,
+ *     while the actual book JSON files live directly under `books/`.
+ */
+async function discoverTreeFiles(repo: RepositorySource, timeoutMs?: number): Promise<string[]> {
+  const basePath = (repo.path || '').replace(/^\/+|\/+$/g, '');
+
+  // 1. Recursive listing (paginated, bounded so nested datasets cannot stall the sync)
+  const recursiveEntries = await fetchTreeListing(
+    huggingfaceTreeUrl(repo, basePath, { recursive: true }),
+    timeoutMs,
+    MAX_RECURSIVE_TREE_PAGES,
+  );
+  const recursiveFiles = extractJsonFilePaths(recursiveEntries);
+  if (recursiveFiles.length > 0) return recursiveFiles;
+
+  // 2. Bounded breadth-first scan of the directory levels beneath the path
+  const visited = new Set<string>();
+  const discovered = new Set<string>();
+  const queue: string[] = [basePath];
+  let listings = 0;
+
+  while (queue.length > 0 && listings < MAX_TREE_DIRECTORIES) {
+    const dir = queue.shift() as string;
+    if (visited.has(dir)) continue;
+    visited.add(dir);
+    listings += 1;
+
+    const entries = await fetchTreeListing(huggingfaceTreeUrl(repo, dir), timeoutMs);
+    const subDirs: string[] = [];
+    for (const entry of entries) {
+      if (entry.type === 'directory') subDirs.push(entry.path);
+      else if (entry.path.endsWith('.json')) discovered.add(entry.path);
+    }
+
+    // Only descend further while the scan has not discovered any JSON files yet.
+    if (discovered.size === 0) queue.push(...subDirs);
+  }
+
+  return [...discovered];
+}
+
+/**
+ * Resolves the file list of a single repository.
+ *
+ * Tree-only repositories (`indexMode: 'tree'`) never request a static
+ * `${path}/index.json`, which is what produced 404 requests for tree-only
+ * datasets. All other modes keep the approved candidate fallback ordering and
+ * now follow Tree API cursor pagination instead of truncating at 1,000 entries.
+ */
+async function discoverRepoFiles(repo: RepositorySource, timeoutMs?: number): Promise<string[]> {
+  if (repo.provider === 'huggingface' && repo.indexMode === 'tree') {
+    return discoverTreeFiles(repo, timeoutMs);
+  }
+
+  const urls = candidateIndexUrls(repo);
+  let lastErr: unknown;
+
+  for (const url of urls) {
+    try {
+      if (repo.provider === 'huggingface' && isHuggingFaceTreeUrl(url)) {
+        return extractJsonFilePaths(await fetchTreeListing(url, timeoutMs));
+      }
+      const result = await tryFetchJson<unknown>(url, timeoutMs);
+      return extractJsonFilePaths(result.data);
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+
+  throw lastErr instanceof Error ? lastErr : new Error('All index URLs failed');
+}
+
+/**
  * Fetches and merges all index.json files from every enabled repository.
  * Deduplicates the merged file list, deterministically retains primary originating
  * repository associations according to approved repository order, and tracks fallback mirrors.
@@ -213,39 +398,8 @@ export async function fetchMergedIndex(
   const repoResults = await Promise.all(
     enabled.map(async (repo) => {
       try {
-        // Try each candidate index URL in order until one returns valid JSON.
-        const urls = candidateIndexUrls(repo);
-        let data: IndexFile | null = null;
-        let lastErr: unknown;
-        for (const url of urls) {
-          try {
-            const result = await tryFetchJson<IndexFile>(url, timeoutMs);
-            data = result.data;
-            break;
-          } catch (err) {
-            lastErr = err;
-          }
-        }
-        if (data === null) throw lastErr instanceof Error ? lastErr : new Error('All index URLs failed');
-        let rawList: string[] = [];
-        if (data && typeof data === 'object') {
-          if (Array.isArray(data)) {
-            // Either array of strings or array of Hugging Face tree objects
-            rawList = data
-              .map((item: unknown) => {
-                if (typeof item === 'string') return item;
-                if (item && typeof item === 'object' && 'path' in item) {
-                  const node = item as { path: string; type?: string };
-                  if (node.type === 'directory') return '';
-                  return node.path;
-                }
-                return '';
-              })
-              .filter((p) => p && p.endsWith('.json'));
-          } else if (Array.isArray((data as IndexFile).files)) {
-            rawList = (data as IndexFile).files;
-          }
-        }
+        // Resolve this repository's file list according to its explicit index mode.
+        const rawList = await discoverRepoFiles(repo, timeoutMs);
         return { repo, ok: true, rawList, error: undefined };
       } catch (err) {
         return {

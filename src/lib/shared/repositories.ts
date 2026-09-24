@@ -25,6 +25,9 @@ export const DEFAULT_REPOSITORIES: RepositorySource[] = [
     branch: 'main',
     path: 'Dawah_And_Channels',
     indexFile: 'index.json',
+    // This dataset ships a real static index.json (108 files), so the Tree API
+    // must never be queried as a fallback guess.
+    indexMode: 'static',
     primary: true,
     enabled: true,
     supportedTypes: ['videos', 'shorts', 'live', 'radio', 'main'],
@@ -36,6 +39,9 @@ export const DEFAULT_REPOSITORIES: RepositorySource[] = [
     repo: 'fatawaset',
     branch: 'main',
     path: 'fatawa',
+    // Tree-only dataset: there is no fatawa/index.json, so the static guess must
+    // be skipped to avoid a guaranteed 404 on every page load.
+    indexMode: 'tree',
     primary: false,
     enabled: true,
     supportedTypes: ['fatwa'],
@@ -47,6 +53,8 @@ export const DEFAULT_REPOSITORIES: RepositorySource[] = [
     repo: 'islamic_books',
     branch: 'main',
     path: 'books',
+    // Tree-only dataset (nested Shamela/OpenITI layout, no books/index.json).
+    indexMode: 'tree',
     primary: false,
     enabled: true,
     supportedTypes: ['books', 'articles'],
@@ -63,6 +71,9 @@ const TRUSTED_REPOSITORY_OWNERS = new Set([
   'hozifa460',
   'hazozahz-islamway',
 ]);
+
+/** Supported explicit indexing modes for a repository source. */
+export const INDEX_MODES: ReadonlySet<string> = new Set(['auto', 'static', 'tree']);
 
 /** Validates whether a repository source configuration is safe and conforms to allowlist rules. */
 function isValidRepository(r: unknown): r is RepositorySource {
@@ -84,8 +95,10 @@ function isValidRepository(r: unknown): r is RepositorySource {
       return false;
     }
   }
+  if (repo.indexMode !== undefined && !INDEX_MODES.has(String(repo.indexMode))) return false;
   return true;
 }
+
 
 const LEGACY_DEFAULT_OWNERS = new Set(['hozifa460', 'hazozahz-islamway']);
 
@@ -122,7 +135,7 @@ export function matchDefaultRepo(
 
 /**
  * Migrates legacy saved default repository configurations that lack supportedTypes or use legacy coordinates,
- * while preserving user modifications (e.g. enabled, path, custom branch) and preserving
+ * while preserving user modifications (e.g. enabled, path, custom branch, chosen index mode) and preserving
  * custom user repositories. Does not replace the user's entire repository list.
  * Strictly distinguishes between missing supportedTypes (undefined) and an intentional empty array ([]).
  */
@@ -159,6 +172,14 @@ export function migrateSavedRepositories(repos: RepositorySource[]): {
     // Only backfill default supportedTypes when supportedTypes is strictly undefined.
     if (updated.supportedTypes === undefined && defaultDef.supportedTypes) {
       updated.supportedTypes = [...defaultDef.supportedTypes];
+      entryChanged = true;
+    }
+
+    // 3. Backfill the explicit indexing mode for known defaults so saved
+    // configurations adopt the non-guessing behavior (no `${path}/index.json`
+    // request for tree-only datasets). A user-chosen mode is always preserved.
+    if (updated.indexMode === undefined && defaultDef.indexMode !== undefined) {
+      updated.indexMode = defaultDef.indexMode;
       entryChanged = true;
     }
 
@@ -247,10 +268,73 @@ export function indexUrl(repo: RepositorySource): string {
 }
 
 /**
+ * Hugging Face Tree API page size. 1,000 is the maximum number of entries the
+ * API returns per response; larger directories are paginated with a cursor
+ * advertised through the `Link: <...>; rel="next"` response header.
+ */
+export const HF_TREE_PAGE_LIMIT = 1000;
+
+/** Build the Hugging Face Dataset Tree API URL for a repository directory. */
+export function huggingfaceTreeUrl(
+  repo: RepositorySource,
+  treePath?: string,
+  options: { recursive?: boolean } = {},
+): string {
+  const branch = repo.branch || 'main';
+  const cleanPath = (treePath === undefined ? repo.path || '' : treePath).replace(/^\/+|\/+$/g, '');
+  const params = new URLSearchParams({
+    recursive: String(Boolean(options.recursive)),
+    limit: String(HF_TREE_PAGE_LIMIT),
+  });
+  return `https://huggingface.co/api/datasets/${repo.owner}/${repo.repo}/tree/${branch}/${encodeURI(cleanPath)}?${params.toString()}`;
+}
+
+/** True when a URL targets the Hugging Face Dataset Tree (directory listing) API. */
+export function isHuggingFaceTreeUrl(url: string): boolean {
+  return /^https:\/\/huggingface\.co\/api\/datasets\/[^/]+\/[^/]+\/tree\//i.test(String(url));
+}
+
+/**
+ * Extracts the `rel="next"` target from an HTTP `Link` header.
+ *
+ * Hugging Face paginates large directory listings with a cursor and exposes the
+ * follow-up URL through this header. Only same-origin (huggingface.co) targets
+ * are accepted so a hostile header can never redirect the client elsewhere.
+ */
+export function parseNextLink(linkHeader: string | null | undefined): string | null {
+  if (!linkHeader) return null;
+
+  for (const part of String(linkHeader).split(/,(?=\s*<)/)) {
+    const relMatch = /rel\s*=\s*"?([^";\s]+)"?/i.exec(part);
+    if (!relMatch || relMatch[1].toLowerCase() !== 'next') continue;
+
+    const urlMatch = /<([^>]+)>/.exec(part);
+    if (!urlMatch) continue;
+
+    try {
+      const next = new URL(urlMatch[1]);
+      if (!/^([a-z0-9-]+\.)*huggingface\.co$/i.test(next.hostname)) continue;
+      return next.toString();
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Returns a list of candidate index URLs to try for a repository.
+ *
+ * The list depends on `repo.indexMode`:
+ * - `'auto'` (default): static index candidates first, then the Tree API.
+ * - `'static'`: static index candidates only (no Tree API request).
+ * - `'tree'`: Tree API only (no `${path}/index.json` request, which is what
+ *   caused guaranteed 404s for tree-only Hugging Face datasets).
  */
 export function candidateIndexUrls(repo: RepositorySource): string[] {
   const path = (repo.path || '').replace(/^\/+|\/+$/g, '');
+  const mode = repo.indexMode || 'auto';
   const urls: string[] = [];
   const seen = new Set<string>();
 
@@ -269,27 +353,29 @@ export function candidateIndexUrls(repo: RepositorySource): string[] {
     }
   };
 
-  // 1. Explicit indexFile (if set)
-  if (repo.indexFile) push(repo.indexFile);
-  // 2. Default: index.json
-  push('index.json');
+  // 1. Static index candidates (skipped entirely in tree-only mode so that
+  //    repositories without a static index.json never receive a 404 request).
+  if (mode !== 'tree') {
+    // Explicit indexFile (if set)
+    if (repo.indexFile) push(repo.indexFile);
+    // Default: index.json
+    push('index.json');
 
-  // 3. Hugging Face tree API for dynamic directory indexing
-  if (repo.provider === 'huggingface') {
-    const branch = repo.branch || 'main';
-    const treePath = path ? `${path}` : '';
-    const treeUrl = `https://huggingface.co/api/datasets/${repo.owner}/${repo.repo}/tree/${branch}/${encodeURI(treePath)}?recursive=true`;
+    // Heuristic: <path-basename>_index.json
+    if (path) {
+      const basename = path.split('/').pop() || '';
+      const stem = basename.replace(/_(bibaz|database|archive|repo)$/, '');
+      if (stem) push(`${stem}_index.json`);
+    }
+  }
+
+  // 2. Hugging Face Tree API for dynamic directory indexing (skipped in static mode).
+  if (repo.provider === 'huggingface' && mode !== 'static') {
+    const treeUrl = huggingfaceTreeUrl(repo, path, { recursive: true });
     if (!seen.has(treeUrl)) {
       seen.add(treeUrl);
       urls.push(treeUrl);
     }
-  }
-
-  // 4. Heuristic: <path-basename>_index.json
-  if (path) {
-    const basename = path.split('/').pop() || '';
-    const stem = basename.replace(/_(bibaz|database|archive|repo)$/, '');
-    if (stem) push(`${stem}_index.json`);
   }
 
   return urls;

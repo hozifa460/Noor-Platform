@@ -11,6 +11,11 @@ import {
   migrateSavedRepositories,
   matchDefaultRepo,
   REPOS_STORAGE_KEY,
+  INDEX_MODES,
+  candidateIndexUrls,
+  huggingfaceTreeUrl,
+  isHuggingFaceTreeUrl,
+  parseNextLink,
 } from '@/lib/shared';
 import type { RepositorySource } from '@/lib/types';
 
@@ -274,8 +279,11 @@ describe('Repository Routing & Retry Optimization Suite', () => {
       };
 
       const { repos: migrated1, migrated: didMigrate1 } = migrateSavedRepositories([repoWithEmptyTypes]);
-      expect(didMigrate1).toBe(false);
       expect(migrated1[0].supportedTypes).toEqual([]); // NOT overwritten by ['fatwa']
+      // The only backfilled field is the new explicit indexing mode, which is
+      // orthogonal to an intentionally emptied supportedTypes list.
+      expect(migrated1[0].indexMode).toBe('tree');
+      expect(didMigrate1).toBe(true);
 
       // Verify unconstrained behavior in isRepoSuitableForPath for supportedTypes: []
       expect(isRepoSuitableForPath(repoWithEmptyTypes, 'books/some_book.json')).toBe(true);
@@ -941,6 +949,240 @@ describe('Repository Routing & Retry Optimization Suite', () => {
       expect(fetchMock).not.toHaveBeenCalled();
       expect(result.ok).toBe(false);
       expect(result.data).toBeNull();
+    });
+  });
+
+  describe('6. Explicit Index Modes, Tree API Pagination & Saved-Config Migration', () => {
+    const treeRepo: RepositorySource = {
+      id: 'hf-tree-repo',
+      provider: 'huggingface',
+      owner: 'hozifa1',
+      repo: 'tree_only_dataset',
+      branch: 'main',
+      path: 'data',
+      enabled: true,
+      indexMode: 'tree',
+    };
+
+    it('configures the shipped datasets with an explicit index mode', () => {
+      expect(DEFAULT_REPOSITORIES.find((r) => r.id === 'hf-fatawa')?.indexMode).toBe('tree');
+      expect(DEFAULT_REPOSITORIES.find((r) => r.id === 'hf-islamic-books')?.indexMode).toBe('tree');
+      expect(DEFAULT_REPOSITORIES.find((r) => r.id === 'hf-telewat-dawah')?.indexMode).toBe('static');
+      for (const repo of DEFAULT_REPOSITORIES) {
+        expect(INDEX_MODES.has(String(repo.indexMode))).toBe(true);
+      }
+    });
+
+    it('never generates a static index.json candidate for tree-only repositories', () => {
+      const treeRepos = [
+        treeRepo,
+        DEFAULT_REPOSITORIES.find((r) => r.id === 'hf-fatawa')!,
+        DEFAULT_REPOSITORIES.find((r) => r.id === 'hf-islamic-books')!,
+      ];
+
+      for (const repo of treeRepos) {
+        const urls = candidateIndexUrls(repo);
+        expect(urls.some((u) => u.includes('index.json'))).toBe(false);
+        expect(urls.some((u) => isHuggingFaceTreeUrl(u))).toBe(true);
+      }
+    });
+
+    it('skips the Tree API entirely in static mode and keeps the static candidates', () => {
+      const staticRepo: RepositorySource = { ...treeRepo, id: 'hf-static-repo', indexMode: 'static' };
+      const urls = candidateIndexUrls(staticRepo);
+
+      expect(urls[0].endsWith('/data/index.json')).toBe(true);
+      expect(urls.some((u) => isHuggingFaceTreeUrl(u))).toBe(false);
+    });
+
+    it('keeps the legacy auto ordering (static candidates first, Tree API last)', () => {
+      const autoRepo: RepositorySource = { ...treeRepo, id: 'hf-auto-repo', indexMode: undefined };
+      const urls = candidateIndexUrls(autoRepo);
+
+      expect(urls[0].endsWith('/data/index.json')).toBe(true);
+      expect(urls[urls.length - 1]).toBe(huggingfaceTreeUrl(autoRepo, 'data', { recursive: true }));
+    });
+
+    it('parses the rel="next" cursor from a Link header and rejects foreign hosts', () => {
+      const next = 'https://huggingface.co/api/datasets/hozifa1/tree_only_dataset/tree/main/data?cursor=abc';
+
+      expect(parseNextLink(`<${next}>; rel="next"`)).toBe(next);
+      expect(parseNextLink(`<${next}>; rel=next, <https://huggingface.co/api/x>; rel="prev"`)).toBe(next);
+      expect(parseNextLink('<https://evil.example.com/steal?cursor=abc>; rel="next"')).toBeNull();
+      expect(parseNextLink('<https://huggingface.co/api/x>; rel="prev"')).toBeNull();
+      expect(parseNextLink(null)).toBeNull();
+    });
+
+    it('follows Tree API cursor pagination instead of truncating at the first page', async () => {
+      const page2 =
+        'https://huggingface.co/api/datasets/hozifa1/tree_only_dataset/tree/main/data?expand=false&recursive=true&limit=1000&cursor=PAGE2';
+      const requested: string[] = [];
+      const fetchMock = vi.fn().mockImplementation((url: string) => {
+        requested.push(String(url));
+        const isPage2 = String(url) === page2;
+        const body = isPage2
+          ? [{ path: 'data/second_page.json', type: 'file' }]
+          : [{ path: 'data/first_page.json', type: 'file' }];
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers(isPage2 ? {} : { link: `<${page2}>; rel="next"` }),
+          text: () => Promise.resolve(JSON.stringify(body)),
+        });
+      });
+      global.fetch = fetchMock;
+
+      const { files, perRepo } = await fetchMergedIndex([treeRepo]);
+
+      expect(files).toEqual(['first_page.json', 'second_page.json']);
+      expect(perRepo[0]).toMatchObject({ repoId: 'hf-tree-repo', ok: true, fileCount: 2 });
+      expect(requested).toHaveLength(2);
+      expect(requested.some((u) => u.includes('index.json'))).toBe(false);
+    });
+
+    it('falls back to a bounded shallow scan when the recursive page lists only directories', async () => {
+      const booksRepo = DEFAULT_REPOSITORIES.find((r) => r.id === 'hf-islamic-books')!;
+      const requested: string[] = [];
+      const fetchMock = vi.fn().mockImplementation((url: string) => {
+        requested.push(String(url));
+        const body = String(url).includes('recursive=true')
+          ? [
+              { path: 'books/shamela_liberary', type: 'directory' },
+              { path: 'books/OpenITI_14k_Classical_Books', type: 'directory' },
+            ]
+          : [
+              { path: 'books/islamhouse_books_ar.json', type: 'file' },
+              { path: 'books/shamela_liberary', type: 'directory' },
+            ];
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers(),
+          text: () => Promise.resolve(JSON.stringify(body)),
+        });
+      });
+      global.fetch = fetchMock;
+
+      const { files, perRepo } = await fetchMergedIndex([booksRepo]);
+
+      // Recursive listing (all directories) then a single shallow listing of `books`.
+      expect(requested).toHaveLength(2);
+      expect(requested[0]).toContain('recursive=true');
+      expect(requested[1]).not.toContain('recursive=true');
+      expect(requested.some((u) => u.includes('index.json'))).toBe(false);
+      expect(files).toContain('islamhouse_books_ar.json');
+      expect(perRepo[0].ok).toBe(true);
+    });
+
+    it('reports a failed tree-only repository without ever requesting a static index.json', async () => {
+      const fetchMock = vi.fn().mockImplementation(() =>
+        Promise.resolve({
+          ok: false,
+          status: 404,
+          headers: new Headers(),
+          text: () => Promise.resolve('Not Found'),
+        }),
+      );
+      global.fetch = fetchMock;
+
+      const { files, perRepo } = await fetchMergedIndex([treeRepo]);
+
+      expect(files).toEqual([]);
+      expect(perRepo[0].ok).toBe(false);
+      expect(fetchMock).toHaveBeenCalledTimes(1); // 404 is never retried
+      expect(fetchMock.mock.calls.some((c) => String(c[0]).includes('index.json'))).toBe(false);
+    });
+
+    it('migrates saved default repositories to explicit index modes and persists them', () => {
+      window.localStorage.setItem(
+        REPOS_STORAGE_KEY,
+        JSON.stringify([
+          {
+            id: 'gh-fatawa',
+            provider: 'github',
+            owner: 'hozifa460',
+            repo: 'fatawaset',
+            branch: 'main',
+            path: 'fatawa',
+            enabled: true,
+          },
+          {
+            id: 'hf-telewat-dawah',
+            provider: 'huggingface',
+            owner: 'hozifa1',
+            repo: 'Telewat_Daawa_And_Channels',
+            branch: 'main',
+            path: 'Dawah_And_Channels',
+            indexFile: 'index.json',
+            enabled: true,
+          },
+          {
+            id: 'custom-user-repo',
+            provider: 'github',
+            owner: 'OpenITI',
+            repo: '0750Tarikh',
+            branch: 'main',
+            path: 'hadith_data',
+            enabled: true,
+          },
+        ]),
+      );
+
+      const loaded = loadRepositories();
+
+      expect(loaded.find((r) => r.id === 'hf-fatawa')?.indexMode).toBe('tree');
+      expect(loaded.find((r) => r.id === 'hf-telewat-dawah')?.indexMode).toBe('static');
+      expect(loaded.find((r) => r.id === 'custom-user-repo')?.indexMode).toBeUndefined();
+
+      const persisted: RepositorySource[] = JSON.parse(
+        window.localStorage.getItem(REPOS_STORAGE_KEY) || '[]',
+      );
+      expect(persisted.find((r) => r.id === 'hf-fatawa')?.indexMode).toBe('tree');
+      expect(persisted.find((r) => r.id === 'hf-telewat-dawah')?.indexMode).toBe('static');
+    });
+
+    it('preserves a user-chosen index mode instead of overwriting it with the default', () => {
+      window.localStorage.setItem(
+        REPOS_STORAGE_KEY,
+        JSON.stringify([
+          {
+            id: 'hf-fatawa',
+            provider: 'huggingface',
+            owner: 'hozifa1',
+            repo: 'fatawaset',
+            branch: 'main',
+            path: 'fatawa',
+            enabled: true,
+            indexMode: 'auto',
+          },
+        ]),
+      );
+
+      const loaded = loadRepositories();
+      expect(loaded).toHaveLength(1);
+      expect(loaded[0].indexMode).toBe('auto');
+    });
+
+    it('drops persisted repositories carrying an unsupported index mode and falls back to defaults', () => {
+      window.localStorage.setItem(
+        REPOS_STORAGE_KEY,
+        JSON.stringify([
+          {
+            id: 'hf-fatawa',
+            provider: 'huggingface',
+            owner: 'hozifa1',
+            repo: 'fatawaset',
+            branch: 'main',
+            path: 'fatawa',
+            enabled: true,
+            indexMode: 'malicious-mode',
+          },
+        ]),
+      );
+
+      const loaded = loadRepositories();
+      expect(loaded.map((r) => r.id)).toEqual(DEFAULT_REPOSITORIES.map((r) => r.id));
+      expect(loaded.every((r) => INDEX_MODES.has(String(r.indexMode)))).toBe(true);
     });
   });
 });

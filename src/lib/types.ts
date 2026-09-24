@@ -51,6 +51,21 @@ export interface RepositorySource {
    *   2. <path>/<basename>_index.json (e.g. fatawa_bibaz/fatawa_index.json)
    */
   indexFile?: string;
+  /**
+   * How the file list for this repository is discovered:
+   * - `'auto'` (default when omitted): try the static index candidates first
+   *   (`indexFile` / `index.json` / `<basename>_index.json`) and only then fall
+   *   back to the Hugging Face Tree API.
+   * - `'static'`: only static index files are queried. No Tree API request is
+   *   issued, so repositories that ship a real `index.json` are never guessed.
+   * - `'tree'`: only the Hugging Face Tree API is queried. The static
+   *   `${path}/index.json` guess is skipped entirely, which is what produced
+   *   404 requests for tree-only datasets such as `fatawaset` and
+   *   `islamic_books`.
+   *
+   * Only meaningful for `provider: 'huggingface'` repositories.
+   */
+  indexMode?: 'auto' | 'static' | 'tree';
   /** True if this is the primary source for fallback ordering. */
   primary?: boolean;
   /** True if this source is currently enabled. */
